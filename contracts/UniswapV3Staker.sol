@@ -2,6 +2,7 @@ pragma solidity =0.7.6;
 
 import '@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol';
 import '@uniswap/v3-core/contracts/interfaces/IERC20Minimal.sol';
+import '@openzeppelin/contracts/token/ERC721/IERC721.sol';
 
 /**
 @title Uniswap V3 canonical staking interface
@@ -18,6 +19,10 @@ contract UniswapV3Staker {
     constructor() {
         creator = msg.sender;
     }
+
+    //
+    // Part 1: Incentives
+    //
 
     /// @notice A staking incentive.
     struct Incentive {
@@ -38,7 +43,7 @@ contract UniswapV3Staker {
         uint128 indexed totalReward
     );
 
-    // TODO: probably need to pass more params
+    // TODO: probably need to pass include more params in this event
     event IncentiveEnded(address indexed rewardToken, address indexed pair);
 
     /**
@@ -144,7 +149,7 @@ contract UniswapV3Staker {
             msg.sender,
             incentive.totalRewardUnclaimed
         );
-        // Thinking if this should go before or after the transferFrom, maybe it doesnt matter.
+        // TODO: Thinking if this should go before or after the transferFrom, maybe it doesnt matter.
         delete incentives[key];
 
         emit IncentiveEnded(rewardToken, pair);
@@ -164,42 +169,66 @@ contract UniswapV3Staker {
             );
     }
 
-    // TODO: Still need to implement these parts.
-
-    // function totalSecondsUnclaimed() public view returns (uint32) {
-    //     return (max(endTime, block.timestamp) - startTime - totalSecondsClaimed)
-    // }
-
-    function rewardRate() public view returns (uint256) {
-        // TODO: Make sure this is the right return type
-        // totalRewardUnclaimed / totalSecondsUnclaimed
-    }
-
+    //
+    // Part 2: Deposits, Withdrawals
+    //
     struct Deposit {
         address owner;
         uint32 numberOfStakes;
     }
 
     mapping(address => mapping(uint256 => Deposit)) deposits;
+    event Deposited(address tokenContract, uint256 tokenId);
 
-    function deposit(address nft) public {
-        /* To deposit an NFT, you call deposit on the Staker contract,
-        which transfers the NFT to itself and creates a Deposit for
-        the newly added NFT.
-        
-        The deposits mapping is keyed with the
-        NFT’s token contract and token ID.
-        */
+    function deposit(address tokenContract, uint256 tokenId) public {
+        // TODO: Make sure the transfer succeeds and is a uniswap erc721
+        require(
+            IERC721(tokenContract).safeTransferFrom(
+                msg.sender,
+                address(this),
+                tokenId
+            ),
+            'ERC721_TRANSFER_FAILED'
+        );
+
+        deposits[tokenContract][tokenId] = Deposit(msg.sender, 0);
+
+        emit Deposited(tokenContract, tokenId);
     }
+
+    event Withdrawal(address tokenContract, uint256 tokenId);
+
+    function withdraw(
+        address tokenContract,
+        uint256 tokenId,
+        address to
+    ) {
+        require(
+            deposits[tokenContract][tokenId].numberOfStakes == 0,
+            'NUMBER_OF_STAKES_NOT_ZERO'
+        );
+        IERC721(tokenContract).transferFrom(address(this), to, tokenId);
+        emit Withdrawal(tokenContract, tokenId);
+    }
+
+    //
+    // Part 3: Staking, Unstaking
+    //
+
+    struct Stake {
+        uint160 secondsPerLiquidityInitialX96;
+    }
+
+    mapping(address => mapping(uint256 => mapping(bytes32 => Stake))) stakes;
 
     function stake(
         address tokenContract,
-        address tokenId,
+        uint256 tokenId,
         address creator,
         address token,
-        uint256 startTime,
-        uint256 endTime,
-        uint256 claimDeadline
+        uint32 startTime,
+        uint32 endTime,
+        uint32 claimDeadline
     ) {
         /*
         To stake an NFT in a particular Incentive, you call 
@@ -213,12 +242,6 @@ contract UniswapV3Staker {
         to the information about that stake.
         */
     }
-
-    struct Stake {
-        uint160 secondsPerLiquidityInitialX96;
-    }
-
-    mapping(address => mapping(uint256 => mapping(bytes32 => Stake))) stakes;
 
     function unstake(
         address tokenContract,
@@ -255,14 +278,16 @@ contract UniswapV3Staker {
         */
     }
 
-    function withdraw(
-        address tokenContract,
-        address tokenId,
-        address to
-    ) {
-        /* The function checks that the caller is the owner and that numberOfStakes is 0.
+    // TODO: Still need to implement these parts.
 
-        The contract transfers the NFT to to. Maybe use safeTransfer
-        */
+    function totalSecondsUnclaimed() public view returns (uint32) {
+        return (max(endTime, block.timestamp) -
+            startTime -
+            totalSecondsClaimed);
+    }
+
+    function rewardRate() public view returns (uint256) {
+        // TODO: Make sure this is the right return type
+        // totalRewardUnclaimed / totalSecondsUnclaimed
     }
 }
