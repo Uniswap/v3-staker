@@ -79,36 +79,18 @@ contract UniswapV3Staker {
         require(endTime < startTime, 'endTime_not_gte_startTime');
 
         // TODO: Do I need any security checks around msg.sender?
-        bytes32 memory key =
-            _getIncentiveId(
-                msg.sender,
-                rewardToken,
-                pair,
-                startTime,
-                claimDeadline
-            );
+        bytes32 memory key = _getIncentiveId(msg.sender, rewardToken, pair, startTime, claimDeadline);
 
         // Check: this incentive does not already exist
         require(!incentives[key], 'INCENTIVE_EXISTS');
 
         // Check + Effect: transfer reward token
         require(
-            IERC20Minimal(rewardToken).transferFrom(
-                msg.sender,
-                address(this),
-                totalReward
-            ),
+            IERC20Minimal(rewardToken).transferFrom(msg.sender, address(this), totalReward),
             'REWARD_TRANSFER_FAILED'
         );
 
-        emit IncentiveCreated(
-            rewardToken,
-            pair,
-            startTime,
-            endTime,
-            claimDeadline,
-            totalReward
-        );
+        emit IncentiveCreated(rewardToken, pair, startTime, endTime, claimDeadline, totalReward);
     }
 
     /**
@@ -132,23 +114,12 @@ contract UniswapV3Staker {
         Interaction:
         */
         require(block.timestamp > claimDeadline, 'TIMESTAMP_LTE_CLAIMDEADLINE');
-        bytes32 memory key =
-            _getIncentiveId(
-                msg.sender,
-                rewardToken,
-                pair,
-                startTime,
-                claimDeadline
-            );
+        bytes32 memory key = _getIncentiveId(msg.sender, rewardToken, pair, startTime, claimDeadline);
 
         Incentive memory incentive = incentives[key];
         require(incentives[key], 'INVALID_INCENTIVE');
 
-        IERC20Minimal.transferFrom(
-            address(this),
-            msg.sender,
-            incentive.totalRewardUnclaimed
-        );
+        IERC20Minimal.transferFrom(address(this), msg.sender, incentive.totalRewardUnclaimed);
         // TODO: Thinking if this should go before or after the transferFrom, maybe it doesnt matter.
         delete incentives[key];
 
@@ -163,10 +134,7 @@ contract UniswapV3Staker {
         uint32 startTime,
         uint32 claimDeadline
     ) internal pure returns (bytes32) {
-        return
-            keccak256(
-                abi.encode(creator, rewardToken, pair, startTime, claimDeadline)
-            );
+        return keccak256(abi.encode(creator, rewardToken, pair, startTime, claimDeadline));
     }
 
     //
@@ -184,14 +152,7 @@ contract UniswapV3Staker {
 
     function deposit(address tokenContract, uint256 tokenId) public {
         // TODO: Make sure the transfer succeeds and is a uniswap erc721
-        require(
-            IERC721(tokenContract).safeTransferFrom(
-                msg.sender,
-                address(this),
-                tokenId
-            ),
-            'ERC721_TRANSFER_FAILED'
-        );
+        require(IERC721(tokenContract).safeTransferFrom(msg.sender, address(this), tokenId), 'ERC721_TRANSFER_FAILED');
 
         deposits[tokenContract][tokenId] = Deposit(msg.sender, 0);
 
@@ -205,10 +166,7 @@ contract UniswapV3Staker {
         uint256 tokenId,
         address to
     ) {
-        require(
-            deposits[tokenContract][tokenId].numberOfStakes == 0,
-            'NUMBER_OF_STAKES_NOT_ZERO'
-        );
+        require(deposits[tokenContract][tokenId].numberOfStakes == 0, 'NUMBER_OF_STAKES_NOT_ZERO');
         IERC721(tokenContract).transferFrom(address(this), to, tokenId);
         emit Withdrawal(tokenContract, tokenId);
     }
@@ -283,7 +241,7 @@ contract UniswapV3Staker {
         Effects:
         deposit.numberOfStakes -= 1 - Make sure this decrements properly
         */
-        deposit[tokenContract][tokenId].owner -= 1
+        deposit[tokenContract][tokenId].owner -= 1;
 
         /*
         * It computes secondsPerLiquidityInPeriodX96 by computing
@@ -311,9 +269,7 @@ contract UniswapV3Staker {
     // TODO: Still need to implement these parts.
     function totalSecondsUnclaimed() public view returns (uint32) {
         // Should this take an incentive struct?
-        return (max(endTime, block.timestamp) -
-            startTime -
-            totalSecondsClaimed);
+        return (max(endTime, block.timestamp) - startTime - totalSecondsClaimed);
     }
 
     function rewardRate() public view returns (uint256) {
