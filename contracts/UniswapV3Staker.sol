@@ -261,7 +261,6 @@ contract UniswapV3Staker {
         address to
     ) {
         /* The function checks that the caller is the owner and that numberOfStakes is 0.
- 
 
         The contract transfers the NFT to to. Maybe use safeTransfer
         */
