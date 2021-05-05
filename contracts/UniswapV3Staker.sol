@@ -68,7 +68,7 @@ contract UniswapV3Staker {
         * Make sure this incentive does not already exist
         * claimDeadline must be no earlier than endTime, which must be later than startTime
         * Possibly: check that pair is a uniswap v3 pair?
-        
+
         Effects:
         * Transfers totalRewardsUnclaimed of token from the caller to itself
 
@@ -120,15 +120,15 @@ contract UniswapV3Staker {
         uint32 startTime,
         uint32 claimDeadline
     ) public {
-        /* 
+        /*
         Check:
         * Only callable by creator (msg.sender is hashed)
         * Only works when claimDeadline has passed
-        
+
         Effects:
         * Transfer totalRewardsUnclaimed of token back to creator
         * Delete Incentive
-        
+
         Interaction:
         */
         require(block.timestamp > claimDeadline, 'TIMESTAMP_LTE_CLAIMDEADLINE');
@@ -177,7 +177,9 @@ contract UniswapV3Staker {
         uint32 numberOfStakes;
     }
 
+    /// @notice deposits[tokenContract][tokenId] => Deposit
     mapping(address => mapping(uint256 => Deposit)) deposits;
+
     event Deposited(address tokenContract, uint256 tokenId);
 
     function deposit(address tokenContract, uint256 tokenId) public {
@@ -219,6 +221,7 @@ contract UniswapV3Staker {
         uint160 secondsPerLiquidityInitialX96;
     }
 
+    /// @notice stakes[tokenContract][tokenId][incentiveHash] => Stake
     mapping(address => mapping(uint256 => mapping(bytes32 => Stake))) stakes;
 
     function stake(
@@ -231,8 +234,6 @@ contract UniswapV3Staker {
         uint32 claimDeadline
     ) {
         /*
-        To stake an NFT in a particular Incentive, you call 
-        stake(tokenContract, tokenId, creator, token, startTime, endTime, claimDeadline).
 
         This looks up your Deposit, checks that you are the owner,
         and increments numberOfStakes.
@@ -240,27 +241,51 @@ contract UniswapV3Staker {
         It then creates a stake in the stakes mapping. stakes is
         a mapping from the token contract, token ID, and incentive ID
         to the information about that stake.
+
+        Check:
+        * Make sure you are the owner
+
+        Effects:
+        * increments numberOfStakes
         */
+
+        // TODO: make sure `memory` is right here
+        Deposit memory deposit = deposits[tokenContract][tokenId];
+        // TODO: I think the deposit.owner == msg.sender check makes the following line obsolete
+        require(deposit.owner != address(0), 'INVALID_DEPOSIT');
+        require(deposit.owner == msg.sender, 'NOT_YOUR_DEPOSIT');
+
+        // TODO: make sure this writes
+        deposits[tokenContract][tokenId].numberOfStakes += 1;
+
+        // TODO: emit Stake event
     }
 
     function unstake(
         address tokenContract,
-        address tokenId,
+        uint256 tokenId,
         address creator,
         address token,
-        uint256 startTime,
-        uint256 endTime,
-        uint256 claimDeadline,
+        uint32 startTime,
+        uint32 endTime,
+        uint32 claimDeadline,
         address to
     ) {
         /*
         Check:
-        * It checks that you are the owner of the Deposit, and decrements
-            numberOfStakes by 1.
+        * It checks that you are the owner of the Deposit,
         * It checks that there exists a Stake for the provided key
             (with non-zero secondsPerLiquidityInitialX96).
+        */
+        require(deposits[tokenContract][tokenId].owner == msg.sender, 'NOT_YOUR_DEPOSIT');
 
+        /*
         Effects:
+        deposit.numberOfStakes -= 1 - Make sure this decrements properly
+        */
+        deposit[tokenContract][tokenId].owner -= 1
+
+        /*
         * It computes secondsPerLiquidityInPeriodX96 by computing
             secondsPerLiquidityInRangeX96 using the Uniswap v3 core contract
             and subtracting secondsPerLiquidityInRangeInitialX96.
@@ -270,17 +295,22 @@ contract UniswapV3Staker {
             by secondsX96 to get reward.
         * totalRewardsUnclaimed is decremented by reward. totalSecondsClaimed
             is incremented by seconds.
+        */
+        require(true == false, 'NOT_IMPLEMENTED_YET');
 
+        /*
         Interactions:
-        * It tries to transfer `reward` of Program.token to the to. 
+        * It tries to transfer `reward` of Program.token to the to.
             Note: it must be possible to unstake even if this transfer
             would fail (lest somebody be stuck with an NFT they can’t withdraw)!
         */
+
+        // TODO: emit unstake event
     }
 
     // TODO: Still need to implement these parts.
-
     function totalSecondsUnclaimed() public view returns (uint32) {
+        // Should this take an incentive struct?
         return (max(endTime, block.timestamp) -
             startTime -
             totalSecondsClaimed);
