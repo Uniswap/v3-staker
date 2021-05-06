@@ -1,8 +1,12 @@
+// SPDX-License-Identifier: UNLICENSED
 pragma solidity =0.7.6;
 
+import '@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol';
 import '@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol';
 import '@uniswap/v3-core/contracts/interfaces/IERC20Minimal.sol';
-import '@openzeppelin/contracts/token/ERC721/IERC721.sol';
+
+import '@uniswap/v3-periphery/contracts/libraries/PoolAddress.sol';
+import '@uniswap/v3-periphery/contracts/interfaces/INonfungiblePositionManager.sol';
 
 /**
 @title Uniswap V3 canonical staking interface
@@ -10,13 +14,21 @@ import '@openzeppelin/contracts/token/ERC721/IERC721.sol';
 @author Dan Robinson <dan@paradigm.xyz>
 */
 contract UniswapV3Staker {
-    // TODO(DEV): Make sure these are set properly
+    // TODO(DEV): Make sure these are correct.
     using SafeMath for uint256;
     using SafeERC20 for IERC20;
 
     address public immutable creator;
+    IUniswapV3Factory public immutable factory;
+    INonFungiblePositionManager public immutable nonFungiblePositionManager;
 
-    constructor() {
+    /// @param _factory the Uniswap V3 factory
+    /// @param _nonFungiblePositionManager the NFT position manager contract address
+    constructor(address _factory, address _nonFungiblePositionManager) {
+        factory = IUniswapV3Factor(_factory);
+        nonFungiblePositionManager = INonFungiblePositionManager(
+            _nonFungiblePositionManager
+        );
         creator = msg.sender;
     }
 
@@ -24,14 +36,35 @@ contract UniswapV3Staker {
     // Part 1: Incentives
     //
 
-    /// @notice A staking incentive.
+    /// @notice Represents a staking incentive.
     struct Incentive {
         uint128 totalRewardUnclaimed;
         uint160 totalSecondsClaimedX128;
         uint32 endTime;
+        // TODO: Had to add incentiveId
+        address rewardToken;
     }
 
-    /// @notice Incentives are indexed by a hash of (creator, rewardToken, pair, startTime, claimDeadline)
+    /// @notice Calculate the key for a staking incentive
+    /// @param creator Address that created this incentive
+    /// @param rewardToken Token being distributed as a reward
+    /// @param pair The UniswapV3 pair this incentive is on
+    /// @param startTime When the incentive begins
+    /// @param claimDeadline Time by which incentive rewards must be claimed
+    function _getIncentiveId(
+        address creator,
+        address rewardToken,
+        address pair,
+        uint32 startTime,
+        uint32 claimDeadline
+    ) internal pure returns (bytes32) {
+        return
+            keccak256(
+                abi.encode(creator, rewardToken, pair, startTime, claimDeadline)
+            );
+    }
+
+    /// @notice bytes32 refers to the return value of _getIncentiveId
     mapping(bytes32 => Incentive) public incentives;
 
     event IncentiveCreated(
@@ -42,9 +75,6 @@ contract UniswapV3Staker {
         uint32 claimDeadline,
         uint128 indexed totalReward
     );
-
-    // TODO: probably need to pass include more params in this event
-    event IncentiveEnded(address indexed rewardToken, address indexed pair);
 
     /**
     @notice Creates a new liquidity mining incentive program.
@@ -79,18 +109,38 @@ contract UniswapV3Staker {
         require(endTime < startTime, 'endTime_not_gte_startTime');
 
         // TODO: Do I need any security checks around msg.sender?
-        bytes32 memory key = _getIncentiveId(msg.sender, rewardToken, pair, startTime, claimDeadline);
+        bytes32 memory key =
+            _getIncentiveId(
+                msg.sender,
+                rewardToken,
+                pair,
+                startTime,
+                claimDeadline
+            );
 
         // Check: this incentive does not already exist
         require(!incentives[key], 'INCENTIVE_EXISTS');
 
         // Check + Effect: transfer reward token
         require(
-            IERC20Minimal(rewardToken).transferFrom(msg.sender, address(this), totalReward),
+            IERC20Minimal(rewardToken).transferFrom(
+                msg.sender,
+                address(this),
+                totalReward
+            ),
             'REWARD_TRANSFER_FAILED'
         );
 
-        emit IncentiveCreated(rewardToken, pair, startTime, endTime, claimDeadline, totalReward);
+        incentives[key] = Incentive(totalReward, 0, endTime, rewardToken);
+
+        emit IncentiveCreated(
+            rewardToken,
+            pair,
+            startTime,
+            endTime,
+            claimDeadline,
+            totalReward
+        );
     }
 
     /**
@@ -114,61 +164,65 @@ contract UniswapV3Staker {
         Interaction:
         */
         require(block.timestamp > claimDeadline, 'TIMESTAMP_LTE_CLAIMDEADLINE');
-        bytes32 memory key = _getIncentiveId(msg.sender, rewardToken, pair, startTime, claimDeadline);
+        bytes32 memory key =
+            _getIncentiveId(
+                msg.sender,
+                rewardToken,
+                pair,
+                startTime,
+                claimDeadline
+            );
 
         Incentive memory incentive = incentives[key];
         require(incentives[key], 'INVALID_INCENTIVE');
 
-        IERC20Minimal.transferFrom(address(this), msg.sender, incentive.totalRewardUnclaimed);
+        // TODO: double-check .transfer
+
+        IERC20Minimal.transfer(msg.sender, incentive.totalRewardUnclaimed);
         // TODO: Thinking if this should go before or after the transferFrom, maybe it doesnt matter.
         delete incentives[key];
-
-        emit IncentiveEnded(rewardToken, pair);
-    }
-
-    // TODO(Security): Am I signing up for pain by being DRY and doing this here instead of in the function bodies?
-    function _getIncentiveId(
-        address creator,
-        address rewardToken,
-        address pair,
-        uint32 startTime,
-        uint32 claimDeadline
-    ) internal pure returns (bytes32) {
-        return keccak256(abi.encode(creator, rewardToken, pair, startTime, claimDeadline));
     }
 
     //
     // Part 2: Deposits, Withdrawals
     //
+
     struct Deposit {
         address owner;
         uint32 numberOfStakes;
     }
 
-    /// @notice deposits[tokenContract][tokenId] => Deposit
-    mapping(address => mapping(uint256 => Deposit)) deposits;
+    /// @notice deposits[tokenId] => Deposit
+    mapping(uint256 => Deposit) deposits;
 
-    event Deposited(address tokenContract, uint256 tokenId);
+    event Deposited(uint256 tokenId);
 
-    function deposit(address tokenContract, uint256 tokenId) public {
+    function deposit(uint256 tokenId) public {
         // TODO: Make sure the transfer succeeds and is a uniswap erc721
-        require(IERC721(tokenContract).safeTransferFrom(msg.sender, address(this), tokenId), 'ERC721_TRANSFER_FAILED');
-
-        deposits[tokenContract][tokenId] = Deposit(msg.sender, 0);
-
-        emit Deposited(tokenContract, tokenId);
+        require(
+            nonFungiblePositionManager.safeTransferFrom(
+                msg.sender,
+                address(this),
+                tokenId
+            ),
+            'ERC721_TRANSFER_FAILED'
+        );
+        deposits[tokenId] = Deposit(msg.sender, 0);
+        emit Deposited(tokenId);
     }
 
-    event Withdrawal(address tokenContract, uint256 tokenId);
+    event Withdrawal(uint256 tokenId);
 
-    function withdraw(
-        address tokenContract,
-        uint256 tokenId,
-        address to
-    ) {
-        require(deposits[tokenContract][tokenId].numberOfStakes == 0, 'NUMBER_OF_STAKES_NOT_ZERO');
-        IERC721(tokenContract).transferFrom(address(this), to, tokenId);
-        emit Withdrawal(tokenContract, tokenId);
+    function withdraw(uint256 tokenId, address to) {
+        require(
+            deposits[tokenId].numberOfStakes == 0,
+            'NUMBER_OF_STAKES_NOT_ZERO'
+        );
+
+        // TODO: do we have to check for a failure here?
+        nonFungiblePositionManager.transfer(to, tokenId);
+
+        emit Withdrawal(tokenId);
     }
 
     //
@@ -176,29 +230,58 @@ contract UniswapV3Staker {
     //
 
     struct Stake {
-        uint160 secondsPerLiquidityInitialX96;
+        uint160 secondsPerLiquidityInitialX128;
+        address pool;
     }
 
-    /// @notice stakes[tokenContract][tokenId][incentiveHash] => Stake
-    mapping(address => mapping(uint256 => mapping(bytes32 => Stake))) stakes;
+    /// @notice stakes[tokenId][incentiveHash] => Stake
+    mapping(uint256 => mapping(bytes32 => Stake)) stakes;
+
+    function _getPositionDetails(uint256 tokenId)
+        internal
+        pure
+        returns (
+            address,
+            int24,
+            int24,
+            uint128
+        )
+    {
+        // TODO: can I destruct like this?
+        (
+            ,
+            address token0,
+            address token1,
+            uint24 fee,
+            int24 tickLower,
+            int24 tickUpper,
+            uint128 liquidity
+        ) = nonFungiblePositionManager.positions(tokenId);
+
+        PoolAddress.PoolKey memory poolKey =
+            PoolAddress.getPoolKey(token0, token1, fee);
+
+        // Could do this via factory.getPool or locally via PoolAddress.
+        // TODO: what happens if this is null
+        return (
+            PoolAddress.computeAddress(factory, poolKey),
+            tickLower,
+            tickUpper,
+            liquidity
+        );
+    }
 
     function stake(
-        address tokenContract,
         uint256 tokenId,
         address creator,
-        address token,
+        address rewardToken,
         uint32 startTime,
         uint32 endTime,
         uint32 claimDeadline
     ) {
         /*
-
-        This looks up your Deposit, checks that you are the owner,
-        and increments numberOfStakes.
-
         It then creates a stake in the stakes mapping. stakes is
-        a mapping from the token contract, token ID, and incentive ID
-        to the information about that stake.
+        a mapping from th token ID and incentive ID to information about that stake.
 
         Check:
         * Make sure you are the owner
@@ -207,20 +290,42 @@ contract UniswapV3Staker {
         * increments numberOfStakes
         */
 
-        // TODO: make sure `memory` is right here
-        Deposit memory deposit = deposits[tokenContract][tokenId];
-        // TODO: I think the deposit.owner == msg.sender check makes the following line obsolete
-        require(deposit.owner != address(0), 'INVALID_DEPOSIT');
-        require(deposit.owner == msg.sender, 'NOT_YOUR_DEPOSIT');
+        /*
+        This looks up your Deposit, checks that you are the owner
+        */
+        require(deposits[tokenId].owner == msg.sender, 'NOT_YOUR_DEPOSIT');
 
-        // TODO: make sure this writes
-        deposits[tokenContract][tokenId].numberOfStakes += 1;
+        // TODO: Make sure destructuring and ignoring liquidity correctly
+        (address poolAddress, int24 tickLower, int24 tickUpper, ) =
+            _getPositionDetails(tokenId);
+        IUniswapV3Pool pool = IUniswapV3Pool(poolAddress);
 
+        bytes32 memory incentiveId =
+            _getIncentiveId(
+                creator,
+                rewardToken,
+                pool,
+                startTime,
+                claimDeadline
+            );
+
+        (
+            int56 tickCumulativeInside,
+            uint160 secondsPerLiquidityInsideX128,
+            uint32 secondsInside
+        ) = pool.snapshotCumulativesInside(tickLower, tickUpper);
+
+        stakes[tokenId][incentiveId] = Stake(
+            secondsPerLiquidityInsideX128,
+            address(pool)
+        );
+
+        // TODO: make sure this writes to the struct
+        deposits[tokenId].numberOfStakes += 1;
         // TODO: emit Stake event
     }
 
     function unstake(
-        address tokenContract,
         uint256 tokenId,
         address creator,
         address token,
@@ -233,20 +338,55 @@ contract UniswapV3Staker {
         Check:
         * It checks that you are the owner of the Deposit,
         * It checks that there exists a Stake for the provided key
-            (with non-zero secondsPerLiquidityInitialX96).
+            (with non-zero secondsPerLiquidityInitialX128).
         */
-        require(deposits[tokenContract][tokenId].owner == msg.sender, 'NOT_YOUR_DEPOSIT');
+        require(deposits[tokenId].owner == msg.sender, 'NOT_YOUR_DEPOSIT');
 
         /*
         Effects:
         deposit.numberOfStakes -= 1 - Make sure this decrements properly
         */
-        deposit[tokenContract][tokenId].owner -= 1;
+        deposits[tokenId].numberOfStakes -= 1;
+
+        // TODO: Zero-out the Stake with that key.
+        // stakes[tokenId]
+
+        // Pool.snapshotCumulativesInside
 
         /*
         * It computes secondsPerLiquidityInPeriodX96 by computing
             secondsPerLiquidityInRangeX96 using the Uniswap v3 core contract
             and subtracting secondsPerLiquidityInRangeInitialX96.
+        */
+        uint160 secondsPerLiquidityInPeriodX96;
+
+        // TODO: make sure not null
+        (
+            address poolAddress,
+            int24 tickLower,
+            int24 tickUpper,
+            uint128 liquidity
+        ) = _getPositionDetails(tokenId);
+        IUniswapV3Pool pool = IUniswapV3Pool(PoolAddress);
+
+        (
+            int56 tickCumulativeInside,
+            uint160 secondsPerLiquidityInsideX128,
+            uint32 secondsInside
+        ) = pool.snapshotCumulativesInside(tickLower, tickUpper);
+
+        bytes32 memory incentiveId =
+            _getIncentiveId(
+                creator,
+                rewardToken,
+                pool,
+                startTime,
+                claimDeadline
+            );
+        uint160 secondsPerLiquidityInStakingPeriodX128 =
+            secondsPerLiquidityInsideX128 - stakes[tokenId][incentiveId];
+
+        /*
         * It looks at the liquidity on the NFT itself and multiplies
             that by secondsPerLiquidityInRangeX96 to get secondsX96.
         * It computes reward rate for the Program and multiplies that
@@ -254,26 +394,34 @@ contract UniswapV3Staker {
         * totalRewardsUnclaimed is decremented by reward. totalSecondsClaimed
             is incremented by seconds.
         */
-        require(true == false, 'NOT_IMPLEMENTED_YET');
 
-        /*
-        Interactions:
-        * It tries to transfer `reward` of Program.token to the to.
-            Note: it must be possible to unstake even if this transfer
-            would fail (lest somebody be stuck with an NFT they can’t withdraw)!
-        */
+        // TODO: check for overflows
+        uint160 secondsX96 =
+            SafeMath.mul(secondsPerLiquidityInStakingPeriodX128, liquidity);
+
+        Incentive incentive = incentives[incentiveId];
+        incentive.totalSecondsClaimed += secondsX96;
+        uint256 reward = SafeMath.mul(secondsX96, rewardRate(incentiveId));
+
+        // TODO: Before release: wrap this in try-catch properly
+        // try {
+        IERC20(incentive.rewardToken).transfer(to, reward);
+        // } catch {}
 
         // TODO: emit unstake event
     }
 
-    // TODO: Still need to implement these parts.
-    function totalSecondsUnclaimed() public view returns (uint32) {
-        // Should this take an incentive struct?
-        return (max(endTime, block.timestamp) - startTime - totalSecondsClaimed);
-    }
-
-    function rewardRate() public view returns (uint256) {
+    function rewardRate(bytes32 incentiveId) private returns (uint256) {
         // TODO: Make sure this is the right return type
         // totalRewardUnclaimed / totalSecondsUnclaimed
+        Incentive incentive = incentives[incentiveId];
+
+        uint32 totalSecondsUnclaimed =
+            max(endTime, block.timestamp) -
+                startTime -
+                incentive.totalSecondsClaimed;
+
+        return
+            SafeMath.div(incentive.totalRewardUnclaimed, totalSecondsUnclaimed);
     }
 }
