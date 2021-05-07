@@ -1,20 +1,17 @@
 {
-  "name": "@uniswap/v3-periphery",
-  "description": "🎚 Peripheral smart contracts for interacting with Uniswap V3",
+  "name": "uniswap-v3-staker",
+  "description": "Canonical staker for Uniswap V3",
   "license": "GPL-2.0-or-later",
-  "publishConfig": {
-    "access": "public"
-  },
   "version": "1.0.0",
-  "homepage": "https://uniswap.org",
+  "homepage": "",
   "keywords": [
     "uniswap",
-    "periphery",
+    "liquidity mining",
     "v3"
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/Uniswap/uniswap-v3-periphery"
+    "url": "https://github.com/omarish/uniswap-v3-staker"
   },
   "files": [
     "contracts/interfaces",
@@ -32,6 +29,7 @@
     "@uniswap/lib": "^4.0.1-alpha",
     "@uniswap/v2-core": "1.0.1",
     "@uniswap/v3-core": "1.0.0",
+    "@uniswap/v3-periphery": "^1.0.0",
     "base64-sol": "1.0.1"
   },
   "devDependencies": {
