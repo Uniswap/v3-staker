@@ -92,7 +92,7 @@ contract UniswapV3Staker is ERC721Holder {
     @param claimDeadline When program should expire
     @param totalReward Total reward to be distributed
     */
-    function create(
+    function createIncentive(
         address rewardToken,
         address pool,
         uint32 startTime,
@@ -152,10 +152,17 @@ contract UniswapV3Staker is ERC721Holder {
         );
     }
 
+    event IncentiveEnded(
+        address indexed rewardToken,
+        address indexed pool,
+        uint32 startTime,
+        uint32 endTime
+    );
+
     /**
     @notice Deletes an incentive whose claimDeadline has passed.
     */
-    function end(
+    function endIncentive(
         address rewardToken,
         address pool,
         uint32 startTime,
@@ -196,6 +203,8 @@ contract UniswapV3Staker is ERC721Holder {
             msg.sender,
             incentive.totalRewardUnclaimed
         );
+
+        emit IncentiveEnded(rewardToken, pool, startTime, endTime);
     }
 
     //
@@ -210,9 +219,9 @@ contract UniswapV3Staker is ERC721Holder {
     /// @dev deposits[tokenId] => Deposit
     mapping(uint256 => Deposit) deposits;
 
-    event Deposited(uint256 tokenId);
+    event TokenDeposited(uint256 tokenId);
 
-    function deposit(uint256 tokenId) external {
+    function depositToken(uint256 tokenId) external {
         // TODO: Make sure the transfer succeeds and is a uniswap erc721
         // I think this is not secure
         nonfungiblePositionManager.safeTransferFrom(
@@ -222,12 +231,12 @@ contract UniswapV3Staker is ERC721Holder {
         );
 
         deposits[tokenId] = Deposit(msg.sender, 0);
-        emit Deposited(tokenId);
+        emit TokenDeposited(tokenId);
     }
 
-    event Withdrawal(uint256 tokenId);
+    event TokenWithdrawn(uint256 tokenId);
 
-    function withdraw(uint256 tokenId, address to) external {
+    function withdrawToken(uint256 tokenId, address to) external {
         require(
             deposits[tokenId].numberOfStakes == 0,
             'NUMBER_OF_STAKES_NOT_ZERO'
@@ -242,7 +251,7 @@ contract UniswapV3Staker is ERC721Holder {
         // if safeTransferFrom is right.
         nonfungiblePositionManager.safeTransferFrom(address(this), to, tokenId);
 
-        emit Withdrawal(tokenId);
+        emit TokenWithdrawn(tokenId);
     }
 
     //
@@ -295,7 +304,10 @@ contract UniswapV3Staker is ERC721Holder {
         );
     }
 
-    function stake(
+    // TODO params.
+    event TokenStaked();
+
+    function stakeToken(
         uint256 tokenId,
         address creator,
         address rewardToken,
@@ -344,10 +356,13 @@ contract UniswapV3Staker is ERC721Holder {
 
         // TODO: make sure this writes to the struct
         deposits[tokenId].numberOfStakes += 1;
-        // TODO: emit Stake event
+
+        emit TokenStaked();
     }
 
-    function unstake(
+    event TokenUnstaked();
+
+    function unstakeToken(
         uint256 tokenId,
         address creator,
         address rewardToken,
@@ -443,5 +458,7 @@ contract UniswapV3Staker is ERC721Holder {
         IERC20Minimal(incentives[incentiveId].rewardToken).transfer(to, reward);
         // } catch {}
         // TODO: emit unstake event
+
+        emit TokenUnstaked();
     }
 }
