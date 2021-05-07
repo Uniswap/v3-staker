@@ -436,7 +436,7 @@ contract UniswapV3Staker is ERC721Holder {
         incentives[incentiveId].totalSecondsClaimedX128 += secondsInPeriodX128;
 
         uint160 totalSecondsUnclaimedX128 =
-            uint32(Math.max(incentives[incentiveId].endTime, block.timestamp)) -
+            uint32(Math.max(endTime, block.timestamp)) -
                 startTime -
                 incentives[incentiveId].totalSecondsClaimedX128;
 
@@ -456,8 +456,6 @@ contract UniswapV3Staker is ERC721Holder {
         // TODO: incentive.rewardToken or rewardToken?
         IERC20Minimal(incentives[incentiveId].rewardToken).transfer(to, reward);
         // } catch {}
-        // TODO: emit unstake event
-
         emit TokenUnstaked();
     }
 }

@@ -1,14 +1,24 @@
-import { ethers } from 'hardhat'
+import { ethers, waffle } from 'hardhat'
 import { expect } from './shared/expect'
 
+const { createFixtureLoader } = waffle
+
 describe('UniswapV3Staker', () => {
-  describe('constructor', async () => {
-    it('deploys', () => {
-      console.info('deploy')
-    })
+  const [wallet, other] = waffle.provider.getWallets()
+  let loadFixture: ReturnType<typeof createFixtureLoader>
+
+  // let factory: UniswapV3Factory
+  // let pool: MockTimeUniswapV3Pool
+
+  before('create fixture loader', async () => {
+    loadFixture = createFixtureLoader([wallet, other])
   })
 
-  describe('.createIncentive', async () => {
+  describe('#initialize', async () => {
+    it('deploys', () => {})
+  })
+
+  describe('#createIncentive', async () => {
     describe('works and', () => {
       it('transfers the right amount of rewardToken')
       it('emits IncentiveCreated()')
@@ -24,7 +34,7 @@ describe('UniswapV3Staker', () => {
     })
   })
 
-  describe('.endIncentive', async () => {
+  describe('#endIncentive', async () => {
     describe('should fail if ', () => {
       it('block.timestamp <= claim deadline')
       it('incentive does not exist')
@@ -39,7 +49,7 @@ describe('UniswapV3Staker', () => {
     it('test various inputs')
   })
 
-  describe('.depositToken', () => {
+  describe('#depositToken', () => {
     describe('that are successful', () => {
       it('emit a Deposited event')
       it('actually transfers the NFT to the contract')
@@ -66,7 +76,7 @@ describe('UniswapV3Staker', () => {
     */
   })
 
-  describe('.withdrawToken', () => {
+  describe('#withdrawToken', () => {
     describe('happy path', () => {
       it('emits a withdrawal event')
       it('does the safeTransferFrom and transfers ownership')
@@ -83,7 +93,7 @@ describe('UniswapV3Staker', () => {
       */
   })
 
-  describe('.stake', () => {
+  describe('#stakeToken', () => {
     /*
     happy path
       it sets the Stake struct inside of stakes
@@ -105,7 +115,7 @@ describe('UniswapV3Staker', () => {
       */
   })
 
-  describe('.unstake', () => {
+  describe('#unstakeToken', () => {
     /*
     checks that
       you are the owner of the deposit

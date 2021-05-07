@@ -9,3 +9,9 @@ I'll be posting a roadmap and some milestones soon.
 ## Design
 
 See [DESIGN](docs/DESIGN.md).
+
+## Testing
+
+```sh
+$ yarn test
+```
