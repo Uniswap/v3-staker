@@ -19,8 +19,6 @@ import '@openzeppelin/contracts/math/SafeMath.sol';
 @author Dan Robinson <dan@paradigm.xyz>
 */
 contract UniswapV3Staker is ERC721Holder {
-    // TODO: should I use ownable or is this ok?
-    address public immutable owner;
     IUniswapV3Factory public immutable factory;
     INonfungiblePositionManager public immutable nonfungiblePositionManager;
 
@@ -31,7 +29,6 @@ contract UniswapV3Staker is ERC721Holder {
         nonfungiblePositionManager = INonfungiblePositionManager(
             _nonfungiblePositionManager
         );
-        owner = msg.sender;
     }
 
     //
@@ -49,19 +46,28 @@ contract UniswapV3Staker is ERC721Holder {
     /// @notice Calculate the key for a staking incentive
     /// @param creator Address that created this incentive
     /// @param rewardToken Token being distributed as a reward
-    /// @param pair The UniswapV3 pair this incentive is on
+    /// @param pool The UniswapV3 pool this incentive is on
     /// @param startTime When the incentive begins
+    /// @param endTime When the incentive ends
     /// @param claimDeadline Time by which incentive rewards must be claimed
     function _getIncentiveId(
         address creator,
         address rewardToken,
-        address pair,
+        address pool,
         uint32 startTime,
+        uint32 endTime,
         uint32 claimDeadline
     ) internal pure returns (bytes32) {
         return
             keccak256(
-                abi.encode(creator, rewardToken, pair, startTime, claimDeadline)
+                abi.encode(
+                    creator,
+                    rewardToken,
+                    pool,
+                    startTime,
+                    endTime,
+                    claimDeadline
+                )
             );
     }
 
@@ -70,7 +76,7 @@ contract UniswapV3Staker is ERC721Holder {
 
     event IncentiveCreated(
         address indexed rewardToken,
-        address indexed pair,
+        address indexed pool,
         uint32 startTime,
         uint32 endTime,
         uint32 claimDeadline,
@@ -80,7 +86,7 @@ contract UniswapV3Staker is ERC721Holder {
     /**
     @notice Creates a new liquidity mining incentive program.
     @param rewardToken The token being distributed as a reward
-    @param pair The Uniswap V3 pair
+    @param pool The Uniswap V3 pool
     @param startTime When rewards should begin accruing
     @param endTime When rewards stop accruing
     @param claimDeadline When program should expire
@@ -88,7 +94,7 @@ contract UniswapV3Staker is ERC721Holder {
     */
     function create(
         address rewardToken,
-        address pair,
+        address pool,
         uint32 startTime,
         uint32 endTime,
         uint32 claimDeadline,
@@ -98,7 +104,7 @@ contract UniswapV3Staker is ERC721Holder {
         Check:
         * Make sure this incentive does not already exist
         * claimDeadline must be no earlier than endTime, which must be later than startTime
-        * Possibly: check that pair is a uniswap v3 pair?
+        * Possibly: check that pool is a uniswap v3 pool?
 
         Effects:
         * Transfers totalRewardsUnclaimed of token from the caller to itself
@@ -114,8 +120,9 @@ contract UniswapV3Staker is ERC721Holder {
             _getIncentiveId(
                 msg.sender,
                 rewardToken,
-                pair,
+                pool,
                 startTime,
+                endTime,
                 claimDeadline
             );
 
@@ -137,7 +144,7 @@ contract UniswapV3Staker is ERC721Holder {
 
         emit IncentiveCreated(
             rewardToken,
-            pair,
+            pool,
             startTime,
             endTime,
             claimDeadline,
@@ -150,8 +157,9 @@ contract UniswapV3Staker is ERC721Holder {
     */
     function end(
         address rewardToken,
-        address pair,
+        address pool,
         uint32 startTime,
+        uint32 endTime,
         uint32 claimDeadline
     ) external {
         /*
@@ -170,23 +178,24 @@ contract UniswapV3Staker is ERC721Holder {
             _getIncentiveId(
                 msg.sender,
                 rewardToken,
-                pair,
+                pool,
                 startTime,
+                endTime,
                 claimDeadline
             );
 
         Incentive memory incentive = incentives[key];
-        require(incentives[key].rewardToken != address(0), 'INVALID_INCENTIVE');
+        require(incentive.rewardToken != address(0), 'INVALID_INCENTIVE');
 
-        // TODO: double-check .transfer
+        // This has to go before the .transfer() call below, otherwise there's a re-entrancy vulnerability.
+        // TODO: integration test for this.
+        delete incentives[key];
 
         // TODO: handle failures
         IERC20Minimal(rewardToken).transfer(
             msg.sender,
             incentive.totalRewardUnclaimed
         );
-        // TODO: Thinking if this should go before or after the transferFrom, maybe it doesnt matter.
-        delete incentives[key];
     }
 
     //
@@ -222,6 +231,11 @@ contract UniswapV3Staker is ERC721Holder {
         require(
             deposits[tokenId].numberOfStakes == 0,
             'NUMBER_OF_STAKES_NOT_ZERO'
+        );
+
+        require(
+            msg.sender == nonfungiblePositionManager.ownerOf(tokenId),
+            'NOT_YOUR_NFT'
         );
 
         // TODO: do we have to check for a failure here? Also double-check
@@ -316,6 +330,7 @@ contract UniswapV3Staker is ERC721Holder {
                 rewardToken,
                 poolAddress,
                 startTime,
+                endTime,
                 claimDeadline
             );
 
@@ -337,7 +352,7 @@ contract UniswapV3Staker is ERC721Holder {
         address creator,
         address rewardToken,
         uint32 startTime,
-        // uint32 endTime,
+        uint32 endTime,
         uint32 claimDeadline,
         address to
     ) external {
@@ -382,6 +397,7 @@ contract UniswapV3Staker is ERC721Holder {
                 rewardToken,
                 poolAddress,
                 startTime,
+                endTime,
                 claimDeadline
             );
 
