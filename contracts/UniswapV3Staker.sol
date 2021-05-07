@@ -39,7 +39,6 @@ contract UniswapV3Staker is ERC721Holder {
     struct Incentive {
         uint128 totalRewardUnclaimed;
         uint160 totalSecondsClaimedX128;
-        uint32 endTime;
         address rewardToken;
     }
 
@@ -140,7 +139,7 @@ contract UniswapV3Staker is ERC721Holder {
             'REWARD_TRANSFER_FAILED'
         );
 
-        incentives[key] = Incentive(totalReward, 0, endTime, rewardToken);
+        incentives[key] = Incentive(totalReward, 0, rewardToken);
 
         emit IncentiveCreated(
             rewardToken,
