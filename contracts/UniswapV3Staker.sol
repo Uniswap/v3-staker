@@ -19,8 +19,6 @@ import '@openzeppelin/contracts/math/SafeMath.sol';
 @author Dan Robinson <dan@paradigm.xyz>
 */
 contract UniswapV3Staker is ERC721Holder {
-    // TODO: should I use ownable or is this ok?
-    address public immutable owner;
     IUniswapV3Factory public immutable factory;
     INonfungiblePositionManager public immutable nonfungiblePositionManager;
 
@@ -31,7 +29,6 @@ contract UniswapV3Staker is ERC721Holder {
         nonfungiblePositionManager = INonfungiblePositionManager(
             _nonfungiblePositionManager
         );
-        owner = msg.sender;
     }
 
     //
