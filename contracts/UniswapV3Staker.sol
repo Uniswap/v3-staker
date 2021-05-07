@@ -187,15 +187,15 @@ contract UniswapV3Staker is ERC721Holder {
         Incentive memory incentive = incentives[key];
         require(incentive.rewardToken != address(0), 'INVALID_INCENTIVE');
 
-        // TODO: double-check .transfer
+        // This has to go before the .transfer() call below, otherwise there's a re-entrancy vulnerability.
+        // TODO: integration test for this.
+        delete incentives[key];
 
         // TODO: handle failures
         IERC20Minimal(rewardToken).transfer(
             msg.sender,
             incentive.totalRewardUnclaimed
         );
-        // TODO: Thinking if this should go before or after the transferFrom, maybe it doesnt matter.
-        delete incentives[key];
     }
 
     //
@@ -231,6 +231,11 @@ contract UniswapV3Staker is ERC721Holder {
         require(
             deposits[tokenId].numberOfStakes == 0,
             'NUMBER_OF_STAKES_NOT_ZERO'
+        );
+
+        require(
+            msg.sender == nonfungiblePositionManager.ownerOf(tokenId),
+            'NOT_YOUR_NFT'
         );
 
         // TODO: do we have to check for a failure here? Also double-check
