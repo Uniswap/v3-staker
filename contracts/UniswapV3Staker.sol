@@ -46,14 +46,14 @@ contract UniswapV3Staker is ERC721Holder {
     /// @notice Calculate the key for a staking incentive
     /// @param creator Address that created this incentive
     /// @param rewardToken Token being distributed as a reward
-    /// @param pair The UniswapV3 pair this incentive is on
+    /// @param pool The UniswapV3 pool this incentive is on
     /// @param startTime When the incentive begins
     /// @param endTime When the incentive ends
     /// @param claimDeadline Time by which incentive rewards must be claimed
     function _getIncentiveId(
         address creator,
         address rewardToken,
-        address pair,
+        address pool,
         uint32 startTime,
         uint32 endTime,
         uint32 claimDeadline
@@ -63,7 +63,7 @@ contract UniswapV3Staker is ERC721Holder {
                 abi.encode(
                     creator,
                     rewardToken,
-                    pair,
+                    pool,
                     startTime,
                     endTime,
                     claimDeadline
@@ -76,7 +76,7 @@ contract UniswapV3Staker is ERC721Holder {
 
     event IncentiveCreated(
         address indexed rewardToken,
-        address indexed pair,
+        address indexed pool,
         uint32 startTime,
         uint32 endTime,
         uint32 claimDeadline,
@@ -86,7 +86,7 @@ contract UniswapV3Staker is ERC721Holder {
     /**
     @notice Creates a new liquidity mining incentive program.
     @param rewardToken The token being distributed as a reward
-    @param pair The Uniswap V3 pair
+    @param pool The Uniswap V3 pool
     @param startTime When rewards should begin accruing
     @param endTime When rewards stop accruing
     @param claimDeadline When program should expire
@@ -94,7 +94,7 @@ contract UniswapV3Staker is ERC721Holder {
     */
     function create(
         address rewardToken,
-        address pair,
+        address pool,
         uint32 startTime,
         uint32 endTime,
         uint32 claimDeadline,
@@ -104,7 +104,7 @@ contract UniswapV3Staker is ERC721Holder {
         Check:
         * Make sure this incentive does not already exist
         * claimDeadline must be no earlier than endTime, which must be later than startTime
-        * Possibly: check that pair is a uniswap v3 pair?
+        * Possibly: check that pool is a uniswap v3 pool?
 
         Effects:
         * Transfers totalRewardsUnclaimed of token from the caller to itself
@@ -120,7 +120,7 @@ contract UniswapV3Staker is ERC721Holder {
             _getIncentiveId(
                 msg.sender,
                 rewardToken,
-                pair,
+                pool,
                 startTime,
                 endTime,
                 claimDeadline
@@ -144,7 +144,7 @@ contract UniswapV3Staker is ERC721Holder {
 
         emit IncentiveCreated(
             rewardToken,
-            pair,
+            pool,
             startTime,
             endTime,
             claimDeadline,
@@ -157,7 +157,7 @@ contract UniswapV3Staker is ERC721Holder {
     */
     function end(
         address rewardToken,
-        address pair,
+        address pool,
         uint32 startTime,
         uint32 endTime,
         uint32 claimDeadline
@@ -178,7 +178,7 @@ contract UniswapV3Staker is ERC721Holder {
             _getIncentiveId(
                 msg.sender,
                 rewardToken,
-                pair,
+                pool,
                 startTime,
                 endTime,
                 claimDeadline
