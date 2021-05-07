@@ -185,7 +185,7 @@ contract UniswapV3Staker is ERC721Holder {
             );
 
         Incentive memory incentive = incentives[key];
-        require(incentives[key].rewardToken != address(0), 'INVALID_INCENTIVE');
+        require(incentive.rewardToken != address(0), 'INVALID_INCENTIVE');
 
         // TODO: double-check .transfer
 
