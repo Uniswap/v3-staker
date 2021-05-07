@@ -6,6 +6,8 @@ import '@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol';
 import '@uniswap/v3-core/contracts/interfaces/IERC20Minimal.sol';
 import '@uniswap/v3-periphery/contracts/libraries/PoolAddress.sol';
 import '@uniswap/v3-periphery/contracts/interfaces/INonfungiblePositionManager.sol';
+import '@uniswap/v3-core/contracts/libraries/FixedPoint128.sol';
+import '@uniswap/v3-core/contracts/libraries/FullMath.sol';
 import '@openzeppelin/contracts/token/ERC721/ERC721Holder.sol';
 
 import '@openzeppelin/contracts/math/Math.sol';
@@ -17,9 +19,6 @@ import '@openzeppelin/contracts/math/SafeMath.sol';
 @author Dan Robinson <dan@paradigm.xyz>
 */
 contract UniswapV3Staker is ERC721Holder {
-    // TODO: Make sure these are correct and that I'm using the right SafeMath libraries.
-    using SafeMath for uint256;
-
     // TODO: should I use ownable or is this ok?
     address public immutable owner;
     IUniswapV3Factory public immutable factory;
@@ -246,7 +245,7 @@ contract UniswapV3Staker is ERC721Holder {
 
     function _getPositionDetails(uint256 tokenId)
         internal
-        pure
+        view
         returns (
             address,
             int24,
@@ -320,11 +319,8 @@ contract UniswapV3Staker is ERC721Holder {
                 claimDeadline
             );
 
-        (
-            int56 tickCumulativeInside,
-            uint160 secondsPerLiquidityInsideX128,
-            uint32 secondsInside
-        ) = pool.snapshotCumulativesInside(tickLower, tickUpper);
+        (, uint160 secondsPerLiquidityInsideX128, ) =
+            pool.snapshotCumulativesInside(tickLower, tickUpper);
 
         stakes[tokenId][incentiveId] = Stake(
             secondsPerLiquidityInsideX128,
@@ -341,7 +337,7 @@ contract UniswapV3Staker is ERC721Holder {
         address creator,
         address rewardToken,
         uint32 startTime,
-        uint32 endTime,
+        // uint32 endTime,
         uint32 claimDeadline,
         address to
     ) external {
@@ -361,15 +357,11 @@ contract UniswapV3Staker is ERC721Holder {
 
         // TODO: Zero-out the Stake with that key.
         // stakes[tokenId]
-
-        // Pool.snapshotCumulativesInside
-
         /*
-        * It computes secondsPerLiquidityInPeriodX96 by computing
-            secondsPerLiquidityInRangeX96 using the Uniswap v3 core contract
-            and subtracting secondsPerLiquidityInRangeInitialX96.
+        * It computes secondsPerLiquidityInPeriodX128 by computing
+            secondsPerLiquidityInsideX128 using the Uniswap v3 core contract
+            and subtracting secondsPerLiquidityInitialX128.
         */
-        uint160 secondsPerLiquidityInPeriodX96;
 
         // TODO: make sure not null
         (
@@ -381,11 +373,8 @@ contract UniswapV3Staker is ERC721Holder {
 
         IUniswapV3Pool pool = IUniswapV3Pool(poolAddress);
 
-        (
-            int56 tickCumulativeInside,
-            uint160 secondsPerLiquidityInsideX128,
-            uint32 secondsInside
-        ) = pool.snapshotCumulativesInside(tickLower, tickUpper);
+        (, uint160 secondsPerLiquidityInsideX128, ) =
+            pool.snapshotCumulativesInside(tickLower, tickUpper);
 
         bytes32 incentiveId =
             _getIncentiveId(
@@ -395,9 +384,11 @@ contract UniswapV3Staker is ERC721Holder {
                 startTime,
                 claimDeadline
             );
-        uint160 secondsPerLiquidityInStakingPeriodX128 =
-            secondsPerLiquidityInsideX128 -
-                stakes[tokenId][incentiveId].secondsPerLiquidityInitialX128;
+
+        uint160 secondsInPeriodX128 =
+            (secondsPerLiquidityInsideX128 -
+                stakes[tokenId][incentiveId].secondsPerLiquidityInitialX128) *
+                liquidity;
 
         /*
         * It looks at the liquidity on the NFT itself and multiplies
@@ -409,28 +400,32 @@ contract UniswapV3Staker is ERC721Holder {
         */
 
         // TODO: check for overflows and integer types
-        uint256 secondsX96 =
-            SafeMath.mul(secondsPerLiquidityInStakingPeriodX128, liquidity);
+        // uint160 secondsX96 = FullMath.mulDiv(secondsPerLiquidityInStakingPeriodX128, , denominator);
+        //     SafeMath.mul(secondsPerLiquidityInStakingPeriodX128, liquidity);
 
-        Incentive memory incentive = incentives[incentiveId];
-        incentive.totalSecondsClaimedX128 += secondsX96;
+        incentives[incentiveId].totalSecondsClaimedX128 += secondsInPeriodX128;
 
-        uint32 totalSecondsUnclaimed =
-            Math.max(incentive.endTime, block.timestamp) -
+        uint160 totalSecondsUnclaimedX128 =
+            uint32(Math.max(incentives[incentiveId].endTime, block.timestamp)) -
                 startTime -
-                incentive.totalSecondsClaimedX128;
+                incentives[incentiveId].totalSecondsClaimedX128;
 
-        uint256 rewardRate =
-            SafeMath.div(incentive.totalRewardUnclaimed, totalSecondsUnclaimed);
+        // This is probably wrong
+        uint160 rewardRate =
+            uint160(
+                SafeMath.div(
+                    incentives[incentiveId].totalRewardUnclaimed,
+                    totalSecondsUnclaimedX128
+                )
+            );
 
-        uint256 reward = SafeMath.mul(secondsX96, rewardRate);
+        uint256 reward = SafeMath.mul(secondsInPeriodX128, rewardRate);
 
         // TODO: Before release: wrap this in try-catch properly
         // try {
         // TODO: incentive.rewardToken or rewardToken?
-        IERC20Minimal(incentive.rewardToken).transfer(to, reward);
+        IERC20Minimal(incentives[incentiveId].rewardToken).transfer(to, reward);
         // } catch {}
-
         // TODO: emit unstake event
     }
 }
