@@ -48,17 +48,26 @@ contract UniswapV3Staker is ERC721Holder {
     /// @param rewardToken Token being distributed as a reward
     /// @param pair The UniswapV3 pair this incentive is on
     /// @param startTime When the incentive begins
+    /// @param endTime When the incentive ends
     /// @param claimDeadline Time by which incentive rewards must be claimed
     function _getIncentiveId(
         address creator,
         address rewardToken,
         address pair,
         uint32 startTime,
+        uint32 endTime,
         uint32 claimDeadline
     ) internal pure returns (bytes32) {
         return
             keccak256(
-                abi.encode(creator, rewardToken, pair, startTime, claimDeadline)
+                abi.encode(
+                    creator,
+                    rewardToken,
+                    pair,
+                    startTime,
+                    endTime,
+                    claimDeadline
+                )
             );
     }
 
@@ -113,6 +122,7 @@ contract UniswapV3Staker is ERC721Holder {
                 rewardToken,
                 pair,
                 startTime,
+                endTime,
                 claimDeadline
             );
 
@@ -149,6 +159,7 @@ contract UniswapV3Staker is ERC721Holder {
         address rewardToken,
         address pair,
         uint32 startTime,
+        uint32 endTime,
         uint32 claimDeadline
     ) external {
         /*
@@ -169,6 +180,7 @@ contract UniswapV3Staker is ERC721Holder {
                 rewardToken,
                 pair,
                 startTime,
+                endTime,
                 claimDeadline
             );
 
@@ -313,6 +325,7 @@ contract UniswapV3Staker is ERC721Holder {
                 rewardToken,
                 poolAddress,
                 startTime,
+                endTime,
                 claimDeadline
             );
 
@@ -334,7 +347,7 @@ contract UniswapV3Staker is ERC721Holder {
         address creator,
         address rewardToken,
         uint32 startTime,
-        // uint32 endTime,
+        uint32 endTime,
         uint32 claimDeadline,
         address to
     ) external {
@@ -379,6 +392,7 @@ contract UniswapV3Staker is ERC721Holder {
                 rewardToken,
                 poolAddress,
                 startTime,
+                endTime,
                 claimDeadline
             );
 
