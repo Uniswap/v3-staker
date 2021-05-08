@@ -1,21 +1,42 @@
 import { ethers, waffle } from 'hardhat'
-import { expect } from './shared/expect'
+import { expect, uniswapV3FactoryFixture, nftManagerFixture } from './shared'
+import { UniswapV3Staker } from '../typechain/UniswapV3Staker'
+import { ContractFactory, Contract } from 'ethers'
 
 const { createFixtureLoader } = waffle
 
 describe('UniswapV3Staker', () => {
-  const [wallet, other] = waffle.provider.getWallets()
+  const [wallet, ...otherWallets] = waffle.provider.getWallets()
+
   let loadFixture: ReturnType<typeof createFixtureLoader>
 
-  // let factory: UniswapV3Factory
+  let stakerFactory: ContractFactory
+  let staker: UniswapV3Staker
+  let uniswapV3Factory: Contract
+  let nftManager: Contract
+
+  // let uniswapV3Factory: UniswapV3Factory
   // let pool: MockTimeUniswapV3Pool
 
   before('create fixture loader', async () => {
-    loadFixture = createFixtureLoader([wallet, other])
+    loadFixture = createFixtureLoader([wallet, ...otherWallets])
+    // I'm sure there is a better way to do this
+    const { factory } = await uniswapV3FactoryFixture()
+    uniswapV3Factory = factory
+    const { nft } = await nftManagerFixture()
+    nftManager = nft
+    stakerFactory = await ethers.getContractFactory('UniswapV3Staker')
   })
 
   describe('#initialize', async () => {
-    it('deploys', () => {})
+    it('deploys', async () => {
+      console.info(uniswapV3Factory.address, nftManager.address)
+      const result = await stakerFactory.deploy(
+        uniswapV3Factory.address,
+        nftManager.address
+      )
+      expect(result.address).to.eq('abc')
+    })
   })
 
   describe('#createIncentive', async () => {

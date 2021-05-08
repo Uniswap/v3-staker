@@ -361,101 +361,101 @@ contract UniswapV3Staker is ERC721Holder {
 
     event TokenUnstaked();
 
-    function unstakeToken(
-        uint256 tokenId,
-        address creator,
-        address rewardToken,
-        uint32 startTime,
-        uint32 endTime,
-        uint32 claimDeadline,
-        address to
-    ) external {
-        /*
-        Check:
-        * It checks that you are the owner of the Deposit,
-        * It checks that there exists a Stake for the provided key
-            (with non-zero secondsPerLiquidityInitialX128).
-        */
-        require(deposits[tokenId].owner == msg.sender, 'NOT_YOUR_DEPOSIT');
+    // function unstakeToken(
+    //     uint256 tokenId,
+    //     address creator,
+    //     address rewardToken,
+    //     uint32 startTime,
+    //     uint32 endTime,
+    //     uint32 claimDeadline,
+    //     address to
+    // ) external {
+    //     /*
+    //     Check:
+    //     * It checks that you are the owner of the Deposit,
+    //     * It checks that there exists a Stake for the provided key
+    //         (with non-zero secondsPerLiquidityInitialX128).
+    //     */
+    //     require(deposits[tokenId].owner == msg.sender, 'NOT_YOUR_DEPOSIT');
 
-        /*
-        Effects:
-        deposit.numberOfStakes -= 1 - Make sure this decrements properly
-        */
-        deposits[tokenId].numberOfStakes -= 1;
+    //     /*
+    //     Effects:
+    //     deposit.numberOfStakes -= 1 - Make sure this decrements properly
+    //     */
+    //     deposits[tokenId].numberOfStakes -= 1;
 
-        // TODO: Zero-out the Stake with that key.
-        // stakes[tokenId]
-        /*
-        * It computes secondsPerLiquidityInPeriodX128 by computing
-            secondsPerLiquidityInsideX128 using the Uniswap v3 core contract
-            and subtracting secondsPerLiquidityInitialX128.
-        */
+    //     // TODO: Zero-out the Stake with that key.
+    //     // stakes[tokenId]
+    //     /*
+    //     * It computes secondsPerLiquidityInPeriodX128 by computing
+    //         secondsPerLiquidityInsideX128 using the Uniswap v3 core contract
+    //         and subtracting secondsPerLiquidityInitialX128.
+    //     */
 
-        // TODO: make sure not null
-        (
-            address poolAddress,
-            int24 tickLower,
-            int24 tickUpper,
-            uint128 liquidity
-        ) = _getPositionDetails(tokenId);
+    //     // TODO: make sure not null
+    //     (
+    //         address poolAddress,
+    //         int24 tickLower,
+    //         int24 tickUpper,
+    //         uint128 liquidity
+    //     ) = _getPositionDetails(tokenId);
 
-        IUniswapV3Pool pool = IUniswapV3Pool(poolAddress);
+    //     IUniswapV3Pool pool = IUniswapV3Pool(poolAddress);
 
-        (, uint160 secondsPerLiquidityInsideX128, ) =
-            pool.snapshotCumulativesInside(tickLower, tickUpper);
+    //     (, uint160 secondsPerLiquidityInsideX128, ) =
+    //         pool.snapshotCumulativesInside(tickLower, tickUpper);
 
-        bytes32 incentiveId =
-            _getIncentiveId(
-                creator,
-                rewardToken,
-                poolAddress,
-                startTime,
-                endTime,
-                claimDeadline
-            );
+    //     bytes32 incentiveId =
+    //         _getIncentiveId(
+    //             creator,
+    //             rewardToken,
+    //             poolAddress,
+    //             startTime,
+    //             endTime,
+    //             claimDeadline
+    //         );
 
-        uint160 secondsInPeriodX128 =
-            (secondsPerLiquidityInsideX128 -
-                stakes[tokenId][incentiveId].secondsPerLiquidityInitialX128) *
-                liquidity;
+    //     uint160 secondsInPeriodX128 =
+    //         (secondsPerLiquidityInsideX128 -
+    //             stakes[tokenId][incentiveId].secondsPerLiquidityInitialX128) *
+    //             liquidity;
 
-        /*
-        * It looks at the liquidity on the NFT itself and multiplies
-            that by secondsPerLiquidityInRangeX96 to get secondsX96.
-        * It computes reward rate for the Program and multiplies that
-            by secondsX96 to get reward.
-        * totalRewardsUnclaimed is decremented by reward. totalSecondsClaimed
-            is incremented by seconds.
-        */
+    //     /*
+    //     * It looks at the liquidity on the NFT itself and multiplies
+    //         that by secondsPerLiquidityInRangeX96 to get secondsX96.
+    //     * It computes reward rate for the Program and multiplies that
+    //         by secondsX96 to get reward.
+    //     * totalRewardsUnclaimed is decremented by reward. totalSecondsClaimed
+    //         is incremented by seconds.
+    //     */
 
-        // TODO: check for overflows and integer types
-        // uint160 secondsX96 = FullMath.mulDiv(secondsPerLiquidityInStakingPeriodX128, , denominator);
-        //     SafeMath.mul(secondsPerLiquidityInStakingPeriodX128, liquidity);
+    //     // TODO: check for overflows and integer types
+    //     // uint160 secondsX96 = FullMath.mulDiv(secondsPerLiquidityInStakingPeriodX128, , denominator);
+    //     //     SafeMath.mul(secondsPerLiquidityInStakingPeriodX128, liquidity);
 
-        incentives[incentiveId].totalSecondsClaimedX128 += secondsInPeriodX128;
+    //     incentives[incentiveId].totalSecondsClaimedX128 += secondsInPeriodX128;
 
-        uint160 totalSecondsUnclaimedX128 =
-            uint32(Math.max(endTime, block.timestamp)) -
-                startTime -
-                incentives[incentiveId].totalSecondsClaimedX128;
+    //     uint160 totalSecondsUnclaimedX128 =
+    //         uint32(Math.max(endTime, block.timestamp)) -
+    //             startTime -
+    //             incentives[incentiveId].totalSecondsClaimedX128;
 
-        // This is probably wrong
-        uint160 rewardRate =
-            uint160(
-                SafeMath.div(
-                    incentives[incentiveId].totalRewardUnclaimed,
-                    totalSecondsUnclaimedX128
-                )
-            );
+    //     // This is probably wrong
+    //     uint160 rewardRate =
+    //         uint160(
+    //             SafeMath.div(
+    //                 incentives[incentiveId].totalRewardUnclaimed,
+    //                 totalSecondsUnclaimedX128
+    //             )
+    //         );
 
-        uint256 reward = SafeMath.mul(secondsInPeriodX128, rewardRate);
+    //     uint256 reward = SafeMath.mul(secondsInPeriodX128, rewardRate);
 
-        // TODO: Before release: wrap this in try-catch properly
-        // try {
-        // TODO: incentive.rewardToken or rewardToken?
-        IERC20Minimal(incentives[incentiveId].rewardToken).transfer(to, reward);
-        // } catch {}
-        emit TokenUnstaked();
-    }
+    //     // TODO: Before release: wrap this in try-catch properly
+    //     // try {
+    //     // TODO: incentive.rewardToken or rewardToken?
+    //     IERC20Minimal(incentives[incentiveId].rewardToken).transfer(to, reward);
+    //     // } catch {}
+    //     emit TokenUnstaked();
+    // }
 }
