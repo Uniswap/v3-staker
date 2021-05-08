@@ -1,4 +1,3 @@
-import { Contract } from '@ethersproject/contracts'
 import { constants } from 'ethers'
 import { Fixture } from 'ethereum-waffle'
 import { ethers, waffle } from 'hardhat'
