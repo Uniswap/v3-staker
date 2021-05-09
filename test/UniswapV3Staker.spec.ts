@@ -4,9 +4,10 @@ import { expect } from './shared'
 import { UniswapV3Staker } from '../typechain/UniswapV3Staker'
 import type { IUniswapV3Pool, TestERC20, IUniswapV3Factory } from '../typechain'
 
-import { completeFixture } from './shared/fixtures'
+import { uniswapCoreFixture } from './shared/fixtures'
 
-type UniswapV3Factory = any
+import { UniswapV3Factory } from '../vendor/uniswap-v3-core/typechain/UniswapV3Factory'
+
 type UniswapNFT = any
 
 const { createFixtureLoader } = waffle
@@ -18,37 +19,57 @@ describe('UniswapV3Staker', () => {
   let factory: UniswapV3Factory
   let nft: UniswapNFT
   let staker: UniswapV3Staker
+  let stakerFactory
 
   const uniswapFixture: Fixture<{
     factory: UniswapV3Factory
     nft: UniswapNFT
   }> = async (wallets, provider) => {
-    return await completeFixture(wallets, provider)
+    return await uniswapCoreFixture(wallets, provider)
   }
 
   before('create fixture loader', async () => {
     loadFixture = createFixtureLoader(wallets)
     ;({ factory, nft } = await loadFixture(uniswapFixture))
+    stakerFactory = await ethers.getContractFactory('UniswapV3Staker')
   })
 
   describe('#initialize', async () => {
-    it('deploys', async () => {
-      const stakerFactory = await ethers.getContractFactory('UniswapV3Staker')
+    before('set up contract', async () => {
       staker = (await stakerFactory.deploy(
         factory.address,
         nft.address
       )) as UniswapV3Staker
+    })
+
+    it('deploys', async () => {
       expect(staker.address).to.be.a.string
+    })
+
+    it('#factory', async () => {
+      expect(await staker.factory()).to.eq(factory.address)
+    })
+
+    it('#nonfungiblePositionManager', async () => {
+      expect(await staker.nonfungiblePositionManager()).to.eq(nft.address)
     })
   })
 
   describe('#createIncentive', async () => {
-    describe('happy path', () => {
-      it('transfers the right amount of rewardToken', async () => {
-        // staker.createIncentive()
-      })
-      it('emits IncentiveCreated()')
+    before('setup', async () => {
+      staker = await stakerFactory.deploy(factory.address, nft.address)
     })
+
+    it('transfers rewardToken to the staker contract', async () => {
+      const rewardToken = null
+
+      // Create some rewardToken that is owned by user
+
+      // staker.createIncentive()
+      // staker.createIncentive()
+    })
+    it('emits IncentiveCreated() upon success')
+
     describe('should fail if', () => {
       it('already has an incentive with those params')
       it('claim deadline not gte end time')
@@ -100,7 +121,6 @@ describe('UniswapV3Staker', () => {
         * What if tokenId is invalid
         * What happens if I call deposit() twice with the same tokenId?
         * Ownership checks around tokenId? Can you transfer something that is not yours?
-
       */
     })
   })

@@ -1,4 +1,4 @@
-import { constants } from 'ethers'
+import { constants, BigNumber } from 'ethers'
 import { Fixture } from 'ethereum-waffle'
 import { ethers, waffle } from 'hardhat'
 import { linkLibraries } from './linkLibraries'
@@ -10,6 +10,9 @@ import { TestERC20 } from '../../typechain/TestERC20'
 
 import UniswapV3Factory from '@uniswap/v3-core/artifacts/contracts/UniswapV3Factory.sol/UniswapV3Factory.json'
 import SwapRouter from '@uniswap/v3-periphery/artifacts/contracts/SwapRouter.sol/SwapRouter.json'
+
+import NonfungibleTokenPositionDescriptor from '@uniswap/v3-periphery/artifacts/contracts/NonfungibleTokenPositionDescriptor.sol/NonfungibleTokenPositionDescriptor.json'
+import MockTimeNonfungiblePositionManager from '@uniswap/v3-periphery/artifacts/contracts/NonfungiblePositionManager.sol/NonfungiblePositionManager.json'
 
 type MockTimeSwapRouter = any
 
@@ -23,6 +26,35 @@ export const wethFixture: Fixture<{ weth9: IWETH9 }> = async (
   })) as IWETH9
 
   return { weth9 }
+}
+
+interface TokensFixture {
+  token0: TestERC20
+  token1: TestERC20
+  token2: TestERC20
+}
+
+async function tokensFixture(): Promise<TokensFixture> {
+  const tokenFactory = await ethers.getContractFactory('TestERC20')
+  const tokenA = (await tokenFactory.deploy(
+    BigNumber.from(2).pow(255)
+  )) as TestERC20
+  const tokenB = (await tokenFactory.deploy(
+    BigNumber.from(2).pow(255)
+  )) as TestERC20
+  const tokenC = (await tokenFactory.deploy(
+    BigNumber.from(2).pow(255)
+  )) as TestERC20
+
+  const [token0, token1, token2] = [
+    tokenA,
+    tokenB,
+    tokenC,
+  ].sort((tokenA, tokenB) =>
+    tokenA.address.toLowerCase() < tokenB.address.toLowerCase() ? -1 : 1
+  )
+
+  return { token0, token1, token2 }
 }
 
 const v3CoreFactoryFixture: Fixture<IUniswapV3Factory> = async ([wallet]) => {
@@ -51,7 +83,6 @@ export const v3RouterFixture: Fixture<{
   return { factory, weth9, router }
 }
 
-import NonfungibleTokenPositionDescriptor from '@uniswap/v3-periphery/artifacts/contracts/NonfungibleTokenPositionDescriptor.sol/NonfungibleTokenPositionDescriptor.json'
 type NonfungibleTokenPositionDescriptor = any
 const nonfungibleTokenPositionDescriptorFixture: Fixture<{
   nonfungibleTokenPositionDescriptor: NonfungibleTokenPositionDescriptor
@@ -65,22 +96,9 @@ const nonfungibleTokenPositionDescriptorFixture: Fixture<{
   return { nonfungibleTokenPositionDescriptor }
 }
 
-import MockTimeNonfungiblePositionManager from '@uniswap/v3-periphery/artifacts/contracts/NonfungiblePositionManager.sol/NonfungiblePositionManager.json'
-const mockTimeNonfungiblePositionManagerFixture: Fixture<{
-  mockTimeNonfungiblePositionManager: any
-}> = async ([wallet], provider) => {
-  const factory = new ethers.ContractFactory(
-    MockTimeNonfungiblePositionManager.abi,
-    MockTimeNonfungiblePositionManager.bytecode
-  )
-  const mockTimeNonfungiblePositionManager = await factory.deploy()
-  return { mockTimeNonfungiblePositionManager }
-}
-
 type MockTimeNonfungiblePositionManager = any
 
 import NFTDescriptor from '@uniswap/v3-periphery/artifacts/contracts/libraries/NFTDescriptor.sol/NFTDescriptor.json'
-
 type NFTDescriptorLibrary = any
 const nftDescriptorLibraryFixture: Fixture<NFTDescriptorLibrary> = async ([
   wallet,
@@ -91,13 +109,18 @@ const nftDescriptorLibraryFixture: Fixture<NFTDescriptorLibrary> = async ([
   })
 }
 
-export const completeFixture: Fixture<{
+type UniswapCoreFixture = {
   weth9: IWETH9
   factory: IUniswapV3Factory
   router: MockTimeSwapRouter
   nft: MockTimeNonfungiblePositionManager
   tokens: [TestERC20, TestERC20, TestERC20]
-}> = async (wallets, provider) => {
+}
+
+export const uniswapCoreFixture: Fixture<UniswapCoreFixture> = async (
+  wallets,
+  provider
+) => {
   const { weth9, factory, router } = await v3RouterFixture(wallets, provider)
   const tokenFactory = await ethers.getContractFactory('TestERC20')
   const tokens = (await Promise.all([
@@ -159,4 +182,9 @@ export const completeFixture: Fixture<{
     tokens,
     nft,
   }
+}
+
+type UniswapV3Pool = any
+type UniswapPoolsFixture = {
+  pool: UniswapV3Pool
 }

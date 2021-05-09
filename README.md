@@ -6,6 +6,12 @@ This is still a work-in-progress and not yet ready for release, but will be soon
 
 I'll be posting a roadmap and some milestones soon.
 
+
+## Development
+
+```sh
+$ make deps
+```
 ## Design
 
 See [DESIGN](docs/DESIGN.md).
