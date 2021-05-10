@@ -9,7 +9,6 @@ import '@uniswap/v3-periphery/contracts/interfaces/INonfungiblePositionManager.s
 import '@uniswap/v3-core/contracts/libraries/FixedPoint128.sol';
 import '@uniswap/v3-core/contracts/libraries/FullMath.sol';
 import '@openzeppelin/contracts/token/ERC721/ERC721Holder.sol';
-
 import '@openzeppelin/contracts/math/Math.sol';
 import '@openzeppelin/contracts/math/SafeMath.sol';
 
@@ -19,8 +18,31 @@ import '@openzeppelin/contracts/math/SafeMath.sol';
 @author Dan Robinson <dan@paradigm.xyz>
 */
 contract UniswapV3Staker is ERC721Holder {
+    /// @notice Represents a staking incentive.
+    struct Incentive {
+        uint128 totalRewardUnclaimed;
+        uint160 totalSecondsClaimedX128;
+        address rewardToken;
+    }
+
+    struct Deposit {
+        address owner;
+        uint32 numberOfStakes;
+    }
+
+    struct Stake {
+        uint160 secondsPerLiquidityInitialX128;
+        address pool;
+    }
+
+    /// @dev bytes32 refers to the return value of _getIncentiveId
+    mapping(bytes32 => Incentive) public incentives;
     IUniswapV3Factory public immutable factory;
     INonfungiblePositionManager public immutable nonfungiblePositionManager;
+    /// @dev deposits[tokenId] => Deposit
+    mapping(uint256 => Deposit) deposits;
+    /// @dev stakes[tokenId][incentiveHash] => Stake
+    mapping(uint256 => mapping(bytes32 => Stake)) stakes;
 
     /// @param _factory the Uniswap V3 factory
     /// @param _nonfungiblePositionManager the NFT position manager contract address
@@ -30,48 +52,6 @@ contract UniswapV3Staker is ERC721Holder {
             _nonfungiblePositionManager
         );
     }
-
-    //
-    // Part 1: Incentives
-    //
-
-    /// @notice Represents a staking incentive.
-    struct Incentive {
-        uint128 totalRewardUnclaimed;
-        uint160 totalSecondsClaimedX128;
-        address rewardToken;
-    }
-
-    /// @notice Calculate the key for a staking incentive
-    /// @param creator Address that created this incentive
-    /// @param rewardToken Token being distributed as a reward
-    /// @param pool The UniswapV3 pool this incentive is on
-    /// @param startTime When the incentive begins
-    /// @param endTime When the incentive ends
-    /// @param claimDeadline Time by which incentive rewards must be claimed
-    function _getIncentiveId(
-        address creator,
-        address rewardToken,
-        address pool,
-        uint32 startTime,
-        uint32 endTime,
-        uint32 claimDeadline
-    ) internal pure returns (bytes32) {
-        return
-            keccak256(
-                abi.encode(
-                    creator,
-                    rewardToken,
-                    pool,
-                    startTime,
-                    endTime,
-                    claimDeadline
-                )
-            );
-    }
-
-    /// @notice bytes32 refers to the return value of _getIncentiveId
-    mapping(bytes32 => Incentive) public incentives;
 
     event IncentiveCreated(
         address indexed rewardToken,
@@ -206,18 +186,6 @@ contract UniswapV3Staker is ERC721Holder {
         emit IncentiveEnded(rewardToken, pool, startTime, endTime);
     }
 
-    //
-    // Part 2: Deposits, Withdrawals
-    //
-
-    struct Deposit {
-        address owner;
-        uint32 numberOfStakes;
-    }
-
-    /// @dev deposits[tokenId] => Deposit
-    mapping(uint256 => Deposit) deposits;
-
     event TokenDeposited(uint256 tokenId);
 
     function depositToken(uint256 tokenId) external {
@@ -251,56 +219,6 @@ contract UniswapV3Staker is ERC721Holder {
         nonfungiblePositionManager.safeTransferFrom(address(this), to, tokenId);
 
         emit TokenWithdrawn(tokenId);
-    }
-
-    //
-    // Part 3: Staking, Unstaking
-    //
-
-    struct Stake {
-        uint160 secondsPerLiquidityInitialX128;
-        address pool;
-    }
-
-    /// @dev stakes[tokenId][incentiveHash] => Stake
-    mapping(uint256 => mapping(bytes32 => Stake)) stakes;
-
-    function _getPositionDetails(uint256 tokenId)
-        internal
-        view
-        returns (
-            address,
-            int24,
-            int24,
-            uint128
-        )
-    {
-        (
-            ,
-            ,
-            address token0,
-            address token1,
-            uint24 fee,
-            int24 tickLower,
-            int24 tickUpper,
-            uint128 liquidity,
-            ,
-            ,
-            ,
-
-        ) = nonfungiblePositionManager.positions(tokenId);
-
-        PoolAddress.PoolKey memory poolKey =
-            PoolAddress.getPoolKey(token0, token1, fee);
-
-        // Could do this via factory.getPool or locally via PoolAddress.
-        // TODO: what happens if this is null
-        return (
-            PoolAddress.computeAddress(address(factory), poolKey),
-            tickLower,
-            tickUpper,
-            liquidity
-        );
     }
 
     // TODO params.
@@ -458,4 +376,70 @@ contract UniswapV3Staker is ERC721Holder {
     //     // } catch {}
     //     emit TokenUnstaked();
     // }
+
+    /// @notice Calculate the key for a staking incentive
+    /// @param creator Address that created this incentive
+    /// @param rewardToken Token being distributed as a reward
+    /// @param pool The UniswapV3 pool this incentive is on
+    /// @param startTime When the incentive begins
+    /// @param endTime When the incentive ends
+    /// @param claimDeadline Time by which incentive rewards must be claimed
+    function _getIncentiveId(
+        address creator,
+        address rewardToken,
+        address pool,
+        uint32 startTime,
+        uint32 endTime,
+        uint32 claimDeadline
+    ) internal pure returns (bytes32) {
+        return
+            keccak256(
+                abi.encode(
+                    creator,
+                    rewardToken,
+                    pool,
+                    startTime,
+                    endTime,
+                    claimDeadline
+                )
+            );
+    }
+
+    function _getPositionDetails(uint256 tokenId)
+        internal
+        view
+        returns (
+            address,
+            int24,
+            int24,
+            uint128
+        )
+    {
+        (
+            ,
+            ,
+            address token0,
+            address token1,
+            uint24 fee,
+            int24 tickLower,
+            int24 tickUpper,
+            uint128 liquidity,
+            ,
+            ,
+            ,
+
+        ) = nonfungiblePositionManager.positions(tokenId);
+
+        PoolAddress.PoolKey memory poolKey =
+            PoolAddress.getPoolKey(token0, token1, fee);
+
+        // Could do this via factory.getPool or locally via PoolAddress.
+        // TODO: what happens if this is null
+        return (
+            PoolAddress.computeAddress(address(factory), poolKey),
+            tickLower,
+            tickUpper,
+            liquidity
+        );
+    }
 }

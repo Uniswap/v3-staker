@@ -3,7 +3,7 @@ import { Fixture } from 'ethereum-waffle'
 import { expect } from './shared'
 import { UniswapV3Staker } from '../typechain/UniswapV3Staker'
 import type { IUniswapV3Pool, TestERC20, IUniswapV3Factory } from '../typechain'
-
+import { FeeAmount, encodePriceSqrt } from './shared/utilities'
 import { completeFixture } from './shared/fixtures'
 
 type UniswapV3Factory = any
@@ -19,10 +19,7 @@ describe('UniswapV3Staker', () => {
   let nft: UniswapNFT
   let staker: UniswapV3Staker
 
-  const uniswapFixture: Fixture<{
-    factory: UniswapV3Factory
-    nft: UniswapNFT
-  }> = async (wallets, provider) => {
+  const uniswapFixture: Fixture<any> = async (wallets, provider) => {
     return await completeFixture(wallets, provider)
   }
 
@@ -43,6 +40,20 @@ describe('UniswapV3Staker', () => {
   })
 
   describe('#createIncentive', async () => {
+    before('setup', async () => {
+      const { nft, factory, tokens } = await loadFixture(uniswapFixture)
+
+      const pool = await nft.createAndInitializePoolIfNecessary(
+        tokens[0].address,
+        tokens[1].address,
+        FeeAmount.MEDIUM,
+        encodePriceSqrt(1, 1)
+      )
+
+      // Create a uniswap pool with token0, token1
+      // owner of rewardToken creates an incentive for the pool.
+    })
+
     describe('happy path', () => {
       it('transfers the right amount of rewardToken', async () => {
         // staker.createIncentive()
