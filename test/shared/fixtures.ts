@@ -4,13 +4,14 @@ import { ethers, waffle } from 'hardhat'
 import { linkLibraries } from './linkLibraries'
 import WETH9 from '../contracts/WETH9.json'
 
-import { IWETH9 } from '../../typechain/IWETH9'
+// import { IWETH9 } from '../../typechain/IWETH9'
 import { IUniswapV3Factory } from '../../typechain/IUniswapV3Factory'
 import { TestERC20 } from '../../typechain/TestERC20'
 
 import UniswapV3Factory from '@uniswap/v3-core/artifacts/contracts/UniswapV3Factory.sol/UniswapV3Factory.json'
 import SwapRouter from '@uniswap/v3-periphery/artifacts/contracts/SwapRouter.sol/SwapRouter.json'
 
+type IWETH9 = any
 type MockTimeSwapRouter = any
 
 export const wethFixture: Fixture<{ weth9: IWETH9 }> = async (
