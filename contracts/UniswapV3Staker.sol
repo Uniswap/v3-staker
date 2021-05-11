@@ -11,7 +11,7 @@ import '@uniswap/v3-periphery/contracts/libraries/PoolAddress.sol';
 import '@uniswap/v3-periphery/contracts/interfaces/INonfungiblePositionManager.sol';
 import '@uniswap/v3-core/contracts/libraries/FixedPoint128.sol';
 import '@uniswap/v3-core/contracts/libraries/FullMath.sol';
-import '@openzeppelin/contracts/token/ERC721/ERC721Holder.sol';
+import '@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol';
 import '@openzeppelin/contracts/math/Math.sol';
 import '@openzeppelin/contracts/math/SafeMath.sol';
 import '@openzeppelin/contracts/utils/ReentrancyGuard.sol';
@@ -145,14 +145,12 @@ contract UniswapV3Staker is IUniswapV3Staker, ERC721Holder, ReentrancyGuard {
     function depositToken(uint256 tokenId) external override {
         // TODO: Make sure the transfer succeeds and is a uniswap erc721
         // I think this is not secure
-        nonfungiblePositionManager.safeTransferFrom(
+        nonfungiblePositionManager.transferFrom(
             msg.sender,
             address(this),
             tokenId
         );
-
-        deposits[tokenId] = Deposit(msg.sender, 0);
-        emit TokenDeposited(tokenId);
+        _deposit(tokenId, msg.sender);
     }
 
     function withdrawToken(uint256 tokenId, address to) external override {
@@ -297,6 +295,67 @@ contract UniswapV3Staker is IUniswapV3Staker, ERC721Holder, ReentrancyGuard {
         );
         // } catch {}
         emit TokenUnstaked();
+    }
+
+    function onERC721Received(
+        address,
+        address from,
+        uint256 tokenId,
+        bytes calldata data
+    ) external override returns (bytes4) {
+        require(
+            msg.sender == address(nonfungiblePositionManager),
+            'uniswap v3 nft only'
+        );
+        _deposit(tokenId, from);
+
+        if (data.length > 0) {
+            (address poolAddress, int24 tickLower, int24 tickUpper, ) =
+                _getPositionDetails(tokenId);
+            (, uint160 secondsPerLiquidityInsideX128, ) =
+                IUniswapV3Pool(poolAddress).snapshotCumulativesInside(
+                    tickLower,
+                    tickUpper
+                );
+            StakeParams[] memory params = abi.decode(data, (StakeParams[]));
+            for (uint256 i = 0; i < params.length; i++) {
+                bytes32 incentiveId =
+                    _getIncentiveId(
+                        params[i].creator,
+                        params[i].rewardToken,
+                        poolAddress,
+                        params[i].startTime,
+                        params[i].endTime,
+                        params[i].claimDeadline
+                    );
+                _stake(
+                    tokenId,
+                    incentiveId,
+                    poolAddress,
+                    secondsPerLiquidityInsideX128
+                );
+            }
+        }
+        return this.onERC721Received.selector;
+    }
+
+    function _deposit(uint256 tokenId, address owner) internal {
+        deposits[tokenId] = Deposit(owner, 0);
+        emit TokenDeposited(tokenId, owner);
+    }
+
+    function _stake(
+        uint256 tokenId,
+        bytes32 incentiveId,
+        address poolAddress,
+        uint160 secondsPerLiquidityInsideX128
+    ) internal {
+        stakes[tokenId][incentiveId] = Stake(
+            secondsPerLiquidityInsideX128,
+            poolAddress
+        );
+        deposits[tokenId].numberOfStakes += 1;
+        emit TokenStaked();
     }
 
     /// @notice Calculate the key for a staking incentive
