@@ -11,13 +11,34 @@ import '@uniswap/v3-core/contracts/libraries/FullMath.sol';
 import '@openzeppelin/contracts/token/ERC721/ERC721Holder.sol';
 import '@openzeppelin/contracts/math/Math.sol';
 import '@openzeppelin/contracts/math/SafeMath.sol';
+import '@openzeppelin/contracts/utils/ReentrancyGuard.sol';
 
 /**
 @title Uniswap V3 canonical staking interface
 @author Omar Bohsali <omar.bohsali@gmail.com>
 @author Dan Robinson <dan@paradigm.xyz>
 */
-contract UniswapV3Staker is ERC721Holder {
+contract UniswapV3Staker is ERC721Holder, ReentrancyGuard {
+    event IncentiveCreated(
+        address indexed rewardToken,
+        address indexed pool,
+        uint32 startTime,
+        uint32 endTime,
+        uint32 claimDeadline,
+        uint128 indexed totalReward
+    );
+    event IncentiveEnded(
+        address indexed rewardToken,
+        address indexed pool,
+        uint32 startTime,
+        uint32 endTime
+    );
+    event TokenDeposited(uint256 tokenId);
+    event TokenWithdrawn(uint256 tokenId);
+    // TODO params.
+    event TokenUnstaked();
+    event TokenStaked();
+
     /// @notice Represents a staking incentive.
     struct Incentive {
         uint128 totalRewardUnclaimed;
@@ -35,10 +56,11 @@ contract UniswapV3Staker is ERC721Holder {
         address pool;
     }
 
-    /// @dev bytes32 refers to the return value of _getIncentiveId
-    mapping(bytes32 => Incentive) public incentives;
     IUniswapV3Factory public immutable factory;
     INonfungiblePositionManager public immutable nonfungiblePositionManager;
+
+    /// @dev bytes32 refers to the return value of _getIncentiveId
+    mapping(bytes32 => Incentive) public incentives;
     /// @dev deposits[tokenId] => Deposit
     mapping(uint256 => Deposit) deposits;
     /// @dev stakes[tokenId][incentiveHash] => Stake
@@ -52,15 +74,6 @@ contract UniswapV3Staker is ERC721Holder {
             _nonfungiblePositionManager
         );
     }
-
-    event IncentiveCreated(
-        address indexed rewardToken,
-        address indexed pool,
-        uint32 startTime,
-        uint32 endTime,
-        uint32 claimDeadline,
-        uint128 indexed totalReward
-    );
 
     /**
     @notice Creates a new liquidity mining incentive program.
@@ -131,13 +144,6 @@ contract UniswapV3Staker is ERC721Holder {
         );
     }
 
-    event IncentiveEnded(
-        address indexed rewardToken,
-        address indexed pool,
-        uint32 startTime,
-        uint32 endTime
-    );
-
     /**
     @notice Deletes an incentive whose claimDeadline has passed.
     */
@@ -147,7 +153,8 @@ contract UniswapV3Staker is ERC721Holder {
         uint32 startTime,
         uint32 endTime,
         uint32 claimDeadline
-    ) external {
+    ) external nonReentrant {
+      // TODO: integration test for nonReentrancy
         /*
         Check:
         * Only callable by creator (msg.sender is hashed)
@@ -172,9 +179,6 @@ contract UniswapV3Staker is ERC721Holder {
 
         Incentive memory incentive = incentives[key];
         require(incentive.rewardToken != address(0), 'INVALID_INCENTIVE');
-
-        // This has to go before the .transfer() call below, otherwise there's a re-entrancy vulnerability.
-        // TODO: integration test for this.
         delete incentives[key];
 
         // TODO: handle failures
@@ -185,8 +189,6 @@ contract UniswapV3Staker is ERC721Holder {
 
         emit IncentiveEnded(rewardToken, pool, startTime, endTime);
     }
-
-    event TokenDeposited(uint256 tokenId);
 
     function depositToken(uint256 tokenId) external {
         // TODO: Make sure the transfer succeeds and is a uniswap erc721
@@ -201,16 +203,14 @@ contract UniswapV3Staker is ERC721Holder {
         emit TokenDeposited(tokenId);
     }
 
-    event TokenWithdrawn(uint256 tokenId);
-
     function withdrawToken(uint256 tokenId, address to) external {
+        Deposits memory deposit = deposits[tokenId];
         require(
-            deposits[tokenId].numberOfStakes == 0,
+            deposit.numberOfStakes == 0,
             'NUMBER_OF_STAKES_NOT_ZERO'
         );
-
         require(
-            msg.sender == nonfungiblePositionManager.ownerOf(tokenId),
+            deposit.owner == msg.sender,
             'NOT_YOUR_NFT'
         );
 
@@ -220,9 +220,6 @@ contract UniswapV3Staker is ERC721Holder {
 
         emit TokenWithdrawn(tokenId);
     }
-
-    // TODO params.
-    event TokenStaked();
 
     function stakeToken(
         uint256 tokenId,
@@ -277,7 +274,6 @@ contract UniswapV3Staker is ERC721Holder {
         emit TokenStaked();
     }
 
-    event TokenUnstaked();
 
     // function unstakeToken(
     //     uint256 tokenId,
@@ -287,7 +283,7 @@ contract UniswapV3Staker is ERC721Holder {
     //     uint32 endTime,
     //     uint32 claimDeadline,
     //     address to
-    // ) external {
+    // ) external nonReetrant {
     //     /*
     //     Check:
     //     * It checks that you are the owner of the Deposit,
