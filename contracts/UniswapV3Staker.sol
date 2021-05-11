@@ -204,7 +204,7 @@ contract UniswapV3Staker is ERC721Holder, ReentrancyGuard {
     }
 
     function withdrawToken(uint256 tokenId, address to) external {
-        Deposits memory deposit = deposits[tokenId];
+        Deposit memory deposit = deposits[tokenId];
         require(
             deposit.numberOfStakes == 0,
             'NUMBER_OF_STAKES_NOT_ZERO'
