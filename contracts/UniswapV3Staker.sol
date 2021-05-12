@@ -105,7 +105,7 @@ contract UniswapV3Staker is ERC721Holder, ReentrancyGuard {
         * emit IncentiveCreated()
         */
         require(claimDeadline >= endTime, 'claimDeadline_not_gte_endTime');
-        require(endTime < startTime, 'endTime_not_gte_startTime');
+        require(endTime > startTime, 'endTime_not_gte_startTime');
 
         // TODO: Do I need any security checks around msg.sender?
         bytes32 key =

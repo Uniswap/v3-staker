@@ -1,10 +1,18 @@
+import { BigNumber } from 'ethers'
 import { ethers, waffle } from 'hardhat'
 import { Fixture } from 'ethereum-waffle'
 import { expect } from './shared'
 import { UniswapV3Staker } from '../typechain/UniswapV3Staker'
-import type { IUniswapV3Pool, TestERC20, IUniswapV3Factory } from '../typechain'
-import { FeeAmount, encodePriceSqrt } from './shared/utilities'
+import type {
+  IUniswapV3Factory,
+  TestERC20,
+  INonfungiblePositionManager,
+} from '../typechain'
+import { encodePriceSqrt, blockTimestamp } from './shared/utilities'
 import { completeFixture } from './shared/fixtures'
+import { FeeAmount, TICK_SPACINGS, MaxUint256 } from './shared/constants'
+import { getMaxTick, getMinTick } from './shared/ticks'
+import { sortedTokens } from './shared/tokenSort'
 
 type UniswapV3Factory = any
 type UniswapNFT = any
@@ -12,20 +20,76 @@ type UniswapNFT = any
 const { createFixtureLoader } = waffle
 let loadFixture: ReturnType<typeof createFixtureLoader>
 
+const BN = ethers.BigNumber.from
+const BNe18 = (n) => ethers.BigNumber.from(n).mul(BN(10).pow(18))
+
+async function mintPosition(
+  nft: INonfungiblePositionManager,
+  mintParams: {
+    token0: string
+    token1: string
+    fee: FeeAmount
+    tickLower: number
+    tickUpper: number
+    recipient: string
+    amount0Desired: any
+    amount1Desired: any
+    amount0Min: number
+    amount1Min: number
+    deadline: number
+  }
+): Promise<string> {
+  nft.mint({
+    token0: mintParams.token0,
+    token1: mintParams.token1,
+    fee: mintParams.fee,
+    tickLower: mintParams.tickLower,
+    tickUpper: mintParams.tickUpper,
+    recipient: mintParams.recipient,
+    amount0Desired: mintParams.amount0Desired,
+    amount1Desired: mintParams.amount1Desired,
+    amount0Min: mintParams.amount0Min,
+    amount1Min: mintParams.amount1Min,
+    deadline: mintParams.deadline,
+  })
+
+  const tokenId: BigNumber = await new Promise((resolve) =>
+    nft.on('Transfer', (from: any, to: any, tokenId: any) => resolve(tokenId))
+  )
+  return tokenId.toString()
+}
+
 describe('UniswapV3Staker', () => {
   const wallets = waffle.provider.getWallets()
+  const [wallet, other] = wallets
 
-  let factory: UniswapV3Factory
-  let nft: UniswapNFT
+  let tokens: [TestERC20, TestERC20, TestERC20]
+  let factory: IUniswapV3Factory
+  let nft: INonfungiblePositionManager
   let staker: UniswapV3Staker
 
-  const uniswapFixture: Fixture<any> = async (wallets, provider) => {
-    return await completeFixture(wallets, provider)
+  const uniswapFixture: Fixture<{
+    nft: INonfungiblePositionManager
+    factory: IUniswapV3Factory
+    staker: UniswapV3Staker
+    tokens: [TestERC20, TestERC20, TestERC20]
+  }> = async (wallets, provider) => {
+    const { tokens, nft, factory } = await completeFixture(wallets, provider)
+    const stakerFactory = await ethers.getContractFactory('UniswapV3Staker')
+    staker = (await stakerFactory.deploy(
+      factory.address,
+      nft.address
+    )) as UniswapV3Staker
+
+    for (const token of tokens) {
+      await token.approve(nft.address, MaxUint256)
+    }
+    return { nft, tokens, staker, factory }
   }
 
   before('create fixture loader', async () => {
     loadFixture = createFixtureLoader(wallets)
-    ;({ factory, nft } = await loadFixture(uniswapFixture))
+    ;({ nft, tokens, staker, factory } = await loadFixture(uniswapFixture))
   })
 
   describe('#initialize', async () => {
@@ -40,23 +104,45 @@ describe('UniswapV3Staker', () => {
   })
 
   describe('#createIncentive', async () => {
-    before('setup', async () => {
-      const { nft, factory, tokens } = await loadFixture(uniswapFixture)
-
-      const pool = await nft.createAndInitializePoolIfNecessary(
-        tokens[0].address,
-        tokens[1].address,
+    beforeEach('setup', async () => {
+      const [token0, token1] = sortedTokens(tokens[1], tokens[2])
+      await nft.createAndInitializePoolIfNecessary(
+        token0.address,
+        token1.address,
         FeeAmount.MEDIUM,
         encodePriceSqrt(1, 1)
       )
 
-      // Create a uniswap pool with token0, token1
-      // owner of rewardToken creates an incentive for the pool.
+      await mintPosition(nft, {
+        token0: token0.address,
+        token1: token1.address,
+        fee: FeeAmount.MEDIUM,
+        tickLower: getMinTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
+        tickUpper: getMaxTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
+        recipient: wallet.address,
+        amount0Desired: BN(10).mul(BN(10).pow(18)),
+        amount1Desired: BN(10).mul(BN(10).pow(18)),
+        amount0Min: 0,
+        amount1Min: 0,
+        deadline: (await blockTimestamp()) + 1000,
+      })
     })
 
     describe('happy path', () => {
       it('transfers the right amount of rewardToken', async () => {
-        // staker.createIncentive()
+        const pool = await factory.getPool(tokens[0].address, tokens[1].address, FeeAmount.MEDIUM)
+        const depositAmount = BNe18(1000)
+        const blockTime = await blockTimestamp()
+        await tokens[0].approve(staker.address, BNe18(1000))
+        await staker.createIncentive(
+          tokens[0].address,
+          pool,
+          blockTime,
+          blockTime + 1000,
+          blockTime + 10000,
+          depositAmount
+        )
+        expect(await tokens[0].balanceOf(staker.address)).to.eq(depositAmount)
       })
       it('emits IncentiveCreated()')
     })
@@ -88,7 +174,38 @@ describe('UniswapV3Staker', () => {
 
   describe('#depositToken', () => {
     describe('that are successful', () => {
-      it('emit a Deposited event')
+      let tokenId: string
+      beforeEach(async () => {
+        const [token0, token1] = sortedTokens(tokens[1], tokens[2])
+        await nft.createAndInitializePoolIfNecessary(
+          token0.address,
+          token1.address,
+          FeeAmount.MEDIUM,
+          encodePriceSqrt(1, 1)
+        )
+
+        tokenId = await mintPosition(nft, {
+          token0: token0.address,
+          token1: token1.address,
+          fee: FeeAmount.MEDIUM,
+          tickLower: getMinTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
+          tickUpper: getMaxTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
+          recipient: wallet.address,
+          amount0Desired: BN(10).mul(BN(10).pow(18)),
+          amount1Desired: BN(10).mul(BN(10).pow(18)),
+          amount0Min: 0,
+          amount1Min: 0,
+          deadline: (await blockTimestamp()) + 1000,
+        })
+      })
+
+      it('emit a Deposited event', async () => {
+        await nft.approve(staker.address, 1, {gasLimit: 12450000})
+        expect(staker.depositToken(1))
+          .to.emit(staker, 'TokenDeposited')
+          .withArgs(1)
+      })
+
       it('actually transfers the NFT to the contract')
       it('respond to the onERC721Received function')
       it('creates deposits[tokenId] = Deposit struct')
