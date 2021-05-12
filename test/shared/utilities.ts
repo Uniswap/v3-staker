@@ -1,4 +1,5 @@
 import bn from 'bignumber.js'
+import { ethers } from 'hardhat'
 import {
   BigNumber,
   BigNumberish,
@@ -8,12 +9,6 @@ import {
   utils,
   Wallet,
 } from 'ethers'
-
-export enum FeeAmount {
-  LOW = 500,
-  MEDIUM = 3000,
-  HIGH = 10000,
-}
 
 bn.config({ EXPONENTIAL_AT: 999999, DECIMAL_PLACES: 40 })
 
@@ -30,4 +25,10 @@ export const encodePriceSqrt = (
       .integerValue(3)
       .toString()
   )
+}
+
+export const blockTimestamp = async () => {
+  const blockNumber = await ethers.provider.getBlockNumber()
+  const block = await ethers.provider.getBlock(blockNumber)
+  return block.timestamp
 }
