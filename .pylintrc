@@ -1,0 +1,8 @@
+[MASTER]
+disable=missing-function-docstring,
+    missing-module-docstring,
+    no-member,
+    no-name-in-module,
+    no-value-for-parameter,
+    wrong-import-order,
+jobs=8

@@ -1,0 +1,22 @@
+{
+  "folders": [
+    {
+      "path": "."
+    }
+  ],
+  "settings": {
+    "files.exclude": {
+      "**/.git": true,
+      "**/.svn": true,
+      "**/.hg": true,
+      "**/CVS": true,
+      "**/.DS_Store": true,
+      "artifacts": true,
+      "cache": true,
+      "**/node_modules": true,
+      "**/__pycache__": true,
+      "*.pyc": true,
+      "build/": true
+    }
+  }
+}

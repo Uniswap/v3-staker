@@ -29,7 +29,7 @@ def uniswap_v3_factory(accounts):
 
 
 @modfix
-def uniswap_nft_position_manager():
+def nft_position_manager():
     yield Contract.from_explorer(addresses["NonfungiblePositionManager"])
 
 
@@ -57,9 +57,19 @@ def reward_token(ERC20, accounts):
 
 
 @modfix
-def deployed_staker(accounts, uniswap_v3_factory, uniswap_nft_position_manager):
+def reward_token2(ERC20, accounts):
+    yield ERC20.deploy(1000, {"from": accounts[0]})
+
+
+@modfix
+def staker(accounts, uniswap_v3_factory, nft_position_manager):
     yield accounts[0].deploy(
         UniswapV3Staker,
         uniswap_v3_factory.address,
-        uniswap_nft_position_manager.address,
+        nft_position_manager.address,
     )
+
+
+@modfix
+def account(accounts):
+    yield accounts[0]
