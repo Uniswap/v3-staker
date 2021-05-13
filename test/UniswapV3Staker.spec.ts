@@ -210,12 +210,6 @@ describe('UniswapV3Staker', () => {
       })
 
       it('incentive does not exist', async () => {
-        const pool = await factory.getPool(
-          tokens[0].address,
-          tokens[1].address,
-          FeeAmount.MEDIUM
-        )
-
         // Adjust the block.timestamp so it is after the claim deadline
         await ethers.provider.send('evm_setNextBlockTimestamp', [
           claimDeadline + 1,
