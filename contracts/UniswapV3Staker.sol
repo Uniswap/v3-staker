@@ -151,7 +151,51 @@ contract UniswapV3Staker is IUniswapV3Staker, ERC721Holder, ReentrancyGuard {
             address(this),
             tokenId
         );
-        _deposit(tokenId, msg.sender);
+    }
+
+    function onERC721Received(
+        address,
+        address from,
+        uint256 tokenId,
+        bytes calldata data
+    ) external override returns (bytes4) {
+        require(
+            msg.sender == address(nonfungiblePositionManager),
+            'uniswap v3 nft only'
+        );
+
+        deposits[tokenId] = Deposit(owner, 0);
+        emit TokenDeposited(tokenId, owner);
+
+        if (data.length > 0) {
+            (address poolAddress, int24 tickLower, int24 tickUpper, ) =
+                _getPositionDetails(tokenId);
+            (, uint160 secondsPerLiquidityInsideX128, ) =
+                IUniswapV3Pool(poolAddress).snapshotCumulativesInside(
+                    tickLower,
+                    tickUpper
+                );
+            StakeParams[] memory params = abi.decode(data, (StakeParams[]));
+            for (uint256 i = 0; i < params.length; i++) {
+                bytes32 incentiveId =
+                    getIncentiveId(
+                        params[i].creator,
+                        params[i].rewardToken,
+                        poolAddress,
+                        params[i].startTime,
+                        params[i].endTime,
+                        params[i].claimDeadline
+                    );
+                require(incentives[incentiveId].rewardToken != address(0), 'non-existent incentive');
+                _stake(
+                    tokenId,
+                    incentiveId,
+                    poolAddress,
+                    secondsPerLiquidityInsideX128
+                );
+            }
+        }
+        return this.onERC721Received.selector;
     }
 
     function withdrawToken(uint256 tokenId, address to) external override {

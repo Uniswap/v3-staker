@@ -302,15 +302,18 @@ describe('UniswapV3Staker', () => {
     let tokenId: BigNumberish
     let poolAddress: string
     let rewardToken: TestERC20
+    let otherRewardToken: TestERC20
     let startTime: number
     let endTime: number
     let claimDeadline: number
     let totalReward: BigNumber
+    let data: string
 
     beforeEach(async () => {
       const currentTime = await blockTimestamp()
 
       rewardToken = tokens[1]
+      otherRewardToken = tokens[2]
       startTime = currentTime
       endTime = currentTime + 100
       claimDeadline = currentTime + 1000
@@ -339,6 +342,8 @@ describe('UniswapV3Staker', () => {
         deadline: (await blockTimestamp()) + 1000,
       })
 
+      const creator = wallet.address
+
       await rewardToken.approve(staker.address, totalReward)
       await staker.createIncentive(
         rewardToken.address,
@@ -348,15 +353,29 @@ describe('UniswapV3Staker', () => {
         claimDeadline,
         totalReward
       )
+
+      const stakeParams1 = {
+        tokenId,
+        creator,
+        rewardToken: rewardToken.address,
+        startTime,
+        endTime,
+        claimDeadline
+      }
+
+      const stakeParams2 = {
+        tokenId,
+        creator,
+        rewardToken: otherRewardToken.address,
+        startTime,
+        endTime,
+        claimDeadline
+      }
+      data = ethers.utils.defaultAbiCoder.encode([stakeParamsEncodeType], [[stakeParams1, stakeParams2]])
     })
 
     describe('on successful transfer with staking data', () => {
-      let otherRewardToken: TestERC20
-      let data: string
-
       beforeEach(async () => {
-        const creator = wallet.address
-        otherRewardToken = tokens[2]
         await otherRewardToken.approve(staker.address, totalReward)
         await staker.createIncentive(
           otherRewardToken.address,
@@ -366,25 +385,6 @@ describe('UniswapV3Staker', () => {
           claimDeadline,
           totalReward
         )
-
-        const stakeParams1 = {
-          tokenId,
-          creator,
-          rewardToken: rewardToken.address,
-          startTime,
-          endTime,
-          claimDeadline
-        }
-
-        const stakeParams2 = {
-          tokenId,
-          creator,
-          rewardToken: otherRewardToken.address,
-          startTime,
-          endTime,
-          claimDeadline
-        }
-        data = ethers.utils.defaultAbiCoder.encode([stakeParamsEncodeType], [[stakeParams1, stakeParams2]])
       })
 
       it('deposits the token', async () => {
@@ -393,18 +393,24 @@ describe('UniswapV3Staker', () => {
         expect((await staker.deposits(1)).owner).to.equal(wallet.address)
       })
 
-      it.only('properly stakes the deposit in the select incentives', async () => {
+      it('properly stakes the deposit in the select incentives', async () => {
+        const id1 = await staker.getIncentiveId(wallet.address, rewardToken.address, poolAddress, startTime, endTime, claimDeadline)
+        const id2 = await staker.getIncentiveId(wallet.address, otherRewardToken.address, poolAddress, startTime, endTime, claimDeadline)
         expect((await staker.deposits(1)).numberOfStakes).to.equal(0)
         await nft['safeTransferFrom(address,address,uint256,bytes)'](wallet.address, staker.address, tokenId, data)
         expect((await staker.deposits(1)).numberOfStakes).to.equal(2)
-        const id1 = await staker.getIncentiveId(wallet.address, rewardToken.address, poolAddress, startTime, endTime, claimDeadline)
-        const id2 = await staker.getIncentiveId(wallet.address, otherRewardToken.address, poolAddress, startTime, endTime, claimDeadline)
         expect((await staker.stakes(1, id1)).pool).to.eq(poolAddress)
         expect((await staker.stakes(1, id2)).pool).to.eq(poolAddress)
       })
     })
-    it('reverts when called by contract other than uniswap v3 nonfungiblePositionManager')
-    it('reverts when staking on invalid incentive')
+
+    it('reverts when called by contract other than uniswap v3 nonfungiblePositionManager', async () => {
+      expect(staker.onERC721Received(wallet.address, wallet.address, 1, data)).to.revertedWith('uniswap v3 nft only')
+    })
+
+    it('reverts when staking on invalid incentive', async () => {
+      expect(nft['safeTransferFrom(address,address,uint256,bytes)'](wallet.address, staker.address, tokenId, data)).to.revertedWith('non-existent incentive')
+    })
   })
 
   describe('#getPositionDetails', () => {
