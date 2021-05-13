@@ -208,6 +208,7 @@ describe('UniswapV3Staker', () => {
           )
         ).to.be.revertedWith('TIMESTAMP_LTE_CLAIMDEADLINE')
       })
+
       it('incentive does not exist', async () => {
         const pool = await factory.getPool(
           tokens[0].address,
@@ -231,9 +232,9 @@ describe('UniswapV3Staker', () => {
         ).to.be.revertedWith('INVALID_INCENTIVE')
       })
     })
+
     describe('works and', () => {
       it('emits IncentiveEnded() event', async () => {
-
         await staker.createIncentive(
           rewardToken,
           pool,
