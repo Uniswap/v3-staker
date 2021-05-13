@@ -1,3 +1,4 @@
+import { constants } from 'ethers'
 import { ethers, waffle } from 'hardhat'
 import { Fixture } from 'ethereum-waffle'
 import { UniswapV3Staker } from '../typechain/UniswapV3Staker'
@@ -6,7 +7,7 @@ import {
   uniswapFactoryFixture,
   uniswapFixture,
   mintPosition,
-  FixtureFactory,
+  createIncentive,
 } from './shared/fixtures'
 import {
   expect,
@@ -26,29 +27,27 @@ import { UniswapV3Factory } from '../vendor/uniswap-v3-core/typechain'
 const { createFixtureLoader } = waffle
 let loadFixture: ReturnType<typeof createFixtureLoader>
 
-describe('UniswapV3Staker.unit', () => {
+describe('UniswapV3Staker.unit', async () => {
   const wallets = waffle.provider.getWallets()
   const [wallet] = wallets
-
   let tokens: [TestERC20, TestERC20, TestERC20]
   let factory: UniswapV3Factory
   let nft: INonfungiblePositionManager
   let staker: UniswapV3Staker
+  let subject
 
-  before('create fixture loader', async () => {
+  beforeEach('create fixture loader', async () => {
     loadFixture = createFixtureLoader(wallets)
     ;({ nft, tokens, staker, factory } = await loadFixture(uniswapFixture))
   })
 
-  describe('#initialize', async () => {
-    it('deploys', async () => {
-      const stakerFactory = await ethers.getContractFactory('UniswapV3Staker')
-      staker = (await stakerFactory.deploy(
-        factory.address,
-        nft.address
-      )) as UniswapV3Staker
-      expect(staker.address).to.be.a.string
-    })
+  it('deploys and has an address', async () => {
+    const stakerFactory = await ethers.getContractFactory('UniswapV3Staker')
+    staker = (await stakerFactory.deploy(
+      factory.address,
+      nft.address
+    )) as UniswapV3Staker
+    expect(staker.address).to.be.a.string
   })
 
   describe('#createIncentive', async () => {
@@ -74,43 +73,86 @@ describe('UniswapV3Staker.unit', () => {
         amount1Min: 0,
         deadline: (await blockTimestamp()) + 1000,
       })
+
+      subject = async ({
+        startTime = 10,
+        endTime = 20,
+        claimDeadline = 30,
+        totalReward = BNe18(1000),
+        rewardToken = tokens[0].address,
+      } = {}) =>
+        await createIncentive({
+          factory,
+          tokens,
+          staker,
+          totalReward,
+          startTime,
+          endTime,
+          claimDeadline,
+          rewardToken,
+        })
     })
 
-    it('transfers the right amount of rewardToken and emits events', async () => {
-      const depositAmount = BNe18(1000)
-      const tx = await FixtureFactory.createIncentive({
-        factory,
-        tokens,
-        staker,
-        depositAmount,
-        blockTime: await blockTimestamp(),
+    describe('works and ', async () => {
+      it('transfers the right amount of rewardToken and emits events', async () => {
+        const totalReward = BNe18(1234)
+        await subject({ totalReward })
+        expect(await tokens[0].balanceOf(staker.address)).to.eq(totalReward)
       })
-      expect(await tokens[0].balanceOf(staker.address)).to.eq(depositAmount)
-      expect(tx).to.emit(staker, 'IncentiveCreated')
+
+      it('emits an event', async () =>
+        expect(await subject()).to.emit(staker, 'IncentiveCreated'))
     })
 
-    describe('fails when', () => {})
+    describe('fails when', async () => {
+      it('there is already has an incentive with those params', async () => {
+        const ts = await blockTimestamp()
+        const params = {
+          startTime: 10,
+          endTime: 20,
+          claimDeadline: 30,
+        }
+        expect(await subject(params)).to.emit(staker, 'IncentiveCreated')
+        await expect(subject(params)).to.be.revertedWith('INCENTIVE_EXISTS')
+      })
 
-    it('already has an incentive with those params', async () => {
-      const params = {
-        factory,
-        tokens,
-        staker,
-        depositAmount: BNe18(1000),
-        blockTime: await blockTimestamp(),
-      }
-      const tx = await FixtureFactory.createIncentive(params)
-      expect(tx).to.emit(staker, 'IncentiveCreated')
-      expect(await FixtureFactory.createIncentive(params)).to.revertedWith(
-        'INCENTIVE_EXISTS'
-      )
+      it('claim deadline is not greater than or equal to end time', async () =>
+        await expect(
+          subject({
+            startTime: 10,
+            endTime: 30,
+            claimDeadline: 20,
+          })
+        ).to.be.revertedWith('claimDeadline_not_gte_endTime'))
+
+      it('end time is not gte start time', async () =>
+        await expect(
+          subject({
+            startTime: 20,
+            endTime: 10,
+            claimDeadline: 100,
+          })
+        ).to.be.revertedWith('endTime_not_gte_startTime'))
+
+      it('rewardToken is 0 address', async () => {
+        await expect(
+          subject({
+            rewardToken: constants.AddressZero,
+          })
+        ).to.be.revertedWith('INVALID_REWARD_ADDRESS')
+      })
+
+      it('totalReward is 0 or an invalid amount', async () => {
+        await expect(
+          subject({
+            totalReward: 0,
+          })
+        ).to.be.revertedWith('INVALID_REWARD_AMOUNT')
+      })
+
+      it('rewardToken cannot be transferred')
+      // TODO: Mock a malicious ERC20 where the transfer call fails
     })
-    it('claim deadline not gte end time')
-    it('end time not gte start time')
-    it('rewardToken is 0 address')
-    it('totalReward is 0 or an invalid amount')
-    it('rewardToken cannot be transferred')
-    // Maybe: it('fails if maybe: fails if pool is not a uniswap v3 pool?')
   })
 
   describe('#endIncentive', async () => {

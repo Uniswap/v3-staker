@@ -127,8 +127,12 @@ contract UniswapV3Staker is ERC721Holder, ReentrancyGuard {
             );
 
         // Check: this incentive does not already exist
-        // TODO: is this right/safe?
         require(incentives[key].rewardToken == address(0), 'INCENTIVE_EXISTS');
+
+        require(params.rewardToken != address(0), 'INVALID_REWARD_ADDRESS');
+
+        // Check: valid amount of rewardToken
+        require(params.totalReward > 0, 'INVALID_REWARD_AMOUNT');
 
         // Check + Effect: transfer reward token
         require(

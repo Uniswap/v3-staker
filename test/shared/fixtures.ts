@@ -225,35 +225,40 @@ export const uniswapFixture: Fixture<{
 }
 
 import { FeeAmount, BNe18, BigNumberish, BigNumber } from '../shared'
-export const FixtureFactory = {
-  createIncentive: async ({
-    factory,
-    tokens,
-    staker,
-    blockTime,
-    depositAmount = BNe18(1000),
-  }: {
-    factory: UniswapV3Factory
-    tokens: any
-    staker: UniswapV3Staker
-    blockTime: number
-    depositAmount: BigNumberish
-  }) => {
-    const pool = await factory.getPool(
-      tokens[0].address,
-      tokens[1].address,
-      FeeAmount.MEDIUM
-    )
 
-    await tokens[0].approve(staker.address, depositAmount)
+export const createIncentive = async ({
+  factory,
+  tokens,
+  staker,
+  startTime,
+  endTime,
+  claimDeadline,
+  rewardToken,
+  totalReward = BNe18(1000),
+}: {
+  factory: UniswapV3Factory
+  tokens: any
+  staker: UniswapV3Staker
+  startTime: number
+  endTime: number
+  claimDeadline: number
+  totalReward: BigNumberish
+  rewardToken: string
+}) => {
+  const pool = await factory.getPool(
+    tokens[0].address,
+    tokens[1].address,
+    FeeAmount.MEDIUM
+  )
 
-    return await staker.createIncentive({
-      rewardToken: tokens[0].address,
-      pool: pool,
-      startTime: blockTime,
-      endTime: blockTime + 1000,
-      claimDeadline: blockTime + 10000,
-      totalReward: depositAmount,
-    })
-  },
+  await tokens[0].approve(staker.address, totalReward)
+
+  return await staker.createIncentive({
+    rewardToken,
+    pool: pool,
+    startTime,
+    endTime,
+    claimDeadline,
+    totalReward,
+  })
 }
