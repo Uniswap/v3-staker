@@ -15,6 +15,7 @@ import '@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol';
 import '@openzeppelin/contracts/math/Math.sol';
 import '@openzeppelin/contracts/math/SafeMath.sol';
 import '@openzeppelin/contracts/utils/ReentrancyGuard.sol';
+import 'hardhat/console.sol';
 
 /**
 @title Uniswap V3 canonical staking interface
@@ -41,14 +42,14 @@ contract UniswapV3Staker is IUniswapV3Staker, ERC721Holder, ReentrancyGuard {
     IUniswapV3Factory public immutable factory;
     INonfungiblePositionManager public immutable nonfungiblePositionManager;
 
-    /// @dev bytes32 refers to the return value of _getIncentiveId
+    /// @dev bytes32 refers to the return value of getIncentiveId
     mapping(bytes32 => Incentive) public incentives;
 
     /// @dev deposits[tokenId] => Deposit
     mapping(uint256 => Deposit) public deposits;
 
     /// @dev stakes[tokenId][incentiveHash] => Stake
-    mapping(uint256 => mapping(bytes32 => Stake)) stakes;
+    mapping(uint256 => mapping(bytes32 => Stake)) public stakes;
 
     /// @param _factory the Uniswap V3 factory
     /// @param _nonfungiblePositionManager the NFT position manager contract address
@@ -71,7 +72,7 @@ contract UniswapV3Staker is IUniswapV3Staker, ERC721Holder, ReentrancyGuard {
         require(params.endTime > params.startTime, 'endTime_not_gte_startTime');
 
         bytes32 key =
-            _getIncentiveId(
+            getIncentiveId(
                 msg.sender,
                 params.rewardToken,
                 params.pool,
@@ -115,7 +116,7 @@ contract UniswapV3Staker is IUniswapV3Staker, ERC721Holder, ReentrancyGuard {
             'TIMESTAMP_LTE_CLAIMDEADLINE'
         );
         bytes32 key =
-            _getIncentiveId(
+            getIncentiveId(
                 msg.sender,
                 params.rewardToken,
                 params.pool,
@@ -145,7 +146,7 @@ contract UniswapV3Staker is IUniswapV3Staker, ERC721Holder, ReentrancyGuard {
     function depositToken(uint256 tokenId) external override {
         // TODO: Make sure the transfer succeeds and is a uniswap erc721
         // I think this is not secure
-        nonfungiblePositionManager.transferFrom(
+        nonfungiblePositionManager.safeTransferFrom(
             msg.sender,
             address(this),
             tokenId
@@ -241,7 +242,7 @@ contract UniswapV3Staker is IUniswapV3Staker, ERC721Holder, ReentrancyGuard {
             pool.snapshotCumulativesInside(tickLower, tickUpper);
 
         bytes32 incentiveId =
-            _getIncentiveId(
+            getIncentiveId(
                 params.creator,
                 params.rewardToken,
                 poolAddress,
@@ -320,7 +321,7 @@ contract UniswapV3Staker is IUniswapV3Staker, ERC721Holder, ReentrancyGuard {
             StakeParams[] memory params = abi.decode(data, (StakeParams[]));
             for (uint256 i = 0; i < params.length; i++) {
                 bytes32 incentiveId =
-                    _getIncentiveId(
+                    getIncentiveId(
                         params[i].creator,
                         params[i].rewardToken,
                         poolAddress,
@@ -365,14 +366,14 @@ contract UniswapV3Staker is IUniswapV3Staker, ERC721Holder, ReentrancyGuard {
     /// @param startTime When the incentive begins
     /// @param endTime When the incentive ends
     /// @param claimDeadline Time by which incentive rewards must be claimed
-    function _getIncentiveId(
+    function getIncentiveId(
         address creator,
         address rewardToken,
         address pool,
         uint32 startTime,
         uint32 endTime,
         uint32 claimDeadline
-    ) internal pure returns (bytes32) {
+    ) public pure returns (bytes32) {
         return
             keccak256(
                 abi.encode(
