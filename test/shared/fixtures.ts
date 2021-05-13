@@ -3,12 +3,9 @@ import { Fixture } from 'ethereum-waffle'
 import { ethers, waffle } from 'hardhat'
 import { linkLibraries } from './linkLibraries'
 import WETH9 from '../contracts/WETH9.json'
-
-// import { IWETH9 } from '../../typechain/IWETH9'
-import { IUniswapV3Factory } from '../../typechain/IUniswapV3Factory'
 import { TestERC20 } from '../../typechain/TestERC20'
-
-import UniswapV3Factory from '@uniswap/v3-core/artifacts/contracts/UniswapV3Factory.sol/UniswapV3Factory.json'
+import UniswapV3FactoryJson from '@uniswap/v3-core/artifacts/contracts/UniswapV3Factory.sol/UniswapV3Factory.json'
+import { UniswapV3Factory } from '../../vendor/uniswap-v3-core/typechain'
 import SwapRouter from '@uniswap/v3-periphery/artifacts/contracts/SwapRouter.sol/SwapRouter.json'
 
 type IWETH9 = any
@@ -26,28 +23,28 @@ export const wethFixture: Fixture<{ weth9: IWETH9 }> = async (
   return { weth9 }
 }
 
-const v3CoreFactoryFixture: Fixture<IUniswapV3Factory> = async ([wallet]) => {
-  return (await waffle.deployContract(wallet, {
-    bytecode: UniswapV3Factory.bytecode,
-    abi: UniswapV3Factory.abi,
-  })) as IUniswapV3Factory
+const v3CoreFactoryFixture: Fixture<UniswapV3Factory> = async ([wallet]) => {
+  return ((await waffle.deployContract(wallet, {
+    bytecode: UniswapV3FactoryJson.bytecode,
+    abi: UniswapV3FactoryJson.abi,
+  })) as unknown) as UniswapV3Factory
 }
 
 export const v3RouterFixture: Fixture<{
   weth9: IWETH9
-  factory: IUniswapV3Factory
+  factory: UniswapV3Factory
   router: MockTimeSwapRouter
 }> = async ([wallet], provider) => {
   const { weth9 } = await wethFixture([wallet], provider)
   const factory = await v3CoreFactoryFixture([wallet], provider)
-  const router = await waffle.deployContract(
+  const router = ((await waffle.deployContract(
     wallet,
     {
       bytecode: SwapRouter.bytecode,
       abi: SwapRouter.abi,
     },
     [factory.address, weth9.address]
-  )
+  )) as unknown) as any
 
   return { factory, weth9, router }
 }
@@ -94,7 +91,7 @@ const nftDescriptorLibraryFixture: Fixture<NFTDescriptorLibrary> = async ([
 
 export const completeFixture: Fixture<{
   weth9: IWETH9
-  factory: IUniswapV3Factory
+  factory: UniswapV3Factory
   router: MockTimeSwapRouter
   nft: MockTimeNonfungiblePositionManager
   tokens: [TestERC20, TestERC20, TestERC20]

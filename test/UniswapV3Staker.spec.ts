@@ -1,18 +1,23 @@
 import { BigNumber, BigNumberish } from 'ethers'
 import { ethers, waffle } from 'hardhat'
 import { Fixture } from 'ethereum-waffle'
-import { expect } from './shared'
 import { UniswapV3Staker } from '../typechain/UniswapV3Staker'
-import type {
-  IUniswapV3Factory,
-  TestERC20,
-  INonfungiblePositionManager,
-} from '../typechain'
-import { encodePriceSqrt, blockTimestamp } from './shared/utilities'
+import type { TestERC20, INonfungiblePositionManager } from '../typechain'
 import { completeFixture } from './shared/fixtures'
-import { FeeAmount, TICK_SPACINGS, MaxUint256 } from './shared/constants'
-import { getMaxTick, getMinTick } from './shared/ticks'
-import { sortedTokens } from './shared/tokenSort'
+
+import {
+  expect,
+  getMaxTick,
+  getMinTick,
+  FeeAmount,
+  TICK_SPACINGS,
+  MaxUint256,
+  encodePriceSqrt,
+  blockTimestamp,
+} from './shared'
+
+import { UniswapV3Factory } from '../vendor/uniswap-v3-core/typechain'
+import { sortedTokens } from '../vendor/uniswap-v3-periphery/test/shared/tokenSort'
 
 const { createFixtureLoader } = waffle
 let loadFixture: ReturnType<typeof createFixtureLoader>
@@ -28,7 +33,11 @@ const FixtureFactory = {
     blockTime,
     depositAmount = BNe18(1000),
   }: {
-    factory: IUniswapV3Factory
+    factory: UniswapV3Factory
+    tokens: any
+    staker: UniswapV3Staker
+    blockTime: number
+    depositAmount: BigNumberish
   }) => {
     const pool = await factory.getPool(
       tokens[0].address,
@@ -89,13 +98,13 @@ describe('UniswapV3Staker', () => {
   const [wallet, other] = wallets
 
   let tokens: [TestERC20, TestERC20, TestERC20]
-  let factory: IUniswapV3Factory
+  let factory: UniswapV3Factory
   let nft: INonfungiblePositionManager
   let staker: UniswapV3Staker
 
   const uniswapFixture: Fixture<{
     nft: INonfungiblePositionManager
-    factory: IUniswapV3Factory
+    factory: UniswapV3Factory
     staker: UniswapV3Staker
     tokens: [TestERC20, TestERC20, TestERC20]
   }> = async (wallets, provider) => {
