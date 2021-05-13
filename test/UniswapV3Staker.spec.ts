@@ -159,22 +159,31 @@ describe('UniswapV3Staker', () => {
   })
 
   describe('#endIncentive', async () => {
+    let rewardToken
+    let blockTime
+    let depositAmount
+    let startTime
+    let endTime
+    let claimDeadline
+    let pool
+
+    beforeEach('setup', async () => {
+      rewardToken = tokens[0].address
+      blockTime = await blockTimestamp()
+      depositAmount = BNe18(1000)
+      startTime = blockTime
+      endTime = blockTime + 1000
+      claimDeadline = blockTime + 2000
+      pool = await factory.getPool(
+        tokens[0].address,
+        tokens[1].address,
+        FeeAmount.MEDIUM
+      )
+      await tokens[0].approve(staker.address, depositAmount)
+    })
+
     describe('should fail if ', () => {
       it('block.timestamp <= claim deadline', async () => {
-        const pool = await factory.getPool(
-          tokens[0].address,
-          tokens[1].address,
-          FeeAmount.MEDIUM
-        )
-        const rewardToken = tokens[0].address
-        const blockTime = await blockTimestamp()
-        const depositAmount = BNe18(1000)
-        const startTime = blockTime
-        const endTime = blockTime + 1000
-        const claimDeadline = blockTime + 2000
-
-        await tokens[0].approve(staker.address, BNe18(1000))
-
         await staker.createIncentive(
           rewardToken,
           pool,
@@ -205,11 +214,6 @@ describe('UniswapV3Staker', () => {
           tokens[1].address,
           FeeAmount.MEDIUM
         )
-        const rewardToken = tokens[0].address
-        const blockTime = await blockTimestamp()
-        const startTime = blockTime
-        const endTime = blockTime + 1000
-        const claimDeadline = blockTime + 2000
 
         // Adjust the block.timestamp so it is after the claim deadline
         await ethers.provider.send('evm_setNextBlockTimestamp', [
@@ -229,19 +233,6 @@ describe('UniswapV3Staker', () => {
     })
     describe('works and', () => {
       it('emits IncentiveEnded() event', async () => {
-        const pool = await factory.getPool(
-          tokens[0].address,
-          tokens[1].address,
-          FeeAmount.MEDIUM
-        )
-        const rewardToken = tokens[0].address
-        const blockTime = await blockTimestamp()
-        const depositAmount = BNe18(1000)
-        const startTime = blockTime
-        const endTime = blockTime + 1000
-        const claimDeadline = blockTime + 2000
-
-        await tokens[0].approve(staker.address, BNe18(1000))
 
         await staker.createIncentive(
           rewardToken,
