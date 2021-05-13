@@ -227,7 +227,48 @@ describe('UniswapV3Staker', () => {
         ).to.be.revertedWith('INVALID_INCENTIVE')
       })
     })
-    describe('works and', () => {``
+    describe('works and', () => {
+      it('emits IncentiveEnded() event', async () => {
+        const pool = await factory.getPool(
+          tokens[0].address,
+          tokens[1].address,
+          FeeAmount.MEDIUM
+        )
+        const rewardToken = tokens[0].address
+        const blockTime = await blockTimestamp()
+        const depositAmount = BNe18(1000)
+        const startTime = blockTime
+        const endTime = blockTime + 1000
+        const claimDeadline = blockTime + 2000
+
+        await tokens[0].approve(staker.address, BNe18(1000))
+
+        await staker.createIncentive(
+          rewardToken,
+          pool,
+          startTime,
+          endTime,
+          claimDeadline,
+          depositAmount
+        )
+
+        // Adjust the block.timestamp so it is after the claim deadline
+        await ethers.provider.send('evm_setNextBlockTimestamp', [
+          claimDeadline + 1,
+        ])
+
+        expect(
+          staker.endIncentive(
+            rewardToken,
+            pool,
+            startTime,
+            endTime,
+            claimDeadline
+          )
+        )
+          .to.emit(staker, 'IncentiveEnded')
+          .withArgs(rewardToken, pool, startTime, endTime)
+      })
       it('deletes incentives[key]')
       it('deletes even if the transfer fails (re-entrancy vulnerability check)')
     })
