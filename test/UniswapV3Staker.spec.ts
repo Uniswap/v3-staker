@@ -14,9 +14,6 @@ import { FeeAmount, TICK_SPACINGS, MaxUint256 } from './shared/constants'
 import { getMaxTick, getMinTick } from './shared/ticks'
 import { sortedTokens } from './shared/tokenSort'
 
-type UniswapV3Factory = any
-type UniswapNFT = any
-
 const { createFixtureLoader } = waffle
 let loadFixture: ReturnType<typeof createFixtureLoader>
 
@@ -129,12 +126,16 @@ describe('UniswapV3Staker', () => {
     })
 
     describe('happy path', () => {
-      it('transfers the right amount of rewardToken', async () => {
-        const pool = await factory.getPool(tokens[0].address, tokens[1].address, FeeAmount.MEDIUM)
+      it('transfers the right amount of rewardToken and emits events', async () => {
+        const pool = await factory.getPool(
+          tokens[0].address,
+          tokens[1].address,
+          FeeAmount.MEDIUM
+        )
         const depositAmount = BNe18(1000)
         const blockTime = await blockTimestamp()
-        await tokens[0].approve(staker.address, BNe18(1000))
-        await staker.createIncentive(
+        await tokens[0].approve(staker.address, depositAmount)
+        const tx = await staker.createIncentive(
           tokens[0].address,
           pool,
           blockTime,
@@ -143,8 +144,8 @@ describe('UniswapV3Staker', () => {
           depositAmount
         )
         expect(await tokens[0].balanceOf(staker.address)).to.eq(depositAmount)
+        expect(tx).to.emit(staker, 'IncentiveCreated')
       })
-      it('emits IncentiveCreated()')
     })
     describe('should fail if', () => {
       it('already has an incentive with those params')
@@ -200,24 +201,22 @@ describe('UniswapV3Staker', () => {
       })
 
       it('emit a Deposited event', async () => {
-        await nft.approve(staker.address, 1, {gasLimit: 12450000})
-        expect(staker.depositToken(1))
+        const tokenId = 1
+        await nft.approve(staker.address, tokenId, { gasLimit: 12450000 })
+        expect(staker.depositToken(tokenId))
           .to.emit(staker, 'TokenDeposited')
-          .withArgs(1)
-      })
+          .withArgs(tokenId)
 
-      it('actually transfers the NFT to the contract')
-      it('respond to the onERC721Received function')
-      it('creates deposits[tokenId] = Deposit struct')
-      describe('deposit struct', () => {
-        it('numberOfStakes is 0')
-        it('owner is msg.sender')
-      })
-    })
+        // it('actually transfers the NFT to the contract')
+        expect(await nft.ownerOf(tokenId)).to.eq(staker.address)
 
-    describe('that fail', () => {
-      it('does not emit an event')
-      it('does not create a deposit struct in deposits')
+        // it('creates deposits[tokenId] = Deposit struct')
+        const deposit = await staker.deposits(tokenId)
+        expect(deposit.owner).to.eq(wallet.address)
+        expect(deposit.numberOfStakes).to.eq(0)
+
+        // it('respond to the onERC721Received function')
+      })
     })
 
     describe('paranoia edge cases', () => {

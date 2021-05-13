@@ -62,7 +62,7 @@ contract UniswapV3Staker is ERC721Holder, ReentrancyGuard {
     /// @dev bytes32 refers to the return value of _getIncentiveId
     mapping(bytes32 => Incentive) public incentives;
     /// @dev deposits[tokenId] => Deposit
-    mapping(uint256 => Deposit) deposits;
+    mapping(uint256 => Deposit) public deposits;
     /// @dev stakes[tokenId][incentiveHash] => Stake
     mapping(uint256 => mapping(bytes32 => Stake)) stakes;
 
@@ -154,7 +154,7 @@ contract UniswapV3Staker is ERC721Holder, ReentrancyGuard {
         uint32 endTime,
         uint32 claimDeadline
     ) external nonReentrant {
-      // TODO: integration test for nonReentrancy
+        // TODO: integration test for nonReentrancy
         /*
         Check:
         * Only callable by creator (msg.sender is hashed)
@@ -205,14 +205,8 @@ contract UniswapV3Staker is ERC721Holder, ReentrancyGuard {
 
     function withdrawToken(uint256 tokenId, address to) external {
         Deposit memory deposit = deposits[tokenId];
-        require(
-            deposit.numberOfStakes == 0,
-            'NUMBER_OF_STAKES_NOT_ZERO'
-        );
-        require(
-            deposit.owner == msg.sender,
-            'NOT_YOUR_NFT'
-        );
+        require(deposit.numberOfStakes == 0, 'NUMBER_OF_STAKES_NOT_ZERO');
+        require(deposit.owner == msg.sender, 'NOT_YOUR_NFT');
 
         // TODO: do we have to check for a failure here? Also double-check
         // if safeTransferFrom is right.
@@ -273,7 +267,6 @@ contract UniswapV3Staker is ERC721Holder, ReentrancyGuard {
 
         emit TokenStaked();
     }
-
 
     // function unstakeToken(
     //     uint256 tokenId,
