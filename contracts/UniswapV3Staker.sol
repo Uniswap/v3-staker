@@ -185,7 +185,10 @@ contract UniswapV3Staker is IUniswapV3Staker, ERC721Holder, ReentrancyGuard {
                         params[i].endTime,
                         params[i].claimDeadline
                     );
-                require(incentives[incentiveId].rewardToken != address(0), 'non-existent incentive');
+                require(
+                    incentives[incentiveId].rewardToken != address(0),
+                    'non-existent incentive'
+                );
                 _stake(
                     tokenId,
                     incentiveId,
