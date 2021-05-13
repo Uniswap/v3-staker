@@ -160,10 +160,48 @@ describe('UniswapV3Staker', () => {
 
   describe('#endIncentive', async () => {
     describe('should fail if ', () => {
-      it('block.timestamp <= claim deadline')
+      it('block.timestamp <= claim deadline', async () => {
+        const pool = await factory.getPool(
+          tokens[0].address,
+          tokens[1].address,
+          FeeAmount.MEDIUM
+        )
+        const rewardToken = tokens[0].address
+        const blockTime = await blockTimestamp()
+        const depositAmount = BNe18(1000)
+        const startTime = blockTime
+        const endTime = blockTime + 1000
+        const claimDeadline = blockTime + 2000
+
+        await tokens[0].approve(staker.address, BNe18(1000))
+
+        await staker.createIncentive(
+          rewardToken,
+          pool,
+          startTime,
+          endTime,
+          claimDeadline,
+          depositAmount
+        )
+
+        // Adjust the block.timestamp so it is before the claim deadline
+        await ethers.provider.send('evm_setNextBlockTimestamp', [
+          claimDeadline - 1,
+        ])
+
+        expect(
+          staker.endIncentive(
+            tokens[0].address,
+            pool,
+            startTime,
+            endTime,
+            claimDeadline
+          )
+        ).to.be.revertedWith('TIMESTAMP_LTE_CLAIMDEADLINE')
+      })
       it('incentive does not exist')
     })
-    describe('works and', () => {
+    describe('works and', () => {``
       it('deletes incentives[key]')
       it('deletes even if the transfer fails (re-entrancy vulnerability check)')
     })
