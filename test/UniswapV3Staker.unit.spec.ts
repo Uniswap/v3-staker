@@ -93,7 +93,7 @@ describe('UniswapV3Staker.unit', async () => {
         })
     })
 
-    describe('works and ', async () => {
+    describe('works and', async () => {
       it('transfers the right amount of rewardToken and emits events', async () => {
         const totalReward = BNe18(1234)
         await subject({ totalReward })
@@ -106,7 +106,6 @@ describe('UniswapV3Staker.unit', async () => {
 
     describe('fails when', async () => {
       it('there is already has an incentive with those params', async () => {
-        const ts = await blockTimestamp()
         const params = {
           startTime: 10,
           endTime: 20,
@@ -150,8 +149,8 @@ describe('UniswapV3Staker.unit', async () => {
         ).to.be.revertedWith('INVALID_REWARD_AMOUNT')
       })
 
-      it('rewardToken cannot be transferred')
       // TODO: Mock a malicious ERC20 where the transfer call fails
+      it('rewardToken cannot be transferred')
     })
   })
 
