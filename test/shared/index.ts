@@ -1,6 +1,5 @@
 export * from '../../vendor/uniswap-v3-periphery/test/shared/constants'
 export * from '../../vendor/uniswap-v3-periphery/test/shared/ticks'
-
 export * from './fixtures'
 
 import { constants } from 'ethers'
@@ -13,6 +12,12 @@ export const blockTimestamp = async () => {
   return block.timestamp
 }
 
+import bn from 'bignumber.js'
+
+import { BigNumber, BigNumberish } from 'ethers'
+
+bn.config({ EXPONENTIAL_AT: 999999, DECIMAL_PLACES: 40 })
+
 import { expect, use } from 'chai'
 import { solidity } from 'ethereum-waffle'
 import { jestSnapshotPlugin } from 'mocha-chai-jest-snapshot'
@@ -21,12 +26,6 @@ use(solidity)
 use(jestSnapshotPlugin())
 
 export { expect }
-
-import bn from 'bignumber.js'
-
-import { BigNumber, BigNumberish } from 'ethers'
-
-bn.config({ EXPONENTIAL_AT: 999999, DECIMAL_PLACES: 40 })
 
 // returns the sqrt price as a 64x96
 export const encodePriceSqrt = (
@@ -42,3 +41,10 @@ export const encodePriceSqrt = (
       .toString()
   )
 }
+
+export { sortedTokens } from '../../vendor/uniswap-v3-periphery/test/shared/tokenSort'
+
+export const BN = ethers.BigNumber.from
+export const BNe18 = (n) => ethers.BigNumber.from(n).mul(BN(10).pow(18))
+
+export { BigNumber, BigNumberish } from 'ethers'

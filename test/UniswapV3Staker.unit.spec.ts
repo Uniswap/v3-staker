@@ -1,10 +1,13 @@
-import { BigNumber, BigNumberish } from 'ethers'
 import { ethers, waffle } from 'hardhat'
 import { Fixture } from 'ethereum-waffle'
 import { UniswapV3Staker } from '../typechain/UniswapV3Staker'
 import type { TestERC20, INonfungiblePositionManager } from '../typechain'
-import { completeFixture } from './shared/fixtures'
-
+import {
+  uniswapFactoryFixture,
+  uniswapFixture,
+  mintPosition,
+  FixtureFactory,
+} from './shared/fixtures'
 import {
   expect,
   getMaxTick,
@@ -14,112 +17,23 @@ import {
   MaxUint256,
   encodePriceSqrt,
   blockTimestamp,
+  sortedTokens,
+  BN,
+  BNe18,
 } from './shared'
 
 import { UniswapV3Factory } from '../vendor/uniswap-v3-core/typechain'
-import { sortedTokens } from '../vendor/uniswap-v3-periphery/test/shared/tokenSort'
-
 const { createFixtureLoader } = waffle
 let loadFixture: ReturnType<typeof createFixtureLoader>
 
-const BN = ethers.BigNumber.from
-const BNe18 = (n) => ethers.BigNumber.from(n).mul(BN(10).pow(18))
-
-const FixtureFactory = {
-  createIncentive: async ({
-    factory,
-    tokens,
-    staker,
-    blockTime,
-    depositAmount = BNe18(1000),
-  }: {
-    factory: UniswapV3Factory
-    tokens: any
-    staker: UniswapV3Staker
-    blockTime: number
-    depositAmount: BigNumberish
-  }) => {
-    const pool = await factory.getPool(
-      tokens[0].address,
-      tokens[1].address,
-      FeeAmount.MEDIUM
-    )
-
-    await tokens[0].approve(staker.address, depositAmount)
-    return await staker.createIncentive(
-      tokens[0].address,
-      pool,
-      blockTime,
-      blockTime + 1000,
-      blockTime + 10000,
-      depositAmount
-    )
-  },
-}
-
-export const mintPosition = async (
-  nft: INonfungiblePositionManager,
-  mintParams: {
-    token0: string
-    token1: string
-    fee: FeeAmount
-    tickLower: number
-    tickUpper: number
-    recipient: string
-    amount0Desired: any
-    amount1Desired: any
-    amount0Min: number
-    amount1Min: number
-    deadline: number
-  }
-): Promise<string> => {
-  nft.mint({
-    token0: mintParams.token0,
-    token1: mintParams.token1,
-    fee: mintParams.fee,
-    tickLower: mintParams.tickLower,
-    tickUpper: mintParams.tickUpper,
-    recipient: mintParams.recipient,
-    amount0Desired: mintParams.amount0Desired,
-    amount1Desired: mintParams.amount1Desired,
-    amount0Min: mintParams.amount0Min,
-    amount1Min: mintParams.amount1Min,
-    deadline: mintParams.deadline,
-  })
-
-  const tokenId: BigNumber = await new Promise((resolve) =>
-    nft.on('Transfer', (from: any, to: any, tokenId: any) => resolve(tokenId))
-  )
-  return tokenId.toString()
-}
-
-describe('UniswapV3Staker', () => {
+describe('UniswapV3Staker.unit', () => {
   const wallets = waffle.provider.getWallets()
-  const [wallet, other] = wallets
+  const [wallet] = wallets
 
   let tokens: [TestERC20, TestERC20, TestERC20]
   let factory: UniswapV3Factory
   let nft: INonfungiblePositionManager
   let staker: UniswapV3Staker
-
-  const uniswapFixture: Fixture<{
-    nft: INonfungiblePositionManager
-    factory: UniswapV3Factory
-    staker: UniswapV3Staker
-    tokens: [TestERC20, TestERC20, TestERC20]
-  }> = async (wallets, provider) => {
-    const { tokens, nft, factory } = await completeFixture(wallets, provider)
-    const stakerFactory = await ethers.getContractFactory('UniswapV3Staker')
-    staker = (await stakerFactory.deploy(
-      factory.address,
-      nft.address
-    )) as UniswapV3Staker
-
-    for (const token of tokens) {
-      await token.approve(nft.address, MaxUint256)
-    }
-    return { nft, tokens, staker, factory }
-  }
 
   before('create fixture loader', async () => {
     loadFixture = createFixtureLoader(wallets)
@@ -162,43 +76,41 @@ describe('UniswapV3Staker', () => {
       })
     })
 
-    describe('happy path', () => {
-      it('transfers the right amount of rewardToken and emits events', async () => {
-        const depositAmount = BNe18(1000)
-        const tx = await FixtureFactory.createIncentive({
-          factory,
-          tokens,
-          staker,
-          depositAmount,
-          blockTime: await blockTimestamp(),
-        })
-        expect(await tokens[0].balanceOf(staker.address)).to.eq(depositAmount)
-        expect(tx).to.emit(staker, 'IncentiveCreated')
+    it('transfers the right amount of rewardToken and emits events', async () => {
+      const depositAmount = BNe18(1000)
+      const tx = await FixtureFactory.createIncentive({
+        factory,
+        tokens,
+        staker,
+        depositAmount,
+        blockTime: await blockTimestamp(),
       })
+      expect(await tokens[0].balanceOf(staker.address)).to.eq(depositAmount)
+      expect(tx).to.emit(staker, 'IncentiveCreated')
     })
 
-    describe('should fail if', () => {
-      it('already has an incentive with those params', async () => {
-        const params = {
-          factory,
-          tokens,
-          staker,
-          depositAmount: BNe18(1000),
-          blockTime: await blockTimestamp(),
-        }
-        const tx = await FixtureFactory.createIncentive(params)
-        expect(tx).to.emit(staker, 'IncentiveCreated')
-        expect(await FixtureFactory.createIncentive(params)).to.revertedWith(
-          'INCENTIVE_EXISTS'
-        )
-      })
-      it('claim deadline not gte end time')
-      it('end time not gte start time')
-      it('rewardToken is 0 address')
-      it('totalReward is 0 or an invalid amount')
-      it('rewardToken cannot be transferred')
-      // Maybe: it('fails if maybe: fails if pool is not a uniswap v3 pool?')
+    describe('fails when', () => {})
+
+    it('already has an incentive with those params', async () => {
+      const params = {
+        factory,
+        tokens,
+        staker,
+        depositAmount: BNe18(1000),
+        blockTime: await blockTimestamp(),
+      }
+      const tx = await FixtureFactory.createIncentive(params)
+      expect(tx).to.emit(staker, 'IncentiveCreated')
+      expect(await FixtureFactory.createIncentive(params)).to.revertedWith(
+        'INCENTIVE_EXISTS'
+      )
     })
+    it('claim deadline not gte end time')
+    it('end time not gte start time')
+    it('rewardToken is 0 address')
+    it('totalReward is 0 or an invalid amount')
+    it('rewardToken cannot be transferred')
+    // Maybe: it('fails if maybe: fails if pool is not a uniswap v3 pool?')
   })
 
   describe('#endIncentive', async () => {

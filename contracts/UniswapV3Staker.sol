@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 pragma solidity =0.7.6;
+pragma abicoder v2;
 
 import '@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol';
 import '@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol';
@@ -76,7 +77,6 @@ contract UniswapV3Staker is ERC721Holder, ReentrancyGuard {
     }
 
     /**
-    @notice Creates a new liquidity mining incentive program.
     @param rewardToken The token being distributed as a reward
     @param pool The Uniswap V3 pool
     @param startTime When rewards should begin accruing
@@ -84,14 +84,19 @@ contract UniswapV3Staker is ERC721Holder, ReentrancyGuard {
     @param claimDeadline When program should expire
     @param totalReward Total reward to be distributed
     */
-    function createIncentive(
-        address rewardToken,
-        address pool,
-        uint32 startTime,
-        uint32 endTime,
-        uint32 claimDeadline,
-        uint128 totalReward
-    ) external {
+    struct CreateIncentiveParams {
+        address rewardToken;
+        address pool;
+        uint32 startTime;
+        uint32 endTime;
+        uint32 claimDeadline;
+        uint128 totalReward;
+    }
+
+    /**
+    @notice Creates a new liquidity mining incentive program.
+   */
+    function createIncentive(CreateIncentiveParams memory params) external {
         /*
         Check:
         * Make sure this incentive does not already exist
@@ -104,18 +109,21 @@ contract UniswapV3Staker is ERC721Holder, ReentrancyGuard {
         Interactions:
         * emit IncentiveCreated()
         */
-        require(claimDeadline >= endTime, 'claimDeadline_not_gte_endTime');
-        require(endTime > startTime, 'endTime_not_gte_startTime');
+        require(
+            params.claimDeadline >= params.endTime,
+            'claimDeadline_not_gte_endTime'
+        );
+        require(params.endTime > params.startTime, 'endTime_not_gte_startTime');
 
         // TODO: Do I need any security checks around msg.sender?
         bytes32 key =
             _getIncentiveId(
                 msg.sender,
-                rewardToken,
-                pool,
-                startTime,
-                endTime,
-                claimDeadline
+                params.rewardToken,
+                params.pool,
+                params.startTime,
+                params.endTime,
+                params.claimDeadline
             );
 
         // Check: this incentive does not already exist
@@ -124,23 +132,23 @@ contract UniswapV3Staker is ERC721Holder, ReentrancyGuard {
 
         // Check + Effect: transfer reward token
         require(
-            IERC20Minimal(rewardToken).transferFrom(
+            IERC20Minimal(params.rewardToken).transferFrom(
                 msg.sender,
                 address(this),
-                totalReward
+                params.totalReward
             ),
             'REWARD_TRANSFER_FAILED'
         );
 
-        incentives[key] = Incentive(totalReward, 0, rewardToken);
+        incentives[key] = Incentive(params.totalReward, 0, params.rewardToken);
 
         emit IncentiveCreated(
-            rewardToken,
-            pool,
-            startTime,
-            endTime,
-            claimDeadline,
-            totalReward
+            params.rewardToken,
+            params.pool,
+            params.startTime,
+            params.endTime,
+            params.claimDeadline,
+            params.totalReward
         );
     }
 
