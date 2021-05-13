@@ -2,15 +2,14 @@
 
 This is a canonical staking contract designed for [Uniswap V3](https://github.com/Uniswap/uniswap-v3-core).
 
-This is still a work-in-progress and not yet ready for release, but will be soon. I repeat, this is not yet production ready.
+**This is still under active development and not yet production ready.** This section will be updated once the contract is ready.
 
-I'll be posting a roadmap and some milestones soon.
+## Links:
 
-## Design
+* [Contract Design](docs/Design.md)
+* [Grant Application](docs/Grant-Application.md)
 
-See [DESIGN](docs/DESIGN.md).
-
-## Testing
+## Development and Testing
 
 ```sh
 $ yarn test

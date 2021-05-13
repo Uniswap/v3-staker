@@ -1,4 +1,4 @@
-import { BigNumber } from 'ethers'
+import { BigNumber, BigNumberish } from 'ethers'
 import { ethers, waffle } from 'hardhat'
 import { Fixture } from 'ethereum-waffle'
 import { expect } from './shared'
@@ -20,7 +20,35 @@ let loadFixture: ReturnType<typeof createFixtureLoader>
 const BN = ethers.BigNumber.from
 const BNe18 = (n) => ethers.BigNumber.from(n).mul(BN(10).pow(18))
 
-async function mintPosition(
+const FixtureFactory = {
+  createIncentive: async ({
+    factory,
+    tokens,
+    staker,
+    blockTime,
+    depositAmount = BNe18(1000),
+  }: {
+    factory: IUniswapV3Factory
+  }) => {
+    const pool = await factory.getPool(
+      tokens[0].address,
+      tokens[1].address,
+      FeeAmount.MEDIUM
+    )
+
+    await tokens[0].approve(staker.address, depositAmount)
+    return await staker.createIncentive(
+      tokens[0].address,
+      pool,
+      blockTime,
+      blockTime + 1000,
+      blockTime + 10000,
+      depositAmount
+    )
+  },
+}
+
+export const mintPosition = async (
   nft: INonfungiblePositionManager,
   mintParams: {
     token0: string
@@ -35,7 +63,7 @@ async function mintPosition(
     amount1Min: number
     deadline: number
   }
-): Promise<string> {
+): Promise<string> => {
   nft.mint({
     token0: mintParams.token0,
     token1: mintParams.token1,
@@ -127,28 +155,34 @@ describe('UniswapV3Staker', () => {
 
     describe('happy path', () => {
       it('transfers the right amount of rewardToken and emits events', async () => {
-        const pool = await factory.getPool(
-          tokens[0].address,
-          tokens[1].address,
-          FeeAmount.MEDIUM
-        )
         const depositAmount = BNe18(1000)
-        const blockTime = await blockTimestamp()
-        await tokens[0].approve(staker.address, depositAmount)
-        const tx = await staker.createIncentive(
-          tokens[0].address,
-          pool,
-          blockTime,
-          blockTime + 1000,
-          blockTime + 10000,
-          depositAmount
-        )
+        const tx = await FixtureFactory.createIncentive({
+          factory,
+          tokens,
+          staker,
+          depositAmount,
+          blockTime: await blockTimestamp(),
+        })
         expect(await tokens[0].balanceOf(staker.address)).to.eq(depositAmount)
         expect(tx).to.emit(staker, 'IncentiveCreated')
       })
     })
+
     describe('should fail if', () => {
-      it('already has an incentive with those params')
+      it('already has an incentive with those params', async () => {
+        const params = {
+          factory,
+          tokens,
+          staker,
+          depositAmount: BNe18(1000),
+          blockTime: await blockTimestamp(),
+        }
+        const tx = await FixtureFactory.createIncentive(params)
+        expect(tx).to.emit(staker, 'IncentiveCreated')
+        expect(await FixtureFactory.createIncentive(params)).to.revertedWith(
+          'INCENTIVE_EXISTS'
+        )
+      })
       it('claim deadline not gte end time')
       it('end time not gte start time')
       it('rewardToken is 0 address')
@@ -305,7 +339,6 @@ describe('UniswapV3Staker', () => {
         const deposit = await staker.deposits(tokenId)
         expect(deposit.owner).to.eq(wallet.address)
         expect(deposit.numberOfStakes).to.eq(0)
-
         // it('respond to the onERC721Received function')
       })
     })
@@ -318,7 +351,6 @@ describe('UniswapV3Staker', () => {
         * What if tokenId is invalid
         * What happens if I call deposit() twice with the same tokenId?
         * Ownership checks around tokenId? Can you transfer something that is not yours?
-
       */
     })
   })
