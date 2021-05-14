@@ -22,7 +22,6 @@ import '@openzeppelin/contracts/utils/ReentrancyGuard.sol';
 @author Dan Robinson <dan@paradigm.xyz>
 */
 contract UniswapV3Staker is IUniswapV3Staker, ERC721Holder, ReentrancyGuard {
-    /// @notice Represents a staking incentive.
     struct Incentive {
         uint128 totalRewardUnclaimed;
         uint160 totalSecondsClaimedX128;
@@ -44,8 +43,10 @@ contract UniswapV3Staker is IUniswapV3Staker, ERC721Holder, ReentrancyGuard {
 
     /// @dev bytes32 refers to the return value of _getIncentiveId
     mapping(bytes32 => Incentive) public incentives;
+
     /// @dev deposits[tokenId] => Deposit
     mapping(uint256 => Deposit) public deposits;
+
     /// @dev stakes[tokenId][incentiveHash] => Stake
     mapping(uint256 => mapping(bytes32 => Stake)) stakes;
 
@@ -141,7 +142,7 @@ contract UniswapV3Staker is IUniswapV3Staker, ERC721Holder, ReentrancyGuard {
         );
     }
 
-    function depositToken(uint256 tokenId) external {
+    function depositToken(uint256 tokenId) external override {
         // TODO: Make sure the transfer succeeds and is a uniswap erc721
         // I think this is not secure
         nonfungiblePositionManager.safeTransferFrom(
@@ -154,7 +155,7 @@ contract UniswapV3Staker is IUniswapV3Staker, ERC721Holder, ReentrancyGuard {
         emit TokenDeposited(tokenId);
     }
 
-    function withdrawToken(uint256 tokenId, address to) external {
+    function withdrawToken(uint256 tokenId, address to) external override {
         Deposit memory deposit = deposits[tokenId];
         require(deposit.numberOfStakes == 0, 'NUMBER_OF_STAKES_NOT_ZERO');
         require(deposit.owner == msg.sender, 'NOT_YOUR_NFT');
@@ -166,156 +167,137 @@ contract UniswapV3Staker is IUniswapV3Staker, ERC721Holder, ReentrancyGuard {
         emit TokenWithdrawn(tokenId);
     }
 
-    function stakeToken(
-        uint256 tokenId,
-        address creator,
-        address rewardToken,
-        uint32 startTime,
-        uint32 endTime,
-        uint32 claimDeadline
-    ) external {
-        /*
-        It then creates a stake in the stakes mapping. stakes is
-        a mapping from th token ID and incentive ID to information about that stake.
+    function stakeToken(StakeTokenParams memory params) external override {
+        require(
+            deposits[params.tokenId].owner == msg.sender,
+            'NOT_YOUR_DEPOSIT'
+        );
 
-        Check:
-        * Make sure you are the owner
-
-        Effects:
-        * increments numberOfStakes
-        */
-
-        /*
-        This looks up your Deposit, checks that you are the owner
-        */
-        require(deposits[tokenId].owner == msg.sender, 'NOT_YOUR_DEPOSIT');
-
-        // TODO: Make sure destructuring and ignoring liquidity correctly
         (address poolAddress, int24 tickLower, int24 tickUpper, ) =
-            _getPositionDetails(tokenId);
+            _getPositionDetails(params.tokenId);
         IUniswapV3Pool pool = IUniswapV3Pool(poolAddress);
 
         bytes32 incentiveId =
             _getIncentiveId(
-                creator,
-                rewardToken,
+                params.creator,
+                params.rewardToken,
                 poolAddress,
-                startTime,
-                endTime,
-                claimDeadline
+                params.startTime,
+                params.endTime,
+                params.claimDeadline
             );
 
         (, uint160 secondsPerLiquidityInsideX128, ) =
             pool.snapshotCumulativesInside(tickLower, tickUpper);
 
-        stakes[tokenId][incentiveId] = Stake(
+        stakes[params.tokenId][incentiveId] = Stake(
             secondsPerLiquidityInsideX128,
             address(pool)
         );
 
-        // TODO: make sure this writes to the struct
-        deposits[tokenId].numberOfStakes += 1;
-
+        deposits[params.tokenId].numberOfStakes += 1;
         emit TokenStaked();
     }
 
-    // function unstakeToken(
-    //     uint256 tokenId,
-    //     address creator,
-    //     address rewardToken,
-    //     uint32 startTime,
-    //     uint32 endTime,
-    //     uint32 claimDeadline,
-    //     address to
-    // ) external nonReetrant {
-    //     /*
-    //     Check:
-    //     * It checks that you are the owner of the Deposit,
-    //     * It checks that there exists a Stake for the provided key
-    //         (with non-zero secondsPerLiquidityInitialX128).
-    //     */
-    //     require(deposits[tokenId].owner == msg.sender, 'NOT_YOUR_DEPOSIT');
+    function unstakeToken(UnstakeTokenParams memory params)
+        external
+        override
+        nonReentrant
+    {
+        /*
+        Check:
+        * It checks that you are the owner of the Deposit,
+        * It checks that there exists a Stake for the provided key
+            (with non-zero secondsPerLiquidityInitialX128).
+        */
+        require(
+            deposits[params.tokenId].owner == msg.sender,
+            'NOT_YOUR_DEPOSIT'
+        );
 
-    //     /*
-    //     Effects:
-    //     deposit.numberOfStakes -= 1 - Make sure this decrements properly
-    //     */
-    //     deposits[tokenId].numberOfStakes -= 1;
+        /*
+        Effects:
+        deposit.numberOfStakes -= 1 - Make sure this decrements properly
+        */
+        deposits[params.tokenId].numberOfStakes -= 1;
 
-    //     // TODO: Zero-out the Stake with that key.
-    //     // stakes[tokenId]
-    //     /*
-    //     * It computes secondsPerLiquidityInPeriodX128 by computing
-    //         secondsPerLiquidityInsideX128 using the Uniswap v3 core contract
-    //         and subtracting secondsPerLiquidityInitialX128.
-    //     */
+        // TODO: Zero-out the Stake with that key.
+        // stakes[tokenId]
+        /*
+        * It computes secondsPerLiquidityInPeriodX128 by computing
+            secondsPerLiquidityInsideX128 using the Uniswap v3 core contract
+            and subtracting secondsPerLiquidityInitialX128.
+        */
 
-    //     // TODO: make sure not null
-    //     (
-    //         address poolAddress,
-    //         int24 tickLower,
-    //         int24 tickUpper,
-    //         uint128 liquidity
-    //     ) = _getPositionDetails(tokenId);
+        // TODO: make sure not null
+        (
+            address poolAddress,
+            int24 tickLower,
+            int24 tickUpper,
+            uint128 liquidity
+        ) = _getPositionDetails(params.tokenId);
 
-    //     IUniswapV3Pool pool = IUniswapV3Pool(poolAddress);
+        IUniswapV3Pool pool = IUniswapV3Pool(poolAddress);
 
-    //     (, uint160 secondsPerLiquidityInsideX128, ) =
-    //         pool.snapshotCumulativesInside(tickLower, tickUpper);
+        (, uint160 secondsPerLiquidityInsideX128, ) =
+            pool.snapshotCumulativesInside(tickLower, tickUpper);
 
-    //     bytes32 incentiveId =
-    //         _getIncentiveId(
-    //             creator,
-    //             rewardToken,
-    //             poolAddress,
-    //             startTime,
-    //             endTime,
-    //             claimDeadline
-    //         );
+        bytes32 incentiveId =
+            _getIncentiveId(
+                params.creator,
+                params.rewardToken,
+                poolAddress,
+                params.startTime,
+                params.endTime,
+                params.claimDeadline
+            );
 
-    //     uint160 secondsInPeriodX128 =
-    //         (secondsPerLiquidityInsideX128 -
-    //             stakes[tokenId][incentiveId].secondsPerLiquidityInitialX128) *
-    //             liquidity;
+        uint160 secondsInPeriodX128 =
+            (secondsPerLiquidityInsideX128 -
+                stakes[params.tokenId][incentiveId]
+                    .secondsPerLiquidityInitialX128) * liquidity;
 
-    //     /*
-    //     * It looks at the liquidity on the NFT itself and multiplies
-    //         that by secondsPerLiquidityInRangeX96 to get secondsX96.
-    //     * It computes reward rate for the Program and multiplies that
-    //         by secondsX96 to get reward.
-    //     * totalRewardsUnclaimed is decremented by reward. totalSecondsClaimed
-    //         is incremented by seconds.
-    //     */
+        /*
+        * It looks at the liquidity on the NFT itself and multiplies
+            that by secondsPerLiquidityInRangeX96 to get secondsX96.
+        * It computes reward rate for the Program and multiplies that
+            by secondsX96 to get reward.
+        * totalRewardsUnclaimed is decremented by reward. totalSecondsClaimed
+            is incremented by seconds.
+        */
 
-    //     // TODO: check for overflows and integer types
-    //     // uint160 secondsX96 = FullMath.mulDiv(secondsPerLiquidityInStakingPeriodX128, , denominator);
-    //     //     SafeMath.mul(secondsPerLiquidityInStakingPeriodX128, liquidity);
+        // TODO: check for overflows and integer types
+        // uint160 secondsX96 = FullMath.mulDiv(secondsPerLiquidityInStakingPeriodX128, , denominator);
+        //     SafeMath.mul(secondsPerLiquidityInStakingPeriodX128, liquidity);
 
-    //     incentives[incentiveId].totalSecondsClaimedX128 += secondsInPeriodX128;
+        incentives[incentiveId].totalSecondsClaimedX128 += secondsInPeriodX128;
 
-    //     uint160 totalSecondsUnclaimedX128 =
-    //         uint32(Math.max(endTime, block.timestamp)) -
-    //             startTime -
-    //             incentives[incentiveId].totalSecondsClaimedX128;
+        uint160 totalSecondsUnclaimedX128 =
+            uint32(Math.max(params.endTime, block.timestamp)) -
+                params.startTime -
+                incentives[incentiveId].totalSecondsClaimedX128;
 
-    //     // This is probably wrong
-    //     uint160 rewardRate =
-    //         uint160(
-    //             SafeMath.div(
-    //                 incentives[incentiveId].totalRewardUnclaimed,
-    //                 totalSecondsUnclaimedX128
-    //             )
-    //         );
+        // This is probably wrong
+        uint160 rewardRate =
+            uint160(
+                SafeMath.div(
+                    incentives[incentiveId].totalRewardUnclaimed,
+                    totalSecondsUnclaimedX128
+                )
+            );
 
-    //     uint256 reward = SafeMath.mul(secondsInPeriodX128, rewardRate);
+        uint256 reward = SafeMath.mul(secondsInPeriodX128, rewardRate);
 
-    //     // TODO: Before release: wrap this in try-catch properly
-    //     // try {
-    //     // TODO: incentive.rewardToken or rewardToken?
-    //     IERC20Minimal(incentives[incentiveId].rewardToken).transfer(to, reward);
-    //     // } catch {}
-    //     emit TokenUnstaked();
-    // }
+        // TODO: Before release: wrap this in try-catch properly
+        // try {
+        // TODO: incentive.rewardToken or rewardToken?
+        IERC20Minimal(incentives[incentiveId].rewardToken).transfer(
+            params.to,
+            reward
+        );
+        // } catch {}
+        emit TokenUnstaked();
+    }
 
     /// @notice Calculate the key for a staking incentive
     /// @param creator Address that created this incentive

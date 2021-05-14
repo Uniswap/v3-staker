@@ -257,7 +257,7 @@ describe('UniswapV3Staker.unit', async () => {
   })
 
   describe('#depositToken', () => {
-    let tokenId: string
+    let tokenId
     let subject
 
     beforeEach(async () => {
@@ -282,22 +282,24 @@ describe('UniswapV3Staker.unit', async () => {
         amount1Min: 0,
         deadline: (await blockTimestamp()) + 1000,
       })
-      tokenId = '1'
-      await nft.approve(staker.address, tokenId, { gasLimit: 12450000 })
 
-      subject = async ({ tokenId }) => await staker.depositToken(tokenId)
+      await nft.approve(staker.address, tokenId, { gasLimit: 12450000 })
+      subject = async () => await staker.depositToken(tokenId)
     })
 
-    describe('works and', () => {
-      it('emits a Deposited event', async () =>
-        await expect(subject())
-          .to.emit(staker, 'TokenDeposited')
-          .withArgs(tokenId))
+    describe('works and', async () => {
+      it('emits a Deposited event', async () => {
+        const tx = await subject()
+        expect(tx).to.emit(staker, 'TokenDeposited').withArgs(tokenId)
+      })
 
-      it('transfers ownership of the NFT', async () =>
-        expect(await nft.ownerOf(tokenId)).to.eq(staker.address))
+      it('transfers ownership of the NFT', async () => {
+        await subject()
+        expect(await nft.ownerOf(tokenId)).to.eq(staker.address)
+      })
 
       it('sets owner and increases numberOfStakes', async () => {
+        await subject()
         const deposit = await staker.deposits(tokenId)
         expect(deposit.owner).to.eq(wallet.address)
         expect(deposit.numberOfStakes).to.eq(0)

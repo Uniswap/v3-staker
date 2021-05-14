@@ -17,6 +17,7 @@ interface IUniswapV3Staker {
         uint32 startTime,
         uint32 endTime
     );
+
     event TokenDeposited(uint256 tokenId);
     event TokenWithdrawn(uint256 tokenId);
     // TODO params.
@@ -33,12 +34,12 @@ interface IUniswapV3Staker {
     */
 
     struct CreateIncentiveParams {
-        address rewardToken;
         address pool;
-        uint32 startTime;
-        uint32 endTime;
-        uint32 claimDeadline;
+        address rewardToken;
         uint128 totalReward;
+        uint32 claimDeadline;
+        uint32 endTime;
+        uint32 startTime;
     }
 
     /**
@@ -47,15 +48,42 @@ interface IUniswapV3Staker {
     function createIncentive(CreateIncentiveParams memory params) external;
 
     struct EndIncentiveParams {
-        address rewardToken;
         address pool;
-        uint32 startTime;
-        uint32 endTime;
+        address rewardToken;
         uint32 claimDeadline;
+        uint32 endTime;
+        uint32 startTime;
     }
+
+    function depositToken(uint256 tokenId) external;
+
+    function withdrawToken(uint256 tokenId, address to) external;
 
     /**
     @notice Deletes an incentive whose claimDeadline has passed.
     */
     function endIncentive(EndIncentiveParams memory params) external;
+
+    struct StakeTokenParams {
+        address creator;
+        address rewardToken;
+        uint256 tokenId;
+        uint32 claimDeadline;
+        uint32 endTime;
+        uint32 startTime;
+    }
+
+    function stakeToken(StakeTokenParams memory params) external;
+
+    struct UnstakeTokenParams {
+        address creator;
+        address rewardToken;
+        address to;
+        uint256 tokenId;
+        uint32 claimDeadline;
+        uint32 endTime;
+        uint32 startTime;
+    }
+
+    function unstakeToken(UnstakeTokenParams memory params) external;
 }
