@@ -257,52 +257,56 @@ describe('UniswapV3Staker.unit', async () => {
   })
 
   describe('#depositToken', () => {
-    describe('works and', () => {
-      let tokenId: string
-      beforeEach(async () => {
-        const [token0, token1] = sortedTokens(tokens[1], tokens[2])
-        await nft.createAndInitializePoolIfNecessary(
-          token0.address,
-          token1.address,
-          FeeAmount.MEDIUM,
-          encodePriceSqrt(1, 1)
-        )
+    let tokenId: string
+    let subject
 
-        tokenId = await mintPosition(nft, {
-          token0: token0.address,
-          token1: token1.address,
-          fee: FeeAmount.MEDIUM,
-          tickLower: getMinTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
-          tickUpper: getMaxTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
-          recipient: wallet.address,
-          amount0Desired: BN(10).mul(BN(10).pow(18)),
-          amount1Desired: BN(10).mul(BN(10).pow(18)),
-          amount0Min: 0,
-          amount1Min: 0,
-          deadline: (await blockTimestamp()) + 1000,
-        })
+    beforeEach(async () => {
+      const [token0, token1] = sortedTokens(tokens[1], tokens[2])
+      await nft.createAndInitializePoolIfNecessary(
+        token0.address,
+        token1.address,
+        FeeAmount.MEDIUM,
+        encodePriceSqrt(1, 1)
+      )
+
+      tokenId = await mintPosition(nft, {
+        token0: token0.address,
+        token1: token1.address,
+        fee: FeeAmount.MEDIUM,
+        tickLower: getMinTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
+        tickUpper: getMaxTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
+        recipient: wallet.address,
+        amount0Desired: BN(10).mul(BN(10).pow(18)),
+        amount1Desired: BN(10).mul(BN(10).pow(18)),
+        amount0Min: 0,
+        amount1Min: 0,
+        deadline: (await blockTimestamp()) + 1000,
       })
+      tokenId = '1'
+      await nft.approve(staker.address, tokenId, { gasLimit: 12450000 })
 
-      it('emits a Deposited event', async () => {
-        const tokenId = 1
-        await nft.approve(staker.address, tokenId, { gasLimit: 12450000 })
-        expect(staker.depositToken(tokenId))
+      subject = async ({ tokenId }) => await staker.depositToken(tokenId)
+    })
+
+    describe('works and', () => {
+      it('emits a Deposited event', async () =>
+        await expect(subject())
           .to.emit(staker, 'TokenDeposited')
-          .withArgs(tokenId)
+          .withArgs(tokenId))
 
-        // it('actually transfers the NFT to the contract')
-        expect(await nft.ownerOf(tokenId)).to.eq(staker.address)
+      it('transfers ownership of the NFT', async () =>
+        expect(await nft.ownerOf(tokenId)).to.eq(staker.address))
 
-        // it('creates deposits[tokenId] = Deposit struct')
+      it('sets owner and increases numberOfStakes', async () => {
         const deposit = await staker.deposits(tokenId)
         expect(deposit.owner).to.eq(wallet.address)
         expect(deposit.numberOfStakes).to.eq(0)
-        // it('respond to the onERC721Received function')
       })
+
+      it('responds to the onERC721Received function')
     })
 
-    describe('paranoia edge cases', () => {
-      /*
+    /*
       Other possible cases to consider:
         * What if make nft.safeTransferFrom is adversarial in some way?
         * What happens if the nft.safeTransferFrom call fails
@@ -310,14 +314,62 @@ describe('UniswapV3Staker.unit', async () => {
         * What happens if I call deposit() twice with the same tokenId?
         * Ownership checks around tokenId? Can you transfer something that is not yours?
       */
-    })
   })
 
   describe('#withdrawToken', () => {
+    let tokenId: string
+    let subject
+    let depositToken
+    const recipient = wallet.address
+
+    beforeEach(async () => {
+      const [token0, token1] = sortedTokens(tokens[1], tokens[2])
+
+      await nft.createAndInitializePoolIfNecessary(
+        token0.address,
+        token1.address,
+        FeeAmount.MEDIUM,
+        encodePriceSqrt(1, 1)
+      )
+
+      tokenId = await mintPosition(nft, {
+        token0: token0.address,
+        token1: token1.address,
+        fee: FeeAmount.MEDIUM,
+        tickLower: getMinTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
+        tickUpper: getMaxTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
+        recipient: wallet.address,
+        amount0Desired: BN(10).mul(BN(10).pow(18)),
+        amount1Desired: BN(10).mul(BN(10).pow(18)),
+        amount0Min: 0,
+        amount1Min: 0,
+        deadline: (await blockTimestamp()) + 1000,
+      })
+      tokenId = '1'
+      await nft.approve(staker.address, tokenId, { gasLimit: 12450000 })
+
+      await staker.depositToken(tokenId)
+      subject = async ({ tokenId, recipient }) =>
+        await staker.withdrawToken(tokenId, recipient)
+    })
+
     describe('works and', () => {
-      it('emits a withdrawal event', async () => {})
-      it('does the safeTransferFrom and transfers ownership')
-      it('prevents you from withdrawing twice')
+      it('emits a TokenWithdrawn event', async () => {
+        await expect(subject({ tokenId, recipient }))
+          .to.emit(staker, 'TokenWithdrawn')
+          .withArgs(tokenId)
+      })
+
+      it('transfers nft ownership', async () => {
+        await subject({ tokenId, recipient })
+        expect(await nft.ownerOf(tokenId)).to.eq(recipient)
+      })
+
+      it('prevents you from withdrawing twice', async () => {
+        await subject({ tokenId, recipient })
+        expect(await nft.ownerOf(tokenId)).to.eq(recipient)
+        await expect(subject({ tokenId, recipient })).to.be.reverted
+      })
     })
 
     describe('fails if', () => {
