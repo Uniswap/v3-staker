@@ -25,5 +25,6 @@ This will create the following yarn links:
 With this, you can now access types that are not exported in the NPM packages.
 
 ```sh
+$ yarn
 $ yarn test
 ```
