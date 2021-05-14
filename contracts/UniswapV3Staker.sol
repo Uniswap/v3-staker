@@ -104,6 +104,7 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, ReentrancyGuard {
         );
     }
 
+    /// @inheritdoc IUniswapV3Staker
     function endIncentive(EndIncentiveParams memory params)
         external
         override
@@ -141,6 +142,7 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, ReentrancyGuard {
         );
     }
 
+    /// @inheritdoc IUniswapV3Staker
     function depositToken(uint256 tokenId) external override {
         nonfungiblePositionManager.safeTransferFrom(
             msg.sender,
@@ -197,6 +199,7 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, ReentrancyGuard {
         return this.onERC721Received.selector;
     }
 
+    /// @inheritdoc IUniswapV3Staker
     function withdrawToken(uint256 tokenId, address to) external override {
         Deposit memory deposit = deposits[tokenId];
         require(deposit.numberOfStakes == 0, 'NUMBER_OF_STAKES_NOT_ZERO');
@@ -209,6 +212,7 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, ReentrancyGuard {
         emit TokenWithdrawn(tokenId);
     }
 
+    /// @inheritdoc IUniswapV3Staker
     function stakeToken(StakeTokenParams memory params) external override {
         require(
             deposits[params.tokenId].owner == msg.sender,
@@ -240,6 +244,7 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, ReentrancyGuard {
         );
     }
 
+    /// @inheritdoc IUniswapV3Staker
     function unstakeToken(UnstakeTokenParams memory params)
         external
         override
