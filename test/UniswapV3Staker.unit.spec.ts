@@ -1,4 +1,4 @@
-import { constants } from 'ethers'
+import { constants, BigNumber, BigNumberish } from 'ethers'
 import { ethers, waffle } from 'hardhat'
 import { Fixture } from 'ethereum-waffle'
 import { UniswapV3Staker } from '../typechain/UniswapV3Staker'
@@ -14,6 +14,7 @@ import {
   getMinTick,
   FeeAmount,
   TICK_SPACINGS,
+  ZERO_ADDRESS,
   MaxUint256,
   encodePriceSqrt,
   blockTimestamp,
@@ -35,8 +36,11 @@ describe('UniswapV3Staker.unit', async () => {
   let staker: UniswapV3Staker
   let subject
 
-  beforeEach('create fixture loader', async () => {
+  beforeEach('loader', async () => {
     loadFixture = createFixtureLoader(wallets)
+  })
+
+  beforeEach('create fixture loader', async () => {
     ;({ nft, tokens, staker, factory } = await loadFixture(uniswapFixture))
   })
 
@@ -290,7 +294,7 @@ describe('UniswapV3Staker.unit', async () => {
     describe('works and', async () => {
       it('emits a Deposited event', async () => {
         const tx = await subject()
-        expect(tx).to.emit(staker, 'TokenDeposited').withArgs(tokenId)
+        expect(tx).to.emit(staker, 'TokenDeposited').withArgs(tokenId, wallet.address)
       })
 
       it('transfers ownership of the NFT', async () => {
@@ -469,6 +473,147 @@ describe('UniswapV3Staker.unit', async () => {
         what if reward cannot be transferred
         what if it's a big number and we risk overflowing
     */
+  })
+
+  describe('#onERC721Received', () => {
+    const stakeParamsEncodeType =
+      'tuple(address creator, address rewardToken, uint256 tokenId, uint32 startTime, uint32 endTime, uint32 claimDeadline)'
+    let tokenId: BigNumberish
+    let pool: string
+    let rewardToken: TestERC20
+    let otherRewardToken: TestERC20
+    let startTime: number
+    let endTime: number
+    let claimDeadline: number
+    let totalReward: BigNumber
+    let data: string
+
+    beforeEach(async () => {
+      const currentTime = await blockTimestamp()
+
+      rewardToken = tokens[1]
+      otherRewardToken = tokens[2]
+      startTime = currentTime
+      endTime = currentTime + 100
+      claimDeadline = currentTime + 1000
+      totalReward = BNe18(1000)
+
+      const [token0, token1] = sortedTokens(tokens[0], tokens[1])
+      await nft.createAndInitializePoolIfNecessary(
+        token0.address,
+        token1.address,
+        FeeAmount.MEDIUM,
+        encodePriceSqrt(1, 1)
+      )
+      pool = await factory.getPool(
+        tokens[0].address,
+        tokens[1].address,
+        FeeAmount.MEDIUM
+      )
+
+      tokenId = await mintPosition(nft, {
+        token0: token0.address,
+        token1: token1.address,
+        fee: FeeAmount.MEDIUM,
+        tickLower: getMinTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
+        tickUpper: getMaxTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
+        recipient: wallet.address,
+        amount0Desired: BNe18(10),
+        amount1Desired: BNe18(10),
+        amount0Min: 0,
+        amount1Min: 0,
+        deadline: (await blockTimestamp()) + 1000,
+      })
+
+      const creator = wallet.address
+
+      await rewardToken.approve(staker.address, totalReward)
+      await staker.createIncentive({
+        pool,
+        rewardToken: rewardToken.address,
+        totalReward,
+        startTime,
+        endTime,
+        claimDeadline,
+      })
+
+      const stakeParams = {
+        creator,
+        rewardToken: rewardToken.address,
+        tokenId,
+        startTime,
+        endTime,
+        claimDeadline,
+      }
+
+      data = ethers.utils.defaultAbiCoder.encode(
+        [stakeParamsEncodeType],
+        [stakeParams]
+      )
+    })
+
+    describe('on successful transfer with staking data', () => {
+      it('deposits the token', async () => {
+        expect((await staker.deposits(1)).owner).to.equal(ZERO_ADDRESS)
+        await nft['safeTransferFrom(address,address,uint256)'](
+          wallet.address,
+          staker.address,
+          tokenId,
+        )
+        expect((await staker.deposits(1)).owner).to.equal(wallet.address)
+      })
+
+      it('properly stakes the deposit in the select incentive', async () => {
+        const id1 = await staker.getIncentiveId(
+          wallet.address,
+          rewardToken.address,
+          pool,
+          startTime,
+          endTime,
+          claimDeadline
+        )
+
+        expect((await staker.deposits(tokenId)).numberOfStakes).to.equal(0)
+        await nft['safeTransferFrom(address,address,uint256,bytes)'](
+          wallet.address,
+          staker.address,
+          tokenId,
+          data
+        )
+        expect((await staker.deposits(tokenId)).numberOfStakes).to.equal(1)
+        expect((await staker.stakes(tokenId, id1)).pool).to.eq(pool)
+      })
+    })
+
+    it('reverts when called by contract other than uniswap v3 nonfungiblePositionManager', async () => {
+      expect(
+        staker.onERC721Received(wallet.address, wallet.address, 1, data)
+      ).to.revertedWith('uniswap v3 nft only')
+    })
+
+    it('reverts when staking on invalid incentive', async () => {
+      const invalidStakeParams = {
+        creator: wallet.address,
+        rewardToken: rewardToken.address,
+        tokenId,
+        startTime: 100,
+        endTime,
+        claimDeadline,
+      }
+
+      let invalidData = ethers.utils.defaultAbiCoder.encode(
+        [stakeParamsEncodeType],
+        [invalidStakeParams]
+      )
+      expect(
+        nft['safeTransferFrom(address,address,uint256,bytes)'](
+          wallet.address,
+          staker.address,
+          tokenId,
+          invalidData
+        )
+      ).to.revertedWith('non-existent incentive')
+    })
   })
 
   describe('#getPositionDetails', () => {

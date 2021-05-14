@@ -46,5 +46,6 @@ export { sortedTokens } from '../../vendor/uniswap-v3-periphery/test/shared/toke
 
 export const BN = ethers.BigNumber.from
 export const BNe18 = (n) => ethers.BigNumber.from(n).mul(BN(10).pow(18))
+export const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
 
 export { BigNumber, BigNumberish } from 'ethers'

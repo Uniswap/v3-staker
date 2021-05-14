@@ -11,17 +11,18 @@ import '@uniswap/v3-periphery/contracts/libraries/PoolAddress.sol';
 import '@uniswap/v3-periphery/contracts/interfaces/INonfungiblePositionManager.sol';
 import '@uniswap/v3-core/contracts/libraries/FixedPoint128.sol';
 import '@uniswap/v3-core/contracts/libraries/FullMath.sol';
-import '@openzeppelin/contracts/token/ERC721/ERC721Holder.sol';
+import '@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol';
 import '@openzeppelin/contracts/math/Math.sol';
 import '@openzeppelin/contracts/math/SafeMath.sol';
 import '@openzeppelin/contracts/utils/ReentrancyGuard.sol';
+import 'hardhat/console.sol';
 
 /**
 @title Uniswap V3 canonical staking interface
 @author Omar Bohsali <omar.bohsali@gmail.com>
 @author Dan Robinson <dan@paradigm.xyz>
 */
-contract UniswapV3Staker is IUniswapV3Staker, ERC721Holder, ReentrancyGuard {
+contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, ReentrancyGuard {
     struct Incentive {
         uint128 totalRewardUnclaimed;
         uint160 totalSecondsClaimedX128;
@@ -41,14 +42,14 @@ contract UniswapV3Staker is IUniswapV3Staker, ERC721Holder, ReentrancyGuard {
     IUniswapV3Factory public immutable factory;
     INonfungiblePositionManager public immutable nonfungiblePositionManager;
 
-    /// @dev bytes32 refers to the return value of _getIncentiveId
+    /// @dev bytes32 refers to the return value of getIncentiveId
     mapping(bytes32 => Incentive) public incentives;
 
     /// @dev deposits[tokenId] => Deposit
     mapping(uint256 => Deposit) public deposits;
 
     /// @dev stakes[tokenId][incentiveHash] => Stake
-    mapping(uint256 => mapping(bytes32 => Stake)) stakes;
+    mapping(uint256 => mapping(bytes32 => Stake)) public stakes;
 
     /// @param _factory the Uniswap V3 factory
     /// @param _nonfungiblePositionManager the NFT position manager contract address
@@ -71,7 +72,7 @@ contract UniswapV3Staker is IUniswapV3Staker, ERC721Holder, ReentrancyGuard {
         require(params.endTime > params.startTime, 'endTime_not_gte_startTime');
 
         bytes32 key =
-            _getIncentiveId(
+            getIncentiveId(
                 msg.sender,
                 params.rewardToken,
                 params.pool,
@@ -115,7 +116,7 @@ contract UniswapV3Staker is IUniswapV3Staker, ERC721Holder, ReentrancyGuard {
             'TIMESTAMP_LTE_CLAIMDEADLINE'
         );
         bytes32 key =
-            _getIncentiveId(
+            getIncentiveId(
                 msg.sender,
                 params.rewardToken,
                 params.pool,
@@ -143,16 +144,58 @@ contract UniswapV3Staker is IUniswapV3Staker, ERC721Holder, ReentrancyGuard {
     }
 
     function depositToken(uint256 tokenId) external override {
-        // TODO: Make sure the transfer succeeds and is a uniswap erc721
-        // I think this is not secure
         nonfungiblePositionManager.safeTransferFrom(
             msg.sender,
             address(this),
             tokenId
         );
+    }
 
-        deposits[tokenId] = Deposit(msg.sender, 0);
-        emit TokenDeposited(tokenId);
+    function onERC721Received(
+        address,
+        address from,
+        uint256 tokenId,
+        bytes calldata data
+    ) external override returns (bytes4) {
+        require(
+            msg.sender == address(nonfungiblePositionManager),
+            'uniswap v3 nft only'
+        );
+
+        deposits[tokenId] = Deposit(from, 0);
+        emit TokenDeposited(tokenId, from);
+
+        if (data.length > 0) {
+            (address poolAddress, int24 tickLower, int24 tickUpper, ) =
+                _getPositionDetails(tokenId);
+            (, uint160 secondsPerLiquidityInsideX128, ) =
+                IUniswapV3Pool(poolAddress).snapshotCumulativesInside(
+                    tickLower,
+                    tickUpper
+                );
+
+            StakeTokenParams memory params = abi.decode(data, (StakeTokenParams));
+              bytes32 incentiveId =
+                  getIncentiveId(
+                      params.creator,
+                      params.rewardToken,
+                      poolAddress,
+                      params.startTime,
+                      params.endTime,
+                      params.claimDeadline
+                  );
+              require(
+                  incentives[incentiveId].rewardToken != address(0),
+                  'non-existent incentive'
+              );
+              _stake(
+                  tokenId,
+                  incentiveId,
+                  poolAddress,
+                  secondsPerLiquidityInsideX128
+              );
+        }
+        return this.onERC721Received.selector;
     }
 
     function withdrawToken(uint256 tokenId, address to) external override {
@@ -178,7 +221,7 @@ contract UniswapV3Staker is IUniswapV3Staker, ERC721Holder, ReentrancyGuard {
         IUniswapV3Pool pool = IUniswapV3Pool(poolAddress);
 
         bytes32 incentiveId =
-            _getIncentiveId(
+            getIncentiveId(
                 params.creator,
                 params.rewardToken,
                 poolAddress,
@@ -190,13 +233,12 @@ contract UniswapV3Staker is IUniswapV3Staker, ERC721Holder, ReentrancyGuard {
         (, uint160 secondsPerLiquidityInsideX128, ) =
             pool.snapshotCumulativesInside(tickLower, tickUpper);
 
-        stakes[params.tokenId][incentiveId] = Stake(
-            secondsPerLiquidityInsideX128,
-            address(pool)
+        _stake(
+            params.tokenId,
+            incentiveId,
+            poolAddress,
+            secondsPerLiquidityInsideX128
         );
-
-        deposits[params.tokenId].numberOfStakes += 1;
-        emit TokenStaked();
     }
 
     function unstakeToken(UnstakeTokenParams memory params)
@@ -243,7 +285,7 @@ contract UniswapV3Staker is IUniswapV3Staker, ERC721Holder, ReentrancyGuard {
             pool.snapshotCumulativesInside(tickLower, tickUpper);
 
         bytes32 incentiveId =
-            _getIncentiveId(
+            getIncentiveId(
                 params.creator,
                 params.rewardToken,
                 poolAddress,
@@ -299,6 +341,20 @@ contract UniswapV3Staker is IUniswapV3Staker, ERC721Holder, ReentrancyGuard {
         emit TokenUnstaked();
     }
 
+    function _stake(
+        uint256 tokenId,
+        bytes32 incentiveId,
+        address poolAddress,
+        uint160 secondsPerLiquidityInsideX128
+    ) internal {
+        stakes[tokenId][incentiveId] = Stake(
+            secondsPerLiquidityInsideX128,
+            poolAddress
+        );
+        deposits[tokenId].numberOfStakes += 1;
+        emit TokenStaked();
+    }
+
     /// @notice Calculate the key for a staking incentive
     /// @param creator Address that created this incentive
     /// @param rewardToken Token being distributed as a reward
@@ -306,14 +362,14 @@ contract UniswapV3Staker is IUniswapV3Staker, ERC721Holder, ReentrancyGuard {
     /// @param startTime When the incentive begins
     /// @param endTime When the incentive ends
     /// @param claimDeadline Time by which incentive rewards must be claimed
-    function _getIncentiveId(
+    function getIncentiveId(
         address creator,
         address rewardToken,
         address pool,
         uint32 startTime,
         uint32 endTime,
         uint32 claimDeadline
-    ) internal pure returns (bytes32) {
+    ) public pure returns (bytes32) {
         return
             keccak256(
                 abi.encode(
