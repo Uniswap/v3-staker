@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 pragma solidity =0.7.6;
-import '../libraries/Helper.sol';
+import '../libraries/IncentiveHelper.sol';
 
 /// @dev Test contract for getIncentiveId
 contract TestIncentiveID {
@@ -13,7 +13,7 @@ contract TestIncentiveID {
         uint32 claimDeadline
     ) public pure returns (bytes32) {
         return
-            Helper.getIncentiveId(
+            IncentiveHelper.getIncentiveId(
                 creator,
                 rewardToken,
                 pool,

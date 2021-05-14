@@ -2,7 +2,7 @@
 pragma solidity =0.7.6;
 pragma abicoder v2;
 
-library Helper {
+library IncentiveHelper {
     /// @notice Calculate the key for a staking incentive
     /// @param creator Address that created this incentive
     /// @param rewardToken Token being distributed as a reward

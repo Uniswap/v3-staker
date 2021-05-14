@@ -3,7 +3,7 @@ pragma solidity =0.7.6;
 pragma abicoder v2;
 
 import './interfaces/IUniswapV3Staker.sol';
-import './libraries/Helper.sol';
+import './libraries/IncentiveHelper.sol';
 
 import '@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol';
 import '@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol';
@@ -40,7 +40,7 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, ReentrancyGuard {
     IUniswapV3Factory public immutable factory;
     INonfungiblePositionManager public immutable nonfungiblePositionManager;
 
-    /// @dev bytes32 refers to the return value of Helper.getIncentiveId
+    /// @dev bytes32 refers to the return value of IncentiveHelper.getIncentiveId
     mapping(bytes32 => Incentive) public incentives;
 
     /// @dev deposits[tokenId] => Deposit
@@ -70,7 +70,7 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, ReentrancyGuard {
         require(params.endTime > params.startTime, 'endTime_not_gte_startTime');
 
         bytes32 key =
-            Helper.getIncentiveId(
+            IncentiveHelper.getIncentiveId(
                 msg.sender,
                 params.rewardToken,
                 params.pool,
@@ -114,7 +114,7 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, ReentrancyGuard {
             'TIMESTAMP_LTE_CLAIMDEADLINE'
         );
         bytes32 key =
-            Helper.getIncentiveId(
+            IncentiveHelper.getIncentiveId(
                 msg.sender,
                 params.rewardToken,
                 params.pool,
@@ -175,7 +175,7 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, ReentrancyGuard {
             StakeTokenParams memory params =
                 abi.decode(data, (StakeTokenParams));
             bytes32 incentiveId =
-                Helper.getIncentiveId(
+                IncentiveHelper.getIncentiveId(
                     params.creator,
                     params.rewardToken,
                     poolAddress,
@@ -220,7 +220,7 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, ReentrancyGuard {
         IUniswapV3Pool pool = IUniswapV3Pool(poolAddress);
 
         bytes32 incentiveId =
-            Helper.getIncentiveId(
+            IncentiveHelper.getIncentiveId(
                 params.creator,
                 params.rewardToken,
                 poolAddress,
@@ -284,7 +284,7 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, ReentrancyGuard {
             pool.snapshotCumulativesInside(tickLower, tickUpper);
 
         bytes32 incentiveId =
-            Helper.getIncentiveId(
+            IncentiveHelper.getIncentiveId(
                 params.creator,
                 params.rewardToken,
                 poolAddress,
