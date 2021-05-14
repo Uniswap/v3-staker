@@ -196,7 +196,7 @@ export const mintPosition = async (
     deadline: mintParams.deadline,
   })
 
-  const tokenId: BigNumber  = await new Promise((resolve) =>
+  const tokenId: BigNumber = await new Promise((resolve) =>
     nft.on('Transfer', (from: any, to: any, tokenId: any) => resolve(tokenId))
   )
   return tokenId.toString()
