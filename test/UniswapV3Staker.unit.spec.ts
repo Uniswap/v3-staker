@@ -441,26 +441,17 @@ describe('UniswapV3Staker.unit', async () => {
   })
 
   describe('#unstakeToken', () => {
-    /*
-    checks that
-      you are the owner of the deposit
-      there exists a stake for that key
-      there is non-zero secondsPerLiquidity
-    effects:
-      decrements numberOfStakes by 1
-      it transfers the right amoutn of the reward token
-      calculations
-        it gets the right secondsPerLiquidity
-        totalSecondsUnclaimed
-          doesn't overflow
-          check the math everywhere
-        it emits an Unstaked() event
-      you cannt unstake if
-        you have not staked
-      paranoia:
-        what if reward cannot be transferred
-        what if it's a big number and we risk overflowing
-    */
+    describe('works and', async () => {
+      it('decrements numberOfStakes by 1')
+      it('transfers the right amoutn of the reward token')
+      it('calculates the right secondsPerLiquidity')
+      it('emits an unstaked event')
+      it('does not overflow totalSecondsUnclaimed')
+    })
+
+    describe('fails if', () => {
+      it('you have not staked')
+    })
   })
 
   describe('#onERC721Received', () => {
