@@ -18,7 +18,7 @@ interface IUniswapV3Staker {
         uint32 endTime
     );
 
-    event TokenDeposited(uint256 tokenId);
+    event TokenDeposited(uint256 tokenId, address indexed owner);
     event TokenWithdrawn(uint256 tokenId);
     // TODO params.
     event TokenUnstaked();
@@ -68,9 +68,9 @@ interface IUniswapV3Staker {
         address creator;
         address rewardToken;
         uint256 tokenId;
-        uint32 claimDeadline;
-        uint32 endTime;
         uint32 startTime;
+        uint32 endTime;
+        uint32 claimDeadline;
     }
 
     function stakeToken(StakeTokenParams memory params) external;
@@ -80,9 +80,9 @@ interface IUniswapV3Staker {
         address rewardToken;
         address to;
         uint256 tokenId;
-        uint32 claimDeadline;
-        uint32 endTime;
         uint32 startTime;
+        uint32 endTime;
+        uint32 claimDeadline;
     }
 
     function unstakeToken(UnstakeTokenParams memory params) external;

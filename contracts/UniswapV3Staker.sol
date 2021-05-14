@@ -15,13 +15,14 @@ import '@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol';
 import '@openzeppelin/contracts/math/Math.sol';
 import '@openzeppelin/contracts/math/SafeMath.sol';
 import '@openzeppelin/contracts/utils/ReentrancyGuard.sol';
+import 'hardhat/console.sol';
 
 /**
 @title Uniswap V3 canonical staking interface
 @author Omar Bohsali <omar.bohsali@gmail.com>
 @author Dan Robinson <dan@paradigm.xyz>
 */
-contract UniswapV3Staker is IUniswapV3Staker, ERC721Holder, ReentrancyGuard {
+contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, ReentrancyGuard {
     struct Incentive {
         uint128 totalRewardUnclaimed;
         uint160 totalSecondsClaimedX128;
@@ -143,8 +144,6 @@ contract UniswapV3Staker is IUniswapV3Staker, ERC721Holder, ReentrancyGuard {
     }
 
     function depositToken(uint256 tokenId) external override {
-        // TODO: Make sure the transfer succeeds and is a uniswap erc721
-        // I think this is not secure
         nonfungiblePositionManager.safeTransferFrom(
             msg.sender,
             address(this),
@@ -163,8 +162,8 @@ contract UniswapV3Staker is IUniswapV3Staker, ERC721Holder, ReentrancyGuard {
             'uniswap v3 nft only'
         );
 
-        deposits[tokenId] = Deposit(owner, 0);
-        emit TokenDeposited(tokenId, owner);
+        deposits[tokenId] = Deposit(from, 0);
+        emit TokenDeposited(tokenId, from);
 
         if (data.length > 0) {
             (address poolAddress, int24 tickLower, int24 tickUpper, ) =
@@ -174,28 +173,27 @@ contract UniswapV3Staker is IUniswapV3Staker, ERC721Holder, ReentrancyGuard {
                     tickLower,
                     tickUpper
                 );
-            StakeParams[] memory params = abi.decode(data, (StakeParams[]));
-            for (uint256 i = 0; i < params.length; i++) {
-                bytes32 incentiveId =
-                    getIncentiveId(
-                        params[i].creator,
-                        params[i].rewardToken,
-                        poolAddress,
-                        params[i].startTime,
-                        params[i].endTime,
-                        params[i].claimDeadline
-                    );
-                require(
-                    incentives[incentiveId].rewardToken != address(0),
-                    'non-existent incentive'
-                );
-                _stake(
-                    tokenId,
-                    incentiveId,
-                    poolAddress,
-                    secondsPerLiquidityInsideX128
-                );
-            }
+
+            StakeTokenParams memory params = abi.decode(data, (StakeTokenParams));
+              bytes32 incentiveId =
+                  getIncentiveId(
+                      params.creator,
+                      params.rewardToken,
+                      poolAddress,
+                      params.startTime,
+                      params.endTime,
+                      params.claimDeadline
+                  );
+              require(
+                  incentives[incentiveId].rewardToken != address(0),
+                  'non-existent incentive'
+              );
+              _stake(
+                  tokenId,
+                  incentiveId,
+                  poolAddress,
+                  secondsPerLiquidityInsideX128
+              );
         }
         return this.onERC721Received.selector;
     }
@@ -223,7 +221,7 @@ contract UniswapV3Staker is IUniswapV3Staker, ERC721Holder, ReentrancyGuard {
         IUniswapV3Pool pool = IUniswapV3Pool(poolAddress);
 
         bytes32 incentiveId =
-            _getIncentiveId(
+            getIncentiveId(
                 params.creator,
                 params.rewardToken,
                 poolAddress,
@@ -235,13 +233,12 @@ contract UniswapV3Staker is IUniswapV3Staker, ERC721Holder, ReentrancyGuard {
         (, uint160 secondsPerLiquidityInsideX128, ) =
             pool.snapshotCumulativesInside(tickLower, tickUpper);
 
-        stakes[params.tokenId][incentiveId] = Stake(
-            secondsPerLiquidityInsideX128,
-            address(pool)
+        _stake(
+            params.tokenId,
+            incentiveId,
+            poolAddress,
+            secondsPerLiquidityInsideX128
         );
-
-        deposits[params.tokenId].numberOfStakes += 1;
-        emit TokenStaked();
     }
 
     function unstakeToken(UnstakeTokenParams memory params)
@@ -342,53 +339,6 @@ contract UniswapV3Staker is IUniswapV3Staker, ERC721Holder, ReentrancyGuard {
         );
         // } catch {}
         emit TokenUnstaked();
-    }
-
-    function onERC721Received(
-        address,
-        address from,
-        uint256 tokenId,
-        bytes calldata data
-    ) external override returns (bytes4) {
-        require(
-            msg.sender == address(nonfungiblePositionManager),
-            'uniswap v3 nft only'
-        );
-        _deposit(tokenId, from);
-
-        if (data.length > 0) {
-            (address poolAddress, int24 tickLower, int24 tickUpper, ) =
-                _getPositionDetails(tokenId);
-            (, uint160 secondsPerLiquidityInsideX128, ) =
-                IUniswapV3Pool(poolAddress).snapshotCumulativesInside(
-                    tickLower,
-                    tickUpper
-                );
-            StakeParams[] memory params = abi.decode(data, (StakeParams[]));
-            for (uint256 i = 0; i < params.length; i++) {
-                bytes32 incentiveId =
-                    getIncentiveId(
-                        params[i].creator,
-                        params[i].rewardToken,
-                        poolAddress,
-                        params[i].startTime,
-                        params[i].endTime,
-                        params[i].claimDeadline
-                    );
-                _stake(
-                    tokenId,
-                    incentiveId,
-                    poolAddress,
-                    secondsPerLiquidityInsideX128
-                );
-            }
-        }
-        return this.onERC721Received.selector;
-    }
-
-    function _deposit(uint256 tokenId, address owner) internal {
-        deposits[tokenId] = Deposit(owner, 0);
-        emit TokenDeposited(tokenId, owner);
     }
 
     function _stake(
