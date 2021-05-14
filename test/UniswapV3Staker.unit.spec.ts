@@ -566,7 +566,11 @@ describe('UniswapV3Staker.unit', async () => {
       })
 
       it('properly stakes the deposit in the select incentive', async () => {
-        const id1 = await staker.getIncentiveId(
+        const idGetter = await (
+          await ethers.getContractFactory('TestIncentiveID')
+        ).deploy()
+
+        const id1 = await idGetter.getIncentiveId(
           wallet.address,
           rewardToken.address,
           pool,

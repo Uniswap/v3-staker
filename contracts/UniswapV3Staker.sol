@@ -3,6 +3,7 @@ pragma solidity =0.7.6;
 pragma abicoder v2;
 
 import './interfaces/IUniswapV3Staker.sol';
+import './libraries/Helper.sol';
 
 import '@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol';
 import '@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol';
@@ -39,7 +40,7 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, ReentrancyGuard {
     IUniswapV3Factory public immutable factory;
     INonfungiblePositionManager public immutable nonfungiblePositionManager;
 
-    /// @dev bytes32 refers to the return value of getIncentiveId
+    /// @dev bytes32 refers to the return value of Helper.getIncentiveId
     mapping(bytes32 => Incentive) public incentives;
 
     /// @dev deposits[tokenId] => Deposit
@@ -69,7 +70,7 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, ReentrancyGuard {
         require(params.endTime > params.startTime, 'endTime_not_gte_startTime');
 
         bytes32 key =
-            getIncentiveId(
+            Helper.getIncentiveId(
                 msg.sender,
                 params.rewardToken,
                 params.pool,
@@ -113,7 +114,7 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, ReentrancyGuard {
             'TIMESTAMP_LTE_CLAIMDEADLINE'
         );
         bytes32 key =
-            getIncentiveId(
+            Helper.getIncentiveId(
                 msg.sender,
                 params.rewardToken,
                 params.pool,
@@ -174,7 +175,7 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, ReentrancyGuard {
             StakeTokenParams memory params =
                 abi.decode(data, (StakeTokenParams));
             bytes32 incentiveId =
-                getIncentiveId(
+                Helper.getIncentiveId(
                     params.creator,
                     params.rewardToken,
                     poolAddress,
@@ -219,7 +220,7 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, ReentrancyGuard {
         IUniswapV3Pool pool = IUniswapV3Pool(poolAddress);
 
         bytes32 incentiveId =
-            getIncentiveId(
+            Helper.getIncentiveId(
                 params.creator,
                 params.rewardToken,
                 poolAddress,
@@ -283,7 +284,7 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, ReentrancyGuard {
             pool.snapshotCumulativesInside(tickLower, tickUpper);
 
         bytes32 incentiveId =
-            getIncentiveId(
+            Helper.getIncentiveId(
                 params.creator,
                 params.rewardToken,
                 poolAddress,
@@ -351,34 +352,6 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, ReentrancyGuard {
         );
         deposits[tokenId].numberOfStakes += 1;
         emit TokenStaked(tokenId);
-    }
-
-    /// @notice Calculate the key for a staking incentive
-    /// @param creator Address that created this incentive
-    /// @param rewardToken Token being distributed as a reward
-    /// @param pool The UniswapV3 pool this incentive is on
-    /// @param startTime When the incentive begins
-    /// @param endTime When the incentive ends
-    /// @param claimDeadline Time by which incentive rewards must be claimed
-    function getIncentiveId(
-        address creator,
-        address rewardToken,
-        address pool,
-        uint32 startTime,
-        uint32 endTime,
-        uint32 claimDeadline
-    ) public pure returns (bytes32) {
-        return
-            keccak256(
-                abi.encode(
-                    creator,
-                    rewardToken,
-                    pool,
-                    startTime,
-                    endTime,
-                    claimDeadline
-                )
-            );
     }
 
     function _getPositionDetails(uint256 tokenId)
