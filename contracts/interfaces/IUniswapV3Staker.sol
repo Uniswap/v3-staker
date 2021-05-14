@@ -20,9 +20,9 @@ interface IUniswapV3Staker {
 
     event TokenDeposited(uint256 tokenId, address indexed owner);
     event TokenWithdrawn(uint256 tokenId);
-    // TODO params.
-    event TokenUnstaked();
-    event TokenStaked();
+
+    event TokenStaked(uint256 tokenId);
+    event TokenUnstaked(uint256 tokenId);
 
     /**
     @param rewardToken The token being distributed as a reward

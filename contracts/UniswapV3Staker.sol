@@ -15,12 +15,9 @@ import '@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol';
 import '@openzeppelin/contracts/math/Math.sol';
 import '@openzeppelin/contracts/math/SafeMath.sol';
 import '@openzeppelin/contracts/utils/ReentrancyGuard.sol';
-import 'hardhat/console.sol';
 
 /**
 @title Uniswap V3 canonical staking interface
-@author Omar Bohsali <omar.bohsali@gmail.com>
-@author Dan Robinson <dan@paradigm.xyz>
 */
 contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, ReentrancyGuard {
     struct Incentive {
@@ -174,26 +171,27 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, ReentrancyGuard {
                     tickUpper
                 );
 
-            StakeTokenParams memory params = abi.decode(data, (StakeTokenParams));
-              bytes32 incentiveId =
-                  getIncentiveId(
-                      params.creator,
-                      params.rewardToken,
-                      poolAddress,
-                      params.startTime,
-                      params.endTime,
-                      params.claimDeadline
-                  );
-              require(
-                  incentives[incentiveId].rewardToken != address(0),
-                  'non-existent incentive'
-              );
-              _stake(
-                  tokenId,
-                  incentiveId,
-                  poolAddress,
-                  secondsPerLiquidityInsideX128
-              );
+            StakeTokenParams memory params =
+                abi.decode(data, (StakeTokenParams));
+            bytes32 incentiveId =
+                getIncentiveId(
+                    params.creator,
+                    params.rewardToken,
+                    poolAddress,
+                    params.startTime,
+                    params.endTime,
+                    params.claimDeadline
+                );
+            require(
+                incentives[incentiveId].rewardToken != address(0),
+                'non-existent incentive'
+            );
+            _stake(
+                tokenId,
+                incentiveId,
+                poolAddress,
+                secondsPerLiquidityInsideX128
+            );
         }
         return this.onERC721Received.selector;
     }
@@ -338,7 +336,7 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, ReentrancyGuard {
             reward
         );
         // } catch {}
-        emit TokenUnstaked();
+        emit TokenUnstaked(params.tokenId);
     }
 
     function _stake(
@@ -352,7 +350,7 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, ReentrancyGuard {
             poolAddress
         );
         deposits[tokenId].numberOfStakes += 1;
-        emit TokenStaked();
+        emit TokenStaked(tokenId);
     }
 
     /// @notice Calculate the key for a staking incentive

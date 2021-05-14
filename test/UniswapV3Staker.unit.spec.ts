@@ -294,7 +294,9 @@ describe('UniswapV3Staker.unit', async () => {
     describe('works and', async () => {
       it('emits a Deposited event', async () => {
         const tx = await subject()
-        expect(tx).to.emit(staker, 'TokenDeposited').withArgs(tokenId, wallet.address)
+        expect(tx)
+          .to.emit(staker, 'TokenDeposited')
+          .withArgs(tokenId, wallet.address)
       })
 
       it('transfers ownership of the NFT', async () => {
@@ -558,7 +560,7 @@ describe('UniswapV3Staker.unit', async () => {
         await nft['safeTransferFrom(address,address,uint256)'](
           wallet.address,
           staker.address,
-          tokenId,
+          tokenId
         )
         expect((await staker.deposits(1)).owner).to.equal(wallet.address)
       })
