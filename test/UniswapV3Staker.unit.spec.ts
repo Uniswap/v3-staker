@@ -2,9 +2,8 @@ import { constants } from 'ethers'
 import { ethers, waffle } from 'hardhat'
 import { Fixture } from 'ethereum-waffle'
 import { UniswapV3Staker } from '../typechain/UniswapV3Staker'
-import type { TestERC20, INonfungiblePositionManager } from '../typechain'
+import { TestERC20, INonfungiblePositionManager } from '../typechain'
 import {
-  uniswapFactoryFixture,
   uniswapFixture,
   mintPosition,
   createIncentive,
@@ -162,6 +161,8 @@ describe('UniswapV3Staker.unit', async () => {
     let endTime
     let claimDeadline
     let pool
+    let subject
+    let createIncentive
 
     beforeEach('setup', async () => {
       rewardToken = tokens[0].address
@@ -176,9 +177,54 @@ describe('UniswapV3Staker.unit', async () => {
         FeeAmount.MEDIUM
       )
       await tokens[0].approve(staker.address, totalReward)
+
+      createIncentive = async () =>
+        staker.createIncentive({
+          rewardToken,
+          pool,
+          startTime,
+          endTime,
+          claimDeadline,
+          totalReward,
+        })
+
+      subject = async ({ ...args } = {}) =>
+        await staker.endIncentive({
+          rewardToken,
+          pool,
+          startTime,
+          endTime,
+          claimDeadline,
+          ...args,
+        })
     })
 
-    describe('should fail if ', () => {
+    describe('works and', () => {
+      it('emits IncentiveEnded() event', async () => {
+        await createIncentive()
+        // Adjust the block.timestamp so it is after the claim deadline
+        await ethers.provider.send('evm_setNextBlockTimestamp', [
+          claimDeadline + 1,
+        ])
+
+        await expect(
+          staker.endIncentive({
+            rewardToken,
+            pool,
+            startTime,
+            endTime,
+            claimDeadline,
+          })
+        )
+          .to.emit(staker, 'IncentiveEnded')
+          .withArgs(rewardToken, pool, startTime, endTime)
+      })
+
+      it('deletes incentives[key]')
+      it('deletes even if the transfer fails (re-entrancy vulnerability check)')
+    })
+
+    describe('fails when ', () => {
       it('block.timestamp <= claim deadline', async () => {
         await staker.createIncentive({
           rewardToken,
@@ -194,15 +240,9 @@ describe('UniswapV3Staker.unit', async () => {
           claimDeadline - 1,
         ])
 
-        expect(
-          staker.endIncentive(
-            tokens[0].address,
-            pool,
-            startTime,
-            endTime,
-            claimDeadline
-          )
-        ).to.be.revertedWith('TIMESTAMP_LTE_CLAIMDEADLINE')
+        await expect(subject()).to.be.revertedWith(
+          'TIMESTAMP_LTE_CLAIMDEADLINE'
+        )
       })
 
       it('incentive does not exist', async () => {
@@ -211,57 +251,13 @@ describe('UniswapV3Staker.unit', async () => {
           claimDeadline + 1,
         ])
 
-        expect(
-          staker.endIncentive(
-            rewardToken,
-            pool,
-            startTime,
-            endTime,
-            claimDeadline
-          )
-        ).to.be.revertedWith('INVALID_INCENTIVE')
+        await expect(subject()).to.be.revertedWith('INVALID_INCENTIVE')
       })
     })
-
-    describe('works and', () => {
-      it('emits IncentiveEnded() event', async () => {
-        await staker.createIncentive({
-          rewardToken,
-          pool,
-          startTime,
-          endTime,
-          claimDeadline,
-          totalReward,
-        })
-
-        // Adjust the block.timestamp so it is after the claim deadline
-        await ethers.provider.send('evm_setNextBlockTimestamp', [
-          claimDeadline + 1,
-        ])
-
-        expect(
-          staker.endIncentive(
-            rewardToken,
-            pool,
-            startTime,
-            endTime,
-            claimDeadline
-          )
-        )
-          .to.emit(staker, 'IncentiveEnded')
-          .withArgs(rewardToken, pool, startTime, endTime)
-      })
-      it('deletes incentives[key]')
-      it('deletes even if the transfer fails (re-entrancy vulnerability check)')
-    })
-  })
-
-  describe('_getIncentiveId', () => {
-    it('test various inputs')
   })
 
   describe('#depositToken', () => {
-    describe('that are successful', () => {
+    describe('works and', () => {
       let tokenId: string
       beforeEach(async () => {
         const [token0, token1] = sortedTokens(tokens[1], tokens[2])
@@ -287,7 +283,7 @@ describe('UniswapV3Staker.unit', async () => {
         })
       })
 
-      it('emit a Deposited event', async () => {
+      it('emits a Deposited event', async () => {
         const tokenId = 1
         await nft.approve(staker.address, tokenId, { gasLimit: 12450000 })
         expect(staker.depositToken(tokenId))
@@ -318,21 +314,17 @@ describe('UniswapV3Staker.unit', async () => {
   })
 
   describe('#withdrawToken', () => {
-    describe('happy path', () => {
-      it('emits a withdrawal event')
+    describe('works and', () => {
+      it('emits a withdrawal event', async () => {})
       it('does the safeTransferFrom and transfers ownership')
       it('prevents you from withdrawing twice')
     })
-    /*
-    Consider:
-      you cannot withdraw a token if
-        it is not yours
-        number of stakes != 0
-      paranoia:
-        could there be something insecure in nonfungiblePositionManager.ownerOf(tokenId)?
-        delegate calls to withdraw?
-        it goes through even if the NFT is janky / invalid / adversarial
-      */
+
+    describe('fails if', () => {
+      it('you are withdrawing a token that is not yours')
+      it('number of stakes != 0')
+      it('the nft is adversarial somehow')
+    })
   })
 
   describe('#stakeToken', () => {

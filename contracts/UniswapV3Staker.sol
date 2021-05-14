@@ -2,6 +2,8 @@
 pragma solidity =0.7.6;
 pragma abicoder v2;
 
+import './interfaces/IUniswapV3Staker.sol';
+
 import '@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol';
 import '@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol';
 import '@uniswap/v3-core/contracts/interfaces/IERC20Minimal.sol';
@@ -19,27 +21,7 @@ import '@openzeppelin/contracts/utils/ReentrancyGuard.sol';
 @author Omar Bohsali <omar.bohsali@gmail.com>
 @author Dan Robinson <dan@paradigm.xyz>
 */
-contract UniswapV3Staker is ERC721Holder, ReentrancyGuard {
-    event IncentiveCreated(
-        address indexed rewardToken,
-        address indexed pool,
-        uint32 startTime,
-        uint32 endTime,
-        uint32 claimDeadline,
-        uint128 indexed totalReward
-    );
-    event IncentiveEnded(
-        address indexed rewardToken,
-        address indexed pool,
-        uint32 startTime,
-        uint32 endTime
-    );
-    event TokenDeposited(uint256 tokenId);
-    event TokenWithdrawn(uint256 tokenId);
-    // TODO params.
-    event TokenUnstaked();
-    event TokenStaked();
-
+contract UniswapV3Staker is IUniswapV3Staker, ERC721Holder, ReentrancyGuard {
     /// @notice Represents a staking incentive.
     struct Incentive {
         uint128 totalRewardUnclaimed;
@@ -76,46 +58,17 @@ contract UniswapV3Staker is ERC721Holder, ReentrancyGuard {
         );
     }
 
-    /**
-    @param rewardToken The token being distributed as a reward
-    @param pool The Uniswap V3 pool
-    @param startTime When rewards should begin accruing
-    @param endTime When rewards stop accruing
-    @param claimDeadline When program should expire
-    @param totalReward Total reward to be distributed
-    */
-    struct CreateIncentiveParams {
-        address rewardToken;
-        address pool;
-        uint32 startTime;
-        uint32 endTime;
-        uint32 claimDeadline;
-        uint128 totalReward;
-    }
-
-    /**
-    @notice Creates a new liquidity mining incentive program.
-   */
-    function createIncentive(CreateIncentiveParams memory params) external {
-        /*
-        Check:
-        * Make sure this incentive does not already exist
-        * claimDeadline must be no earlier than endTime, which must be later than startTime
-        * Possibly: check that pool is a uniswap v3 pool?
-
-        Effects:
-        * Transfers totalRewardsUnclaimed of token from the caller to itself
-
-        Interactions:
-        * emit IncentiveCreated()
-        */
+    /// @inheritdoc IUniswapV3Staker
+    function createIncentive(CreateIncentiveParams memory params)
+        external
+        override
+    {
         require(
             params.claimDeadline >= params.endTime,
             'claimDeadline_not_gte_endTime'
         );
         require(params.endTime > params.startTime, 'endTime_not_gte_startTime');
 
-        // TODO: Do I need any security checks around msg.sender?
         bytes32 key =
             _getIncentiveId(
                 msg.sender,
@@ -126,15 +79,10 @@ contract UniswapV3Staker is ERC721Holder, ReentrancyGuard {
                 params.claimDeadline
             );
 
-        // Check: this incentive does not already exist
         require(incentives[key].rewardToken == address(0), 'INCENTIVE_EXISTS');
-
         require(params.rewardToken != address(0), 'INVALID_REWARD_ADDRESS');
-
-        // Check: valid amount of rewardToken
         require(params.totalReward > 0, 'INVALID_REWARD_AMOUNT');
 
-        // Check + Effect: transfer reward token
         require(
             IERC20Minimal(params.rewardToken).transferFrom(
                 msg.sender,
@@ -156,50 +104,41 @@ contract UniswapV3Staker is ERC721Holder, ReentrancyGuard {
         );
     }
 
-    /**
-    @notice Deletes an incentive whose claimDeadline has passed.
-    */
-    function endIncentive(
-        address rewardToken,
-        address pool,
-        uint32 startTime,
-        uint32 endTime,
-        uint32 claimDeadline
-    ) external nonReentrant {
-        // TODO: integration test for nonReentrancy
-        /*
-        Check:
-        * Only callable by creator (msg.sender is hashed)
-        * Only works when claimDeadline has passed
-
-        Effects:
-        * Transfer totalRewardsUnclaimed of token back to creator
-        * Delete Incentive
-
-        Interaction:
-        */
-        require(block.timestamp > claimDeadline, 'TIMESTAMP_LTE_CLAIMDEADLINE');
+    function endIncentive(EndIncentiveParams memory params)
+        external
+        override
+        nonReentrant
+    {
+        require(
+            block.timestamp > params.claimDeadline,
+            'TIMESTAMP_LTE_CLAIMDEADLINE'
+        );
         bytes32 key =
             _getIncentiveId(
                 msg.sender,
-                rewardToken,
-                pool,
-                startTime,
-                endTime,
-                claimDeadline
+                params.rewardToken,
+                params.pool,
+                params.startTime,
+                params.endTime,
+                params.claimDeadline
             );
 
         Incentive memory incentive = incentives[key];
         require(incentive.rewardToken != address(0), 'INVALID_INCENTIVE');
         delete incentives[key];
 
-        // TODO: handle failures
-        IERC20Minimal(rewardToken).transfer(
+        // TODO: check for possible failures
+        IERC20Minimal(params.rewardToken).transfer(
             msg.sender,
             incentive.totalRewardUnclaimed
         );
 
-        emit IncentiveEnded(rewardToken, pool, startTime, endTime);
+        emit IncentiveEnded(
+            params.rewardToken,
+            params.pool,
+            params.startTime,
+            params.endTime
+        );
     }
 
     function depositToken(uint256 tokenId) external {
