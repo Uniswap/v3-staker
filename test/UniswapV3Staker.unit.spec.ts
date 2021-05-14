@@ -421,7 +421,7 @@ describe('UniswapV3Staker.unit', async () => {
 
       await staker.depositToken(tokenId)
 
-      // subject = async ({}) => await staker.stakeToken()
+      // subject = async ({}) => await staker.stakeToken(tokenId)
     })
 
     describe('works and', async () => {
@@ -432,26 +432,12 @@ describe('UniswapV3Staker.unit', async () => {
     })
     describe('fails when', () => {
       it('you are not the owner of the deposit')
+      it('is before the start time')
+      it('is after the end time')
+      it('is past the claim deadline')
+      it('gets an invalid pool')
+      it('deals with an adversarial nft')
     })
-    /*
-    happy path
-      it sets the Stake struct inside of stakes
-        the Stake.secondsPerLiquidity is set correctly
-        the pool address is saved on the stake
-      it is done on the right tokenId,incentiveId
-      numberOfStakes is incremented by 1
-    you cannot stake if
-      you are not the owner of the deposit
-    paranoia:
-      what if it's
-        before the start time
-        after endTime?
-        past the claimDeadline?
-        the specified params are incorrect and
-          the pool doesn't exist
-          the pool exists but something else is fishy
-        the NFT is adversarial
-      */
   })
 
   describe('#unstakeToken', () => {
