@@ -380,6 +380,51 @@ describe('UniswapV3Staker.unit', async () => {
   })
 
   describe('#stakeToken', () => {
+    let tokenId: string
+    let subject
+    let depositToken
+    const recipient = wallet.address
+
+    beforeEach(async () => {
+      const [token0, token1] = sortedTokens(tokens[1], tokens[2])
+
+      await nft.createAndInitializePoolIfNecessary(
+        token0.address,
+        token1.address,
+        FeeAmount.MEDIUM,
+        encodePriceSqrt(1, 1)
+      )
+
+      tokenId = await mintPosition(nft, {
+        token0: token0.address,
+        token1: token1.address,
+        fee: FeeAmount.MEDIUM,
+        tickLower: getMinTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
+        tickUpper: getMaxTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
+        recipient: wallet.address,
+        amount0Desired: BN(10).mul(BN(10).pow(18)),
+        amount1Desired: BN(10).mul(BN(10).pow(18)),
+        amount0Min: 0,
+        amount1Min: 0,
+        deadline: (await blockTimestamp()) + 1000,
+      })
+      tokenId = '1'
+      await nft.approve(staker.address, tokenId, { gasLimit: 12450000 })
+
+      await staker.depositToken(tokenId)
+
+      // subject = async ({}) => await staker.stakeToken()
+    })
+
+    describe('works and', async () => {
+      it('sets the stake struct properly')
+      it('calculates secondsPerLiquidity')
+      it('saves the pool address on the stake')
+      it('increments numberOfStakes by 1')
+    })
+    describe('fails when', () => {
+      it('you are not the owner of the deposit')
+    })
     /*
     happy path
       it sets the Stake struct inside of stakes
