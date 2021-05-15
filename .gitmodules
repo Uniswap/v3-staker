@@ -1,6 +1,6 @@
 [submodule "vendor/uniswap-v3-core"]
 	path = vendor/uniswap-v3-core
-	url = git@github.com:Uniswap/uniswap-v3-core.git
+	url = https://github.com/Uniswap/uniswap-v3-core.git
 [submodule "vendor/uniswap-v3-periphery"]
 	path = vendor/uniswap-v3-periphery
-	url = git@github.com:Uniswap/uniswap-v3-periphery.git
+	url = https://github.com/Uniswap/uniswap-v3-periphery.git
