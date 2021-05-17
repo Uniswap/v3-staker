@@ -14,7 +14,6 @@ import { UniswapV3Staker } from '../../typechain/UniswapV3Staker'
 
 type IWETH9 = any
 type MockTimeSwapRouter = any
-
 type WETH9Fixture = { weth9: IWETH9 }
 
 export const wethFixture: Fixture<WETH9Fixture> = async (
@@ -53,30 +52,6 @@ export const v3RouterFixture: Fixture<{
   )) as unknown) as any
 
   return { factory, weth9, router }
-}
-
-type NonfungibleTokenPositionDescriptor = any
-const nonfungibleTokenPositionDescriptorFixture: Fixture<{
-  nonfungibleTokenPositionDescriptor: NonfungibleTokenPositionDescriptor
-}> = async ([wallet], provider) => {
-  const factory = new ethers.ContractFactory(
-    NonfungibleTokenPositionDescriptor.abi,
-    NonfungibleTokenPositionDescriptor.bytecode
-  )
-
-  const nonfungibleTokenPositionDescriptor = await factory.deploy()
-  return { nonfungibleTokenPositionDescriptor }
-}
-
-const mockTimeNonfungiblePositionManagerFixture: Fixture<{
-  mockTimeNonfungiblePositionManager: any
-}> = async ([wallet], provider) => {
-  const factory = new ethers.ContractFactory(
-    MockTimeNonfungiblePositionManager.abi,
-    MockTimeNonfungiblePositionManager.bytecode
-  )
-  const mockTimeNonfungiblePositionManager = await factory.deploy()
-  return { mockTimeNonfungiblePositionManager }
 }
 
 type MockTimeNonfungiblePositionManager = any
@@ -251,14 +226,18 @@ export const createIncentive = async ({
     FeeAmount.MEDIUM
   )
 
-  await tokens[0].approve(staker.address, totalReward)
+  // if (pool === constants.AddressZero) {
+  //   throw new Error('could not find pool')
+  // }
 
-  return await staker.createIncentive({
+  await tokens[0].approve(staker.address, totalReward)
+  const params = {
     rewardToken,
     pool: pool,
     startTime,
     endTime,
     claimDeadline,
     totalReward,
-  })
+  }
+  return await staker.createIncentive(params)
 }

@@ -283,6 +283,8 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, ReentrancyGuard {
             uint128 liquidity
         ) = _getPositionDetails(params.tokenId);
 
+        require(poolAddress != address(0), 'INVALID_POSITION');
+
         IUniswapV3Pool pool = IUniswapV3Pool(poolAddress);
 
         (, uint160 secondsPerLiquidityInsideX128, ) =
@@ -297,6 +299,11 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, ReentrancyGuard {
                 params.endTime,
                 params.claimDeadline
             );
+
+        require(
+            incentives[incentiveId].rewardToken != address(0),
+            'BAD INCENTIVE'
+        );
 
         uint160 secondsInPeriodX128 =
             (secondsPerLiquidityInsideX128 -
@@ -337,6 +344,7 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, ReentrancyGuard {
         // TODO: Before release: wrap this in try-catch properly
         // try {
         // TODO: incentive.rewardToken or rewardToken?
+
         IERC20Minimal(incentives[incentiveId].rewardToken).transfer(
             params.to,
             reward
