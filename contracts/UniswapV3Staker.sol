@@ -81,7 +81,7 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, ReentrancyGuard {
                 params.claimDeadline
             );
 
-        console.log('create incentive key:');
+        console.log('[createIncentive getIncentiveId]:');
         console.logBytes32(key);
 
         require(incentives[key].rewardToken == address(0), 'INCENTIVE_EXISTS');
@@ -238,7 +238,7 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, ReentrancyGuard {
                 params.claimDeadline
             );
 
-        console.log('create incentive:');
+        console.log('[stakeToken getIncentiveId]:');
         console.logBytes32(
             IncentiveHelper.getIncentiveId(
                 params.creator,
@@ -307,6 +307,7 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, ReentrancyGuard {
         (, uint160 secondsPerLiquidityInsideX128, ) =
             pool.snapshotCumulativesInside(tickLower, tickUpper);
 
+        console.log('[unstakeToken getIncentiveId]:');
         console.logBytes32(
             IncentiveHelper.getIncentiveId(
                 params.creator,

@@ -593,15 +593,15 @@ describe('UniswapV3Staker.unit', async () => {
           claimDeadline,
           to,
         }
-        console.info('Params are ', params)
+        console.info('[unstake token] Params are ', params)
         return await staker.unstakeToken(params)
       }
     })
 
     const recipient = wallets[3].address
 
-    describe.only('works and', async () => {
-      it('decrements numberOfStakes by 1', async () => {
+    describe('works and', async () => {
+      it.only('decrements numberOfStakes by 1', async () => {
         await subject({ to: recipient })
       })
 

@@ -227,13 +227,15 @@ export const createIncentive = async ({
   )
 
   await tokens[0].approve(staker.address, totalReward)
-
-  return await staker.createIncentive({
+  const params = {
     rewardToken,
     pool: pool,
     startTime,
     endTime,
     claimDeadline,
     totalReward,
-  })
+  }
+  console.info('createIncentive fixture params: ', params)
+
+  return await staker.createIncentive(params)
 }
