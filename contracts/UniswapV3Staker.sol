@@ -17,8 +17,6 @@ import '@openzeppelin/contracts/math/Math.sol';
 import '@openzeppelin/contracts/math/SafeMath.sol';
 import '@openzeppelin/contracts/utils/ReentrancyGuard.sol';
 
-import 'hardhat/console.sol';
-
 /**
 @title Uniswap V3 canonical staking interface
 */
@@ -80,9 +78,6 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, ReentrancyGuard {
                 params.endTime,
                 params.claimDeadline
             );
-
-        console.log('[createIncentive getIncentiveId]:');
-        console.logBytes32(key);
 
         require(incentives[key].rewardToken == address(0), 'INCENTIVE_EXISTS');
         require(params.rewardToken != address(0), 'INVALID_REWARD_ADDRESS');
@@ -238,18 +233,6 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, ReentrancyGuard {
                 params.claimDeadline
             );
 
-        console.log('[stakeToken getIncentiveId]:');
-        console.logBytes32(
-            IncentiveHelper.getIncentiveId(
-                params.creator,
-                params.rewardToken,
-                poolAddress,
-                params.startTime,
-                params.endTime,
-                params.claimDeadline
-            )
-        );
-
         (, uint160 secondsPerLiquidityInsideX128, ) =
             pool.snapshotCumulativesInside(tickLower, tickUpper);
 
@@ -307,18 +290,6 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, ReentrancyGuard {
         (, uint160 secondsPerLiquidityInsideX128, ) =
             pool.snapshotCumulativesInside(tickLower, tickUpper);
 
-        console.log('[unstakeToken getIncentiveId]:');
-        console.logBytes32(
-            IncentiveHelper.getIncentiveId(
-                params.creator,
-                params.rewardToken,
-                poolAddress,
-                params.startTime,
-                params.endTime,
-                params.claimDeadline
-            )
-        );
-
         bytes32 incentiveId =
             IncentiveHelper.getIncentiveId(
                 params.creator,
@@ -373,10 +344,6 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, ReentrancyGuard {
         // TODO: Before release: wrap this in try-catch properly
         // try {
         // TODO: incentive.rewardToken or rewardToken?
-        console.log(
-            'rewardToken is is %s',
-            incentives[incentiveId].rewardToken
-        );
 
         IERC20Minimal(incentives[incentiveId].rewardToken).transfer(
             params.to,

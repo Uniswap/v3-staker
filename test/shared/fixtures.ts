@@ -226,6 +226,10 @@ export const createIncentive = async ({
     FeeAmount.MEDIUM
   )
 
+  // if (pool === constants.AddressZero) {
+  //   throw new Error('could not find pool')
+  // }
+
   await tokens[0].approve(staker.address, totalReward)
   const params = {
     rewardToken,
@@ -235,7 +239,5 @@ export const createIncentive = async ({
     claimDeadline,
     totalReward,
   }
-  console.info('createIncentive fixture params: ', params)
-
   return await staker.createIncentive(params)
 }

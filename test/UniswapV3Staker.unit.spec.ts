@@ -554,27 +554,26 @@ describe('UniswapV3Staker.unit', async () => {
       await staker.depositToken(tokenId)
 
       pool = await factory.getPool(
-        tokens[0].address,
-        tokens[1].address,
+        token0.address,
+        token1.address,
         FeeAmount.MEDIUM
       )
 
       const creator = wallet.address
 
       await rewardToken.approve(staker.address, totalReward)
+      await tokens[0].approve(staker.address, totalReward)
 
-      await createIncentive({
-        factory,
-        tokens,
-        staker,
-        totalReward,
+      await staker.createIncentive({
+        rewardToken: rewardToken.address,
+        pool,
         startTime,
         endTime,
         claimDeadline,
-        rewardToken: rewardToken.address,
+        totalReward,
       })
 
-      stake = await staker.stakeToken({
+      await staker.stakeToken({
         creator,
         rewardToken: rewardToken.address,
         tokenId,
@@ -593,7 +592,6 @@ describe('UniswapV3Staker.unit', async () => {
           claimDeadline,
           to,
         }
-        console.info('[unstake token] Params are ', params)
         return await staker.unstakeToken(params)
       }
     })
@@ -601,7 +599,7 @@ describe('UniswapV3Staker.unit', async () => {
     const recipient = wallets[3].address
 
     describe('works and', async () => {
-      it.only('decrements numberOfStakes by 1', async () => {
+      it('decrements numberOfStakes by 1', async () => {
         await subject({ to: recipient })
       })
 
@@ -610,7 +608,8 @@ describe('UniswapV3Staker.unit', async () => {
           .to.emit(staker, 'TokenUnstaked')
           .withArgs(tokenId)
       })
-      it('transfers the right amoutn of the reward token')
+
+      it('transfers the right amount of the reward token')
       it('calculates the right secondsPerLiquidity')
       it('does not overflow totalSecondsUnclaimed')
     })
