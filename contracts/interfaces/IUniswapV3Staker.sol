@@ -37,9 +37,9 @@ interface IUniswapV3Staker {
         address pool;
         address rewardToken;
         uint128 totalReward;
-        uint32 claimDeadline;
-        uint32 endTime;
         uint32 startTime;
+        uint32 endTime;
+        uint32 claimDeadline;
     }
 
     /**
