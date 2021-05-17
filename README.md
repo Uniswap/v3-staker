@@ -7,7 +7,6 @@ This is a canonical staking contract designed for [Uniswap V3](https://github.co
 ## Links:
 
 * [Contract Design](docs/Design.md)
-* [Grant Application](docs/Grant-Application.md)
 
 ## Development and Testing
 
