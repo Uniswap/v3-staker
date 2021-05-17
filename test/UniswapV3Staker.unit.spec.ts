@@ -14,7 +14,6 @@ import {
   getMinTick,
   FeeAmount,
   TICK_SPACINGS,
-  ZERO_ADDRESS,
   MaxUint256,
   encodePriceSqrt,
   blockTimestamp,
@@ -54,8 +53,11 @@ describe('UniswapV3Staker.unit', async () => {
   })
 
   describe('#createIncentive', async () => {
+    let pool: string
+
     beforeEach('setup', async () => {
-      const [token0, token1] = sortedTokens(tokens[1], tokens[2])
+      const [token0, token1] = sortedTokens(tokens[0], tokens[1])
+
       await nft.createAndInitializePoolIfNecessary(
         token0.address,
         token1.address,
@@ -63,19 +65,11 @@ describe('UniswapV3Staker.unit', async () => {
         encodePriceSqrt(1, 1)
       )
 
-      await mintPosition(nft, {
-        token0: token0.address,
-        token1: token1.address,
-        fee: FeeAmount.MEDIUM,
-        tickLower: getMinTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
-        tickUpper: getMaxTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
-        recipient: wallet.address,
-        amount0Desired: BN(10).mul(BN(10).pow(18)),
-        amount1Desired: BN(10).mul(BN(10).pow(18)),
-        amount0Min: 0,
-        amount1Min: 0,
-        deadline: (await blockTimestamp()) + 1000,
-      })
+      pool = await factory.getPool(
+        tokens[0].address,
+        tokens[1].address,
+        FeeAmount.MEDIUM
+      )
 
       subject = async ({
         startTime = 10,
@@ -98,13 +92,37 @@ describe('UniswapV3Staker.unit', async () => {
 
     describe('works and', async () => {
       it('transfers the right amount of rewardToken', async () => {
+        const balanceBefore = await tokens[0].balanceOf(staker.address)
         const totalReward = BNe18(1234)
         await subject({ totalReward })
-        expect(await tokens[0].balanceOf(staker.address)).to.eq(totalReward)
+        expect(await tokens[0].balanceOf(staker.address)).to.eq(balanceBefore.add(totalReward))
       })
 
-      it('emits an event', async () =>
-        expect(await subject()).to.emit(staker, 'IncentiveCreated'))
+      it('emits an event with valid parameters', async () => {
+        expect(subject()).to.emit(staker, 'IncentiveCreated')
+          .withArgs(tokens[0].address, pool, 10, 20, 30, BNe18(1000))
+      })
+
+      it('creates an incentive with the correct parameters', async () => {
+        await subject()
+        const idGetter = await (
+          await ethers.getContractFactory('TestIncentiveID')
+        ).deploy()
+
+        const incentiveId = idGetter.getIncentiveId(
+          wallet.address,
+          tokens[0].address,
+          pool,
+          10,
+          20,
+          30
+        )
+
+        const incentive = await staker.incentives(incentiveId)
+        expect(incentive.totalRewardUnclaimed).to.equal(BNe18(1000))
+        expect(incentive.totalSecondsClaimedX128).to.equal(BN(0))
+        expect(incentive.rewardToken).to.equal(tokens[0].address)
+      })
     })
 
     describe('fails when', async () => {
@@ -118,23 +136,25 @@ describe('UniswapV3Staker.unit', async () => {
         await expect(subject(params)).to.be.revertedWith('INCENTIVE_EXISTS')
       })
 
-      it('claim deadline is not greater than or equal to end time', async () =>
+      it('claim deadline is not greater than or equal to end time', async () => {
         await expect(
           subject({
             startTime: 10,
             endTime: 30,
             claimDeadline: 20,
           })
-        ).to.be.revertedWith('claimDeadline_not_gte_endTime'))
+        ).to.be.revertedWith('claimDeadline_not_gte_endTime')
+      })
 
-      it('end time is not gte start time', async () =>
+      it('end time is not gte start time', async () => {
         await expect(
           subject({
             startTime: 20,
             endTime: 10,
             claimDeadline: 100,
           })
-        ).to.be.revertedWith('endTime_not_gte_startTime'))
+        ).to.be.revertedWith('endTime_not_gte_startTime')
+      })
 
       it('rewardToken is 0 address', async () => {
         await expect(
@@ -151,9 +171,6 @@ describe('UniswapV3Staker.unit', async () => {
           })
         ).to.be.revertedWith('INVALID_REWARD_AMOUNT')
       })
-
-      // TODO: Mock a malicious ERC20 where the transfer call fails
-      it('rewardToken cannot be transferred')
     })
   })
 
@@ -224,8 +241,28 @@ describe('UniswapV3Staker.unit', async () => {
           .withArgs(rewardToken, pool, startTime, endTime)
       })
 
-      it('deletes incentives[key]')
-      it('deletes even if the transfer fails (re-entrancy vulnerability check)')
+      it('deletes incentives[key]', async () => {
+        await createIncentive()
+        const idGetter = await (
+          await ethers.getContractFactory('TestIncentiveID')
+        ).deploy()
+
+        const incentiveId = idGetter.getIncentiveId(
+          wallet.address,
+          rewardToken,
+          pool,
+          startTime,
+          endTime,
+          claimDeadline
+        )
+        expect((await staker.incentives(incentiveId)).rewardToken).to.eq(tokens[0].address)
+        await ethers.provider.send('evm_setNextBlockTimestamp', [
+          claimDeadline + 1,
+        ])
+
+        await subject()
+        expect((await staker.incentives(incentiveId)).rewardToken).to.eq(constants.AddressZero)
+      })
     })
 
     describe('fails when ', () => {
@@ -310,8 +347,6 @@ describe('UniswapV3Staker.unit', async () => {
         expect(deposit.owner).to.eq(wallet.address)
         expect(deposit.numberOfStakes).to.eq(0)
       })
-
-      it('responds to the onERC721Received function')
     })
 
     /*
@@ -698,7 +733,7 @@ describe('UniswapV3Staker.unit', async () => {
 
     describe('on successful transfer with staking data', () => {
       it('deposits the token', async () => {
-        expect((await staker.deposits(1)).owner).to.equal(ZERO_ADDRESS)
+        expect((await staker.deposits(1)).owner).to.equal(constants.AddressZero)
         await nft['safeTransferFrom(address,address,uint256)'](
           wallet.address,
           staker.address,
