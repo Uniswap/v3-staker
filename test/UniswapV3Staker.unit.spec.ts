@@ -390,12 +390,25 @@ describe('UniswapV3Staker.unit', async () => {
   describe('#stakeToken', () => {
     let tokenId: string
     let subject
-    let depositToken
     const recipient = wallet.address
+    let rewardToken: TestERC20
+    let otherRewardToken: TestERC20
+    let startTime: number
+    let endTime: number
+    let claimDeadline: number
+    let totalReward: BigNumber
+    let pool: string
 
     beforeEach(async () => {
-      const [token0, token1] = sortedTokens(tokens[1], tokens[2])
+      const currentTime = await blockTimestamp()
 
+      const [token0, token1] = sortedTokens(tokens[1], tokens[2])
+      rewardToken = tokens[1]
+      otherRewardToken = tokens[2]
+      startTime = currentTime
+      endTime = currentTime + 100
+      claimDeadline = currentTime + 1000
+      totalReward = BNe18(1000)
       await nft.createAndInitializePoolIfNecessary(
         token0.address,
         token1.address,
@@ -421,14 +434,66 @@ describe('UniswapV3Staker.unit', async () => {
 
       await staker.depositToken(tokenId)
 
-      // subject = async ({}) => await staker.stakeToken(tokenId)
+      pool = await factory.getPool(
+        tokens[0].address,
+        tokens[1].address,
+        FeeAmount.MEDIUM
+      )
+
+      const creator = wallet.address
+
+      await rewardToken.approve(staker.address, totalReward)
+      await staker.createIncentive({
+        pool,
+        rewardToken: rewardToken.address,
+        totalReward,
+        startTime,
+        endTime,
+        claimDeadline,
+      })
+
+      subject = async () =>
+        await staker.stakeToken({
+          creator,
+          rewardToken: rewardToken.address,
+          tokenId,
+          startTime,
+          endTime,
+          claimDeadline,
+        })
     })
 
     describe('works and', async () => {
-      it('sets the stake struct properly')
-      it('calculates secondsPerLiquidity')
-      it('saves the pool address on the stake')
-      it('increments numberOfStakes by 1')
+      it('emits the stake event', async () => {
+        expect(await subject())
+          .to.emit(staker, 'TokenStaked')
+          .withArgs(tokenId)
+      })
+
+      it('sets the stake struct properly', async () => {
+        const idGetter = await (
+          await ethers.getContractFactory('TestIncentiveID')
+        ).deploy()
+
+        const incentiveId = await idGetter.getIncentiveId(
+          wallet.address,
+          rewardToken.address,
+          pool,
+          startTime,
+          endTime,
+          claimDeadline
+        )
+        await subject()
+        const stake = await staker.stakes(tokenId, incentiveId)
+        // it('saves the pool address on the stake')
+        expect(stake.pool).to.eq(pool)
+        // it('calculates secondsPerLiquidity')
+        expect(stake.secondsPerLiquidityInitialX128).to.eq(0)
+
+        // it('increments numberOfStakes by 1')
+        const deposit = await staker.deposits(tokenId)
+        expect(deposit.numberOfStakes).to.eq(1)
+      })
     })
     describe('fails when', () => {
       it('you are not the owner of the deposit')
@@ -441,11 +506,112 @@ describe('UniswapV3Staker.unit', async () => {
   })
 
   describe('#unstakeToken', () => {
-    describe('works and', async () => {
-      it('decrements numberOfStakes by 1')
+    let tokenId: string
+    let subject
+
+    let rewardToken: TestERC20
+    let otherRewardToken: TestERC20
+    let startTime: number
+    let endTime: number
+    let claimDeadline: number
+    let totalReward: BigNumber
+    let pool: string
+    let stake
+    let stakeParams
+
+    beforeEach(async () => {
+      const currentTime = await blockTimestamp()
+      const [token0, token1] = sortedTokens(tokens[1], tokens[2])
+      rewardToken = tokens[1]
+      otherRewardToken = tokens[2]
+      startTime = currentTime
+      endTime = currentTime + 100
+      claimDeadline = currentTime + 1000
+      totalReward = BNe18(1000)
+      await nft.createAndInitializePoolIfNecessary(
+        token0.address,
+        token1.address,
+        FeeAmount.MEDIUM,
+        encodePriceSqrt(1, 1)
+      )
+
+      tokenId = await mintPosition(nft, {
+        token0: token0.address,
+        token1: token1.address,
+        fee: FeeAmount.MEDIUM,
+        tickLower: getMinTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
+        tickUpper: getMaxTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
+        recipient: wallet.address,
+        amount0Desired: BN(10).mul(BN(10).pow(18)),
+        amount1Desired: BN(10).mul(BN(10).pow(18)),
+        amount0Min: 0,
+        amount1Min: 0,
+        deadline: (await blockTimestamp()) + 1000,
+      })
+
+      await nft.approve(staker.address, tokenId, { gasLimit: 12450000 })
+
+      await staker.depositToken(tokenId)
+
+      pool = await factory.getPool(
+        tokens[0].address,
+        tokens[1].address,
+        FeeAmount.MEDIUM
+      )
+
+      const creator = wallet.address
+
+      await rewardToken.approve(staker.address, totalReward)
+
+      await createIncentive({
+        factory,
+        tokens,
+        staker,
+        totalReward,
+        startTime,
+        endTime,
+        claimDeadline,
+        rewardToken: rewardToken.address,
+      })
+
+      stake = await staker.stakeToken({
+        creator,
+        rewardToken: rewardToken.address,
+        tokenId,
+        startTime,
+        endTime,
+        claimDeadline,
+      })
+
+      subject = async ({ to }) => {
+        const params = {
+          creator,
+          rewardToken: rewardToken.address,
+          tokenId,
+          startTime,
+          endTime,
+          claimDeadline,
+          to,
+        }
+        console.info('Params are ', params)
+        return await staker.unstakeToken(params)
+      }
+    })
+
+    const recipient = wallets[3].address
+
+    describe.only('works and', async () => {
+      it('decrements numberOfStakes by 1', async () => {
+        await subject({ to: recipient })
+      })
+
+      it('emits an unstaked event', async () => {
+        await expect(subject({ to: recipient }))
+          .to.emit(staker, 'TokenUnstaked')
+          .withArgs(tokenId)
+      })
       it('transfers the right amoutn of the reward token')
       it('calculates the right secondsPerLiquidity')
-      it('emits an unstaked event')
       it('does not overflow totalSecondsUnclaimed')
     })
 

@@ -78,11 +78,11 @@ interface IUniswapV3Staker {
     struct UnstakeTokenParams {
         address creator;
         address rewardToken;
-        address to;
         uint256 tokenId;
         uint32 startTime;
         uint32 endTime;
         uint32 claimDeadline;
+        address to;
     }
 
     function unstakeToken(UnstakeTokenParams memory params) external;
