@@ -10,8 +10,9 @@ import {
   UniswapV3Pool,
   UniswapV3Factory,
 } from '../vendor/uniswap-v3-core/typechain'
+import { FeeAmount } from './shared'
 
-import { uniswapFixture } from './shared/fixtures'
+import { uniswapFixture, userFixtures } from './shared/fixtures'
 
 const { createFixtureLoader } = waffle
 
@@ -19,22 +20,11 @@ type TestEnvironmentFixture = {
   token0: TestERC20
   token1: TestERC20
   rewardToken: TestERC20
-
   uniswapV3Factory: UniswapV3Factory
   nft: INonfungiblePositionManager
   staker: UniswapV3Staker
   pool: UniswapV3Pool
-
   incentive: string
-
-  tokenCreatorUser: Wallet
-  lpUser1: Wallet
-  lpUser2: Wallet
-  lpUser3: Wallet
-  tokenIdToLpUser: { [tokenId: string]: string }
-
-  traderUser1: Wallet
-  traderUser2: Wallet
 }
 
 const fullEnvironmentFixture: Fixture<TestEnvironmentFixture> = async (
@@ -48,7 +38,11 @@ const fullEnvironmentFixture: Fixture<TestEnvironmentFixture> = async (
     tokens: [token0, token1, rewardToken],
   } = await uniswapFixture(wallets, provider)
 
+  const uniswapRootUser = await userFixtures.uniswapRootUser(wallets, provider)
   //   Pool
+  const pool = await uniswapV3Factory
+    .connect(uniswapRootUser)
+    .createPool(token0.address, token1.address, FeeAmount.MEDIUM)
 
   const res = {
     token0,
@@ -57,6 +51,8 @@ const fullEnvironmentFixture: Fixture<TestEnvironmentFixture> = async (
     uniswapV3Factory,
     nft,
     staker,
+    pool,
+    incentive,
   }
   // Create Uniswap V3 Factory and surrounding contracts
   // user0 creates token0, token1, rewardToken

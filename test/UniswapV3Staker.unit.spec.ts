@@ -89,6 +89,7 @@ describe('UniswapV3Staker.unit', async () => {
           endTime,
           claimDeadline,
           rewardToken,
+          pool,
         })
     })
 

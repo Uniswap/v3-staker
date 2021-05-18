@@ -1,5 +1,5 @@
 import { Fixture } from 'ethereum-waffle'
-import { constants } from 'ethers'
+import { constants, Wallet } from 'ethers'
 import { ethers, waffle } from 'hardhat'
 
 import UniswapV3FactoryJson from '@uniswap/v3-core/artifacts/contracts/UniswapV3Factory.sol/UniswapV3Factory.json'
@@ -7,21 +7,56 @@ import NFTDescriptor from '@uniswap/v3-periphery/artifacts/contracts/libraries/N
 import MockTimeNonfungiblePositionManager from '@uniswap/v3-periphery/artifacts/contracts/NonfungiblePositionManager.sol/NonfungiblePositionManager.json'
 import NonfungibleTokenPositionDescriptor from '@uniswap/v3-periphery/artifacts/contracts/NonfungibleTokenPositionDescriptor.sol/NonfungibleTokenPositionDescriptor.json'
 import SwapRouter from '@uniswap/v3-periphery/artifacts/contracts/SwapRouter.sol/SwapRouter.json'
-import { IUniswapV3Factory } from '../../typechain'
+import { IUniswapV3Factory, IUniswapV3Pool } from '../../typechain'
 import WETH9 from '../contracts/WETH9.json'
 import { linkLibraries } from './linkLibraries'
 import { INonfungiblePositionManager } from '../../typechain'
 import type { TestERC20 } from '../../typechain'
 import { UniswapV3Staker } from '../../typechain/UniswapV3Staker'
 
+/* This is a very verbose way of mapping users to accounts, but in crypto, better safe (and verbose) than sorry! */
+const WALLET_USER_INDEXES = {
+  UNISWAP_ROOT: 0,
+  LP_USER_0: 1,
+  LP_USER_1: 2,
+  LP_USER_2: 3,
+  TRADER_USER_0: 4,
+  TRADER_USER_1: 5,
+  WETH_OWNER: 6,
+  TOKENS_OWNER: 7,
+}
+
+export const userFixtures = {
+  wethOwner: async (wallets, provider) => {
+    return wallets[WALLET_USER_INDEXES.WETH_OWNER]
+  },
+  tokensOwner: async (wallets, provider) => {
+    /* Owns the ERC20s other than weth */
+    return wallets[WALLET_USER_INDEXES.TOKENS_OWNER]
+  },
+  uniswapRootUser: async (wallets, provider) => {
+    return wallets[WALLET_USER_INDEXES.UNISWAP_ROOT]
+  },
+  lpUser1: async (wallets, provider) => {
+    return wallets[WALLET_USER_INDEXES.LP_USER_1]
+  },
+  traderUser0: async (wallets, provider) => {
+    return wallets[WALLET_USER_INDEXES.TRADER_USER_0]
+  },
+  lpUser0: async (wallets, provider) => {
+    return wallets[WALLET_USER_INDEXES.LP_USER_0]
+  },
+  lpUser2: async (wallets, provider) => {
+    return wallets[WALLET_USER_INDEXES.LP_USER_2]
+  },
+}
+
 type IWETH9 = any
 type MockTimeSwapRouter = any
 type WETH9Fixture = { weth9: IWETH9 }
 
-export const wethFixture: Fixture<WETH9Fixture> = async (
-  [wallet],
-  provider
-) => {
+export const wethFixture: Fixture<WETH9Fixture> = async (wallets, provider) => {
+  const wallet = await userFixtures.wethOwner(wallets, provider)
   const weth9 = (await waffle.deployContract(wallet, {
     bytecode: WETH9.bytecode,
     abi: WETH9.abi,
@@ -30,7 +65,11 @@ export const wethFixture: Fixture<WETH9Fixture> = async (
   return { weth9 }
 }
 
-const v3CoreFactoryFixture: Fixture<IUniswapV3Factory> = async ([wallet]) => {
+const v3CoreFactoryFixture: Fixture<IUniswapV3Factory> = async (
+  wallets,
+  provider
+) => {
+  const wallet = await userFixtures.uniswapRootUser(wallets, provider)
   return ((await waffle.deployContract(wallet, {
     bytecode: UniswapV3FactoryJson.bytecode,
     abi: UniswapV3FactoryJson.abi,
@@ -41,11 +80,12 @@ export const v3RouterFixture: Fixture<{
   weth9: IWETH9
   factory: IUniswapV3Factory
   router: MockTimeSwapRouter
-}> = async ([wallet], provider) => {
-  const { weth9 } = await wethFixture([wallet], provider)
-  const factory = await v3CoreFactoryFixture([wallet], provider)
+}> = async (wallets, provider) => {
+  const uniswapRoot = await userFixtures.uniswapRootUser(wallets, provider)
+  const { weth9 } = await wethFixture(wallets, provider)
+  const factory = await v3CoreFactoryFixture(wallets, provider)
   const router = ((await waffle.deployContract(
-    wallet,
+    uniswapRoot,
     {
       bytecode: SwapRouter.bytecode,
       abi: SwapRouter.abi,
@@ -59,10 +99,12 @@ export const v3RouterFixture: Fixture<{
 type MockTimeNonfungiblePositionManager = any
 
 type NFTDescriptorLibrary = any
-const nftDescriptorLibraryFixture: Fixture<NFTDescriptorLibrary> = async ([
-  wallet,
-]) => {
-  return await waffle.deployContract(wallet, {
+const nftDescriptorLibraryFixture: Fixture<NFTDescriptorLibrary> = async (
+  wallets,
+  provider
+) => {
+  const uniswapRoot = await userFixtures.uniswapRootUser(wallets, provider)
+  return await waffle.deployContract(uniswapRoot, {
     bytecode: NFTDescriptor.bytecode,
     abi: NFTDescriptor.abi,
   })
@@ -82,10 +124,13 @@ export const uniswapFactoryFixture: Fixture<UniswapFactoryFixture> = async (
 ) => {
   const { weth9, factory, router } = await v3RouterFixture(wallets, provider)
   const tokenFactory = await ethers.getContractFactory('TestERC20')
+
+  const tokensOwner = await userFixtures.tokensOwner(wallets, provider)
+
   const tokens = (await Promise.all([
-    tokenFactory.deploy(constants.MaxUint256.div(2)), // do not use maxu256 to avoid overflowing
-    tokenFactory.deploy(constants.MaxUint256.div(2)),
-    tokenFactory.deploy(constants.MaxUint256.div(2)),
+    tokenFactory.connect(tokensOwner).deploy(constants.MaxUint256.div(2)), // do not use maxu256 to avoid overflowing
+    tokenFactory.connect(tokensOwner).deploy(constants.MaxUint256.div(2)),
+    tokenFactory.connect(tokensOwner).deploy(constants.MaxUint256.div(2)),
   ])) as [TestERC20, TestERC20, TestERC20]
 
   const nftDescriptorLibrary = await nftDescriptorLibraryFixture(
@@ -112,8 +157,9 @@ export const uniswapFactoryFixture: Fixture<UniswapFactoryFixture> = async (
     }
   )
 
+  const uniswapRoot = await userFixtures.uniswapRootUser(wallets, provider)
   const positionDescriptor = await waffle.deployContract(
-    wallets[0],
+    uniswapRoot,
     {
       bytecode: linkedBytecode,
       abi: NonfungibleTokenPositionDescriptor.abi,
@@ -122,7 +168,7 @@ export const uniswapFactoryFixture: Fixture<UniswapFactoryFixture> = async (
   )
 
   const nft = await waffle.deployContract(
-    wallets[0],
+    uniswapRoot,
     {
       bytecode: MockTimeNonfungiblePositionManager.bytecode,
       abi: MockTimeNonfungiblePositionManager.abi,
@@ -211,6 +257,7 @@ export const createIncentive = async ({
   endTime,
   claimDeadline,
   rewardToken,
+  pool,
   totalReward = BNe18(1000),
 }: {
   factory: IUniswapV3Factory
@@ -221,17 +268,8 @@ export const createIncentive = async ({
   claimDeadline: number
   totalReward: BigNumberish
   rewardToken: string
+  pool: string
 }) => {
-  const pool = await factory.getPool(
-    tokens[0].address,
-    tokens[1].address,
-    FeeAmount.MEDIUM
-  )
-
-  // if (pool === constants.AddressZero) {
-  //   throw new Error('could not find pool')
-  // }
-
   await tokens[0].approve(staker.address, totalReward)
   const params = {
     rewardToken,
