@@ -177,11 +177,9 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, ReentrancyGuard {
         require(deposit.numberOfStakes == 0, 'NUMBER_OF_STAKES_NOT_ZERO');
         require(deposit.owner == msg.sender, 'NOT_YOUR_NFT');
 
-        // TODO: do we have to check for a failure here? Also double-check
-        // if safeTransferFrom is right.
         nonfungiblePositionManager.safeTransferFrom(address(this), to, tokenId);
 
-        emit TokenWithdrawn(tokenId);
+        emit TokenWithdrawn(tokenId, to);
     }
 
     /// @inheritdoc IUniswapV3Staker
