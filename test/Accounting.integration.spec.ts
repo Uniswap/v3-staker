@@ -10,7 +10,7 @@ import {
   UniswapV3Pool,
   UniswapV3Factory,
 } from '../vendor/uniswap-v3-core/typechain'
-import { FeeAmount } from './shared'
+import { createIncentive, FeeAmount } from './shared'
 
 import { uniswapFixture, userFixtures } from './shared/fixtures'
 
@@ -23,7 +23,7 @@ type TestEnvironmentFixture = {
   uniswapV3Factory: UniswapV3Factory
   nft: INonfungiblePositionManager
   staker: UniswapV3Staker
-  pool: UniswapV3Pool
+  pool: string
   incentive: string
 }
 
@@ -42,18 +42,23 @@ const fullEnvironmentFixture: Fixture<TestEnvironmentFixture> = async (
   //   Pool
   const pool = await uniswapV3Factory
     .connect(uniswapRootUser)
-    .createPool(token0.address, token1.address, FeeAmount.MEDIUM)
+    .createPool(token0.address, token1.address, FeeAmount.LOW)
 
-  const res = {
-    token0,
-    token1,
-    rewardToken,
-    uniswapV3Factory,
-    nft,
+  const startTime = 100
+  const endTime = 200
+
+  const incentive = await createIncentive({
+    factory: uniswapV3Factory,
+    tokens,
     staker,
+    totalReward: 100,
+    startTime,
+    endTime,
+    claimDeadline: 200,
+    rewardToken: null,
     pool,
-    incentive,
-  }
+  })
+
   // Create Uniswap V3 Factory and surrounding contracts
   // user0 creates token0, token1, rewardToken
   // user0 transfers X amount of token0, token1 to user1
@@ -64,7 +69,16 @@ const fullEnvironmentFixture: Fixture<TestEnvironmentFixture> = async (
   // user0 transfers Z amount of token0 to user3
   // user3 trades in the pool and moves the price
   // make sure the right bounds are respected
-  return res
+  return {
+    token0,
+    token1,
+    rewardToken,
+    uniswapV3Factory,
+    nft,
+    staker,
+    pool,
+    incentive,
+  }
 }
 
 describe('accounting integration tests', async () => {
