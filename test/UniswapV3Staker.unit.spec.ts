@@ -21,8 +21,7 @@ import {
   BN,
   BNe18,
 } from './shared'
-
-import { UniswapV3Factory } from '../vendor/uniswap-v3-core/typechain'
+import { UniswapV3Factory } from '../typechain/v3/'
 const { createFixtureLoader } = waffle
 let loadFixture: ReturnType<typeof createFixtureLoader>
 
@@ -95,11 +94,14 @@ describe('UniswapV3Staker.unit', async () => {
         const balanceBefore = await tokens[0].balanceOf(staker.address)
         const totalReward = BNe18(1234)
         await subject({ totalReward })
-        expect(await tokens[0].balanceOf(staker.address)).to.eq(balanceBefore.add(totalReward))
+        expect(await tokens[0].balanceOf(staker.address)).to.eq(
+          balanceBefore.add(totalReward)
+        )
       })
 
       it('emits an event with valid parameters', async () => {
-        expect(subject()).to.emit(staker, 'IncentiveCreated')
+        expect(subject())
+          .to.emit(staker, 'IncentiveCreated')
           .withArgs(tokens[0].address, pool, 10, 20, 30, BNe18(1000))
       })
 
@@ -177,7 +179,7 @@ describe('UniswapV3Staker.unit', async () => {
   describe('#endIncentive', async () => {
     let rewardToken: string
     let blockTime: number
-    let totalReward: BigNumber 
+    let totalReward: BigNumber
     let startTime: number
     let endTime: number
     let claimDeadline: number
@@ -255,13 +257,17 @@ describe('UniswapV3Staker.unit', async () => {
           endTime,
           claimDeadline
         )
-        expect((await staker.incentives(incentiveId)).rewardToken).to.eq(tokens[0].address)
+        expect((await staker.incentives(incentiveId)).rewardToken).to.eq(
+          tokens[0].address
+        )
         await ethers.provider.send('evm_setNextBlockTimestamp', [
           claimDeadline + 1,
         ])
 
         await subject()
-        expect((await staker.incentives(incentiveId)).rewardToken).to.eq(constants.AddressZero)
+        expect((await staker.incentives(incentiveId)).rewardToken).to.eq(
+          constants.AddressZero
+        )
       })
     })
 
@@ -410,7 +416,9 @@ describe('UniswapV3Staker.unit', async () => {
 
     describe('fails if', () => {
       it('you are withdrawing a token that is not yours', async () => {
-        expect(staker.connect(other).withdrawToken(tokenId, wallet.address)).to.revertedWith('NOT_YOUR_NFT')
+        expect(
+          staker.connect(other).withdrawToken(tokenId, wallet.address)
+        ).to.revertedWith('NOT_YOUR_NFT')
       })
 
       it('number of stakes is not 0', async () => {
@@ -436,7 +444,9 @@ describe('UniswapV3Staker.unit', async () => {
           endTime: 20,
           claimDeadline: 30,
         })
-        expect(subject({tokenId, recipient})).to.revertedWith('NUMBER_OF_STAKES_NOT_ZERO')
+        expect(subject({ tokenId, recipient })).to.revertedWith(
+          'NUMBER_OF_STAKES_NOT_ZERO'
+        )
       })
     })
   })
