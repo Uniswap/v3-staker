@@ -28,7 +28,7 @@ let loadFixture: ReturnType<typeof createFixtureLoader>
 
 describe('UniswapV3Staker.unit', async () => {
   const wallets = waffle.provider.getWallets()
-  const [wallet] = wallets
+  const [wallet, other] = wallets
   let tokens: [TestERC20, TestERC20, TestERC20]
   let factory: UniswapV3Factory
   let nft: INonfungiblePositionManager
@@ -400,7 +400,7 @@ describe('UniswapV3Staker.unit', async () => {
       it('emits a TokenWithdrawn event', async () => {
         await expect(subject({ tokenId, recipient }))
           .to.emit(staker, 'TokenWithdrawn')
-          .withArgs(tokenId)
+          .withArgs(tokenId, recipient)
       })
 
       it('transfers nft ownership', async () => {
@@ -416,9 +416,35 @@ describe('UniswapV3Staker.unit', async () => {
     })
 
     describe('fails if', () => {
-      it('you are withdrawing a token that is not yours')
-      it('number of stakes != 0')
-      it('the nft is adversarial somehow')
+      it('you are withdrawing a token that is not yours', async () => {
+        expect(staker.connect(other).withdrawToken(tokenId, wallet.address)).to.revertedWith('NOT_YOUR_NFT')
+      })
+
+      it('number of stakes is not 0', async () => {
+        const pool = await factory.getPool(
+          tokens[0].address,
+          tokens[1].address,
+          FeeAmount.MEDIUM
+        )
+        await tokens[0].approve(staker.address, BNe18(10))
+        await staker.createIncentive({
+          pool,
+          rewardToken: tokens[0].address,
+          totalReward: BNe18(10),
+          startTime: 10,
+          endTime: 20,
+          claimDeadline: 30,
+        })
+        await staker.stakeToken({
+          creator: wallet.address,
+          rewardToken: tokens[0].address,
+          tokenId,
+          startTime: 10,
+          endTime: 20,
+          claimDeadline: 30,
+        })
+        expect(subject({tokenId, recipient})).to.revertedWith('NUMBER_OF_STAKES_NOT_ZERO')
+      })
     })
   })
 
