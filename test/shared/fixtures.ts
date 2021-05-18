@@ -10,7 +10,7 @@ import { UniswapV3Factory } from '../../vendor/uniswap-v3-core/typechain'
 import WETH9 from '../contracts/WETH9.json'
 import { linkLibraries } from './linkLibraries'
 import type { TestERC20, INonfungiblePositionManager } from '../../typechain'
-import { UniswapV3Staker } from '../../typechain/UniswapV3Staker'
+import { UniswapV3Staker } from '../../typechain'
 
 type IWETH9 = any
 type MockTimeSwapRouter = any
