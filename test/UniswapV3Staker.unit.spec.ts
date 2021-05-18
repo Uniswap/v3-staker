@@ -221,7 +221,7 @@ describe('UniswapV3Staker.unit', async () => {
     })
 
     describe('works and', () => {
-      it('emits IncentiveEnded() event', async () => {
+      it('emits IncentiveEnded event', async () => {
         await createIncentive()
         // Adjust the block.timestamp so it is after the claim deadline
         await ethers.provider.send('evm_setNextBlockTimestamp', [
