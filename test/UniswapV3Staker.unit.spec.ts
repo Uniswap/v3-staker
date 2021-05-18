@@ -228,15 +228,7 @@ describe('UniswapV3Staker.unit', async () => {
           claimDeadline + 1,
         ])
 
-        await expect(
-          staker.endIncentive({
-            rewardToken,
-            pool,
-            startTime,
-            endTime,
-            claimDeadline,
-          })
-        )
+        await expect(subject())
           .to.emit(staker, 'IncentiveEnded')
           .withArgs(rewardToken, pool, startTime, endTime)
       })
@@ -267,14 +259,7 @@ describe('UniswapV3Staker.unit', async () => {
 
     describe('fails when ', () => {
       it('block.timestamp <= claim deadline', async () => {
-        await staker.createIncentive({
-          rewardToken,
-          pool,
-          startTime,
-          endTime,
-          claimDeadline,
-          totalReward,
-        })
+        await createIncentive()
 
         // Adjust the block.timestamp so it is before the claim deadline
         await ethers.provider.send('evm_setNextBlockTimestamp', [
