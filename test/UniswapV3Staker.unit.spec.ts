@@ -186,6 +186,13 @@ describe('UniswapV3Staker.unit', async () => {
     let createIncentive: Function
 
     beforeEach('setup', async () => {
+      await nft.createAndInitializePoolIfNecessary(
+        tokens[0].address,
+        tokens[1].address,
+        FeeAmount.MEDIUM,
+        encodePriceSqrt(1, 1)
+      )
+
       rewardToken = tokens[0].address
       blockTime = await blockTimestamp()
       totalReward = BNe18(1000)
@@ -197,6 +204,7 @@ describe('UniswapV3Staker.unit', async () => {
         tokens[1].address,
         FeeAmount.MEDIUM
       )
+
       await tokens[0].approve(staker.address, totalReward)
 
       createIncentive = async () =>
