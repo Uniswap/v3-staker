@@ -175,17 +175,24 @@ describe('UniswapV3Staker.unit', async () => {
   })
 
   describe('#endIncentive', async () => {
-    let rewardToken
-    let blockTime
-    let totalReward
-    let startTime
-    let endTime
-    let claimDeadline
-    let pool
-    let subject
-    let createIncentive
+    let rewardToken: string
+    let blockTime: number
+    let totalReward: BigNumber 
+    let startTime: number
+    let endTime: number
+    let claimDeadline: number
+    let pool: string
+    let subject: Function
+    let createIncentive: Function
 
     beforeEach('setup', async () => {
+      await nft.createAndInitializePoolIfNecessary(
+        tokens[0].address,
+        tokens[1].address,
+        FeeAmount.MEDIUM,
+        encodePriceSqrt(1, 1)
+      )
+
       rewardToken = tokens[0].address
       blockTime = await blockTimestamp()
       totalReward = BNe18(1000)
@@ -197,6 +204,7 @@ describe('UniswapV3Staker.unit', async () => {
         tokens[1].address,
         FeeAmount.MEDIUM
       )
+
       await tokens[0].approve(staker.address, totalReward)
 
       createIncentive = async () =>
@@ -221,22 +229,14 @@ describe('UniswapV3Staker.unit', async () => {
     })
 
     describe('works and', () => {
-      it('emits IncentiveEnded() event', async () => {
+      it('emits IncentiveEnded event', async () => {
         await createIncentive()
         // Adjust the block.timestamp so it is after the claim deadline
         await ethers.provider.send('evm_setNextBlockTimestamp', [
           claimDeadline + 1,
         ])
 
-        await expect(
-          staker.endIncentive({
-            rewardToken,
-            pool,
-            startTime,
-            endTime,
-            claimDeadline,
-          })
-        )
+        await expect(subject())
           .to.emit(staker, 'IncentiveEnded')
           .withArgs(rewardToken, pool, startTime, endTime)
       })
@@ -267,14 +267,7 @@ describe('UniswapV3Staker.unit', async () => {
 
     describe('fails when ', () => {
       it('block.timestamp <= claim deadline', async () => {
-        await staker.createIncentive({
-          rewardToken,
-          pool,
-          startTime,
-          endTime,
-          claimDeadline,
-          totalReward,
-        })
+        await createIncentive()
 
         // Adjust the block.timestamp so it is before the claim deadline
         await ethers.provider.send('evm_setNextBlockTimestamp', [
