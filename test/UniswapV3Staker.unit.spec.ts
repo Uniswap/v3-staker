@@ -175,15 +175,15 @@ describe('UniswapV3Staker.unit', async () => {
   })
 
   describe('#endIncentive', async () => {
-    let rewardToken
-    let blockTime
-    let totalReward
-    let startTime
-    let endTime
-    let claimDeadline
-    let pool
-    let subject
-    let createIncentive
+    let rewardToken: string
+    let blockTime: number
+    let totalReward: BigNumber 
+    let startTime: number
+    let endTime: number
+    let claimDeadline: number
+    let pool: string
+    let subject: Function
+    let createIncentive: Function
 
     beforeEach('setup', async () => {
       rewardToken = tokens[0].address
