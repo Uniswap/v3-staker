@@ -16,14 +16,15 @@ import { UniswapV3Staker } from '../../typechain/UniswapV3Staker'
 
 /* This is a very verbose way of mapping users to accounts, but in crypto, better safe (and verbose) than sorry! */
 const WALLET_USER_INDEXES = {
-  UNISWAP_ROOT: 0,
-  LP_USER_0: 1,
-  LP_USER_1: 2,
-  LP_USER_2: 3,
-  TRADER_USER_0: 4,
-  TRADER_USER_1: 5,
-  WETH_OWNER: 6,
-  TOKENS_OWNER: 7,
+  UNISWAP_ROOT: 1,
+  LP_USER_0: 2,
+  LP_USER_1: 3,
+  LP_USER_2: 4,
+  TRADER_USER_0: 5,
+  TRADER_USER_1: 6,
+  WETH_OWNER: 7,
+  TOKENS_OWNER: 8,
+  STAKER_DEPLOYER: 9,
 }
 
 export const userFixtures = {
@@ -36,6 +37,9 @@ export const userFixtures = {
   },
   uniswapRootUser: async (wallets, provider) => {
     return wallets[WALLET_USER_INDEXES.UNISWAP_ROOT]
+  },
+  stakerDeployer: async (wallets, provider) => {
+    return wallets[WALLET_USER_INDEXES.STAKER_DEPLOYER]
   },
   lpUser1: async (wallets, provider) => {
     return wallets[WALLET_USER_INDEXES.LP_USER_1]
@@ -69,11 +73,12 @@ const v3CoreFactoryFixture: Fixture<IUniswapV3Factory> = async (
   wallets,
   provider
 ) => {
-  const wallet = await userFixtures.uniswapRootUser(wallets, provider)
-  return ((await waffle.deployContract(wallet, {
-    bytecode: UniswapV3FactoryJson.bytecode,
-    abi: UniswapV3FactoryJson.abi,
-  })) as unknown) as IUniswapV3Factory
+  const factory = new ethers.ContractFactory(
+    UniswapV3FactoryJson.abi,
+    UniswapV3FactoryJson.bytecode,
+    await userFixtures.uniswapRootUser(wallets, provider)
+  )
+  return (await factory.deploy()) as IUniswapV3Factory
 }
 
 export const v3RouterFixture: Fixture<{
@@ -82,16 +87,15 @@ export const v3RouterFixture: Fixture<{
   router: MockTimeSwapRouter
 }> = async (wallets, provider) => {
   const uniswapRoot = await userFixtures.uniswapRootUser(wallets, provider)
+
   const { weth9 } = await wethFixture(wallets, provider)
   const factory = await v3CoreFactoryFixture(wallets, provider)
-  const router = ((await waffle.deployContract(
-    uniswapRoot,
-    {
-      bytecode: SwapRouter.bytecode,
-      abi: SwapRouter.abi,
-    },
-    [factory.address, weth9.address]
-  )) as unknown) as any
+
+  const router = await new ethers.ContractFactory(
+    SwapRouter.abi,
+    SwapRouter.bytecode,
+    uniswapRoot
+  ).deploy(factory.address, weth9.address)
 
   return { factory, weth9, router }
 }
@@ -123,15 +127,18 @@ export const uniswapFactoryFixture: Fixture<UniswapFactoryFixture> = async (
   provider
 ) => {
   const { weth9, factory, router } = await v3RouterFixture(wallets, provider)
-  const tokenFactory = await ethers.getContractFactory('TestERC20')
 
   const tokensOwner = await userFixtures.tokensOwner(wallets, provider)
+  const tokenFactory = await ethers.getContractFactory('TestERC20', tokensOwner)
 
-  const tokens = (await Promise.all([
-    tokenFactory.connect(tokensOwner).deploy(constants.MaxUint256.div(2)), // do not use maxu256 to avoid overflowing
-    tokenFactory.connect(tokensOwner).deploy(constants.MaxUint256.div(2)),
-    tokenFactory.connect(tokensOwner).deploy(constants.MaxUint256.div(2)),
-  ])) as [TestERC20, TestERC20, TestERC20]
+  // @ts-ignore
+  const tokens: [TestERC20, TestERC20, TestERC20] = []
+  for (let i = 0; i < 3; i++) {
+    const token = (await tokenFactory.deploy(
+      constants.MaxUint256.div(2)
+    )) as TestERC20
+    tokens.push(token)
+  }
 
   const nftDescriptorLibrary = await nftDescriptorLibraryFixture(
     wallets,
@@ -158,6 +165,7 @@ export const uniswapFactoryFixture: Fixture<UniswapFactoryFixture> = async (
   )
 
   const uniswapRoot = await userFixtures.uniswapRootUser(wallets, provider)
+
   const positionDescriptor = await waffle.deployContract(
     uniswapRoot,
     {
@@ -235,11 +243,16 @@ export const uniswapFixture: Fixture<{
     wallets,
     provider
   )
+
+  const stakerDeployerUser = await userFixtures.stakerDeployer(
+    wallets,
+    provider
+  )
+
   const stakerFactory = await ethers.getContractFactory('UniswapV3Staker')
-  const staker = (await stakerFactory.deploy(
-    factory.address,
-    nft.address
-  )) as UniswapV3Staker
+  const staker = (await stakerFactory
+    .connect(stakerDeployerUser)
+    .deploy(factory.address, nft.address)) as UniswapV3Staker
 
   for (const token of tokens) {
     await token.approve(nft.address, constants.MaxUint256)

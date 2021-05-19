@@ -18,8 +18,6 @@ import {
 
 import { uniswapFixture, userFixtures } from './shared/fixtures'
 
-const { createFixtureLoader } = waffle
-
 type TestEnvironmentFixture = {
   token0: TestERC20
   token1: TestERC20
@@ -35,6 +33,7 @@ const fullEnvironmentFixture: Fixture<TestEnvironmentFixture> = async (
   wallets,
   provider
 ) => {
+  console.info('before uniswapFixture')
   const {
     nft,
     factory: uniswapV3Factory,
@@ -43,16 +42,21 @@ const fullEnvironmentFixture: Fixture<TestEnvironmentFixture> = async (
   } = await uniswapFixture(wallets, provider)
 
   const uniswapRootUser = await userFixtures.uniswapRootUser(wallets, provider)
-  //   Pool
-  const poolTx = await uniswapV3Factory
+  console.info('aftert uniswap root user')
+
+  await uniswapV3Factory
     .connect(uniswapRootUser)
     .createPool(token0.address, token1.address, FeeAmount.LOW)
+
+  console.info('Got to create pool')
 
   const pool = await uniswapV3Factory.getPool(
     token0.address,
     token1.address,
     FeeAmount.LOW
   )
+
+  console.info('Got to get pool')
 
   const startTime = await blockTimestamp()
   const endTime = startTime + 100
@@ -70,6 +74,8 @@ const fullEnvironmentFixture: Fixture<TestEnvironmentFixture> = async (
     pool,
   })
 
+  console.info('Got to incentive')
+
   return {
     token0,
     token1,
@@ -82,12 +88,30 @@ const fullEnvironmentFixture: Fixture<TestEnvironmentFixture> = async (
   }
 }
 
-describe('accounting integration tests', async () => {
+const { createFixtureLoader } = waffle
+let loadFixture: ReturnType<typeof createFixtureLoader>
+
+describe.only('accounting integration tests', async () => {
+  const wallets = waffle.provider.getWallets()
+  const ctx = ({} as unknown) as any
+
+  beforeEach('loader', async () => {
+    loadFixture = createFixtureLoader(wallets)
+  })
+
+  beforeEach('create fixture loader', async () => {
+    ctx.foo = 'bar'
+    const items = await loadFixture(fullEnvironmentFixture)
+    console.info('after loadFixture')
+    console.info(items)
+  })
+
   it("doesn't shit the bed", async () => {
+    expect(ctx.foo).to.eq('bar')
     // Test scenario
-    // Create Uniswap V3 Factory and surrounding contracts
-    // user0 creates token0, token1, rewardToken
-    // user0 transfers X amount of token0, token1 to user1
+    // (Done) Create Uniswap V3 Factory and surrounding contracts
+    // (Done) user0 creates token0, token1, rewardToken
+    // (Done) user0 transfers X amount of token0, token1 to user1
     // user1 creates a uniswap liquidity pool for token0/token1
     // user1 adds liquidity to a specific range
     // user0 transfers Y amount of token0, token1 to user2
