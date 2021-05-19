@@ -34,7 +34,6 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, ReentrancyGuard {
 
     struct Stake {
         uint160 secondsPerLiquidityInitialX128;
-        address pool;
     }
 
     IUniswapV3Factory public immutable factory;
@@ -319,8 +318,7 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, ReentrancyGuard {
         (, uint160 secondsPerLiquidityInsideX128, ) =
             pool.snapshotCumulativesInside(tickLower, tickUpper);
         stakes[params.tokenId][incentiveId] = Stake(
-            secondsPerLiquidityInsideX128,
-            poolAddress
+            secondsPerLiquidityInsideX128
         );
         deposits[params.tokenId].numberOfStakes += 1;
         emit TokenStaked(params.tokenId);

@@ -469,9 +469,9 @@ describe('UniswapV3Staker.unit', async () => {
     beforeEach(async () => {
       const currentTime = await blockTimestamp()
 
-      const [token0, token1] = sortedTokens(tokens[1], tokens[2])
-      rewardToken = tokens[1]
-      otherRewardToken = tokens[2]
+      const [token0, token1] = sortedTokens(tokens[0], tokens[1])
+      rewardToken = tokens[0]
+      otherRewardToken = tokens[1]
       startTime = currentTime
       endTime = currentTime + 100
       claimDeadline = currentTime + 1000
@@ -550,16 +550,14 @@ describe('UniswapV3Staker.unit', async () => {
           endTime,
           claimDeadline
         )
-        await subject()
-        const stake = await staker.stakes(tokenId, incentiveId)
-        // it('saves the pool address on the stake')
-        expect(stake.pool).to.eq(pool)
-        // it('calculates secondsPerLiquidity')
-        expect(stake.secondsPerLiquidityInitialX128).to.eq(0)
 
-        // it('increments numberOfStakes by 1')
-        const deposit = await staker.deposits(tokenId)
-        expect(deposit.numberOfStakes).to.eq(1)
+        const stakeBefore = await staker.stakes(tokenId, incentiveId)
+        const nstakesBefore = (await staker.deposits(tokenId)).numberOfStakes
+        await subject()
+
+        expect(stakeBefore).to.eq(0)
+        expect(await staker.stakes(tokenId, incentiveId)).to.be.gt(stakeBefore)
+        expect((await staker.deposits(tokenId)).numberOfStakes).to.eq(nstakesBefore + 1)
       })
     })
     describe('fails when', () => {
@@ -777,7 +775,7 @@ describe('UniswapV3Staker.unit', async () => {
           await ethers.getContractFactory('TestIncentiveID')
         ).deploy()
 
-        const id1 = await idGetter.getIncentiveId(
+        const incentiveId = await idGetter.getIncentiveId(
           wallet.address,
           rewardToken.address,
           pool,
@@ -787,6 +785,7 @@ describe('UniswapV3Staker.unit', async () => {
         )
 
         expect((await staker.deposits(tokenId)).numberOfStakes).to.equal(0)
+        expect(await staker.stakes(tokenId, incentiveId)).to.equal(0)
         await nft['safeTransferFrom(address,address,uint256,bytes)'](
           wallet.address,
           staker.address,
@@ -794,7 +793,7 @@ describe('UniswapV3Staker.unit', async () => {
           data
         )
         expect((await staker.deposits(tokenId)).numberOfStakes).to.equal(1)
-        expect((await staker.stakes(tokenId, id1)).pool).to.eq(pool)
+        expect(await staker.stakes(tokenId, incentiveId)).to.be.gt(0)
       })
     })
 
