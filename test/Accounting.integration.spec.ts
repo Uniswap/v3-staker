@@ -33,7 +33,6 @@ const fullEnvironmentFixture: Fixture<TestEnvironmentFixture> = async (
   wallets,
   provider
 ) => {
-  console.info('before uniswapFixture')
   const {
     nft,
     factory: uniswapV3Factory,
@@ -42,13 +41,10 @@ const fullEnvironmentFixture: Fixture<TestEnvironmentFixture> = async (
   } = await uniswapFixture(wallets, provider)
 
   const uniswapRootUser = await userFixtures.uniswapRootUser(wallets, provider)
-  console.info('aftert uniswap root user')
 
   await uniswapV3Factory
     .connect(uniswapRootUser)
     .createPool(token0.address, token1.address, FeeAmount.LOW)
-
-  console.info('Got to create pool')
 
   const pool = await uniswapV3Factory.getPool(
     token0.address,
@@ -56,25 +52,22 @@ const fullEnvironmentFixture: Fixture<TestEnvironmentFixture> = async (
     FeeAmount.LOW
   )
 
-  console.info('Got to get pool')
-
   const startTime = await blockTimestamp()
   const endTime = startTime + 100
   const claimDeadline = endTime + 100
+  const totalReward = BNe18(100)
 
-  const incentive = await createIncentive({
-    token0,
-    token1,
-    rewardToken,
-    staker,
-    totalReward: BNe18(1000),
+  const tokensOwner = await userFixtures.tokensOwner(wallets, provider)
+  await rewardToken.connect(tokensOwner).approve(staker.address, totalReward)
+
+  const incentive = await staker.connect(tokensOwner).createIncentive({
+    rewardToken: rewardToken.address,
+    pool,
     startTime,
     endTime,
     claimDeadline,
-    pool,
+    totalReward,
   })
-
-  console.info('Got to incentive')
 
   return {
     token0,

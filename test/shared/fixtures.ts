@@ -282,6 +282,7 @@ export const createIncentive = async ({
   pool: string
 }) => {
   // TODO: make this the owner of the token using the fixture
+  // TODO: This may break for now
   await rewardToken.approve(staker.address, totalReward)
   const params = {
     rewardToken: rewardToken.address,
