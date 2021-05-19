@@ -7,7 +7,7 @@ import NFTDescriptor from '@uniswap/v3-periphery/artifacts/contracts/libraries/N
 import MockTimeNonfungiblePositionManager from '@uniswap/v3-periphery/artifacts/contracts/NonfungiblePositionManager.sol/NonfungiblePositionManager.json'
 import NonfungibleTokenPositionDescriptor from '@uniswap/v3-periphery/artifacts/contracts/NonfungibleTokenPositionDescriptor.sol/NonfungibleTokenPositionDescriptor.json'
 import SwapRouter from '@uniswap/v3-periphery/artifacts/contracts/SwapRouter.sol/SwapRouter.json'
-import { IUniswapV3Factory } from '../../typechain'
+import { IUniswapV3Factory, IUniswapV3Pool } from '../../typechain'
 import WETH9 from '../contracts/WETH9.json'
 import { linkLibraries } from './linkLibraries'
 import { INonfungiblePositionManager } from '../../typechain'
@@ -184,6 +184,8 @@ export const uniswapFixture: Fixture<{
   factory: IUniswapV3Factory
   staker: UniswapV3Staker
   tokens: [TestERC20, TestERC20, TestERC20]
+  pool01: string
+  pool12: string
 }> = async (wallets, provider) => {
   const { tokens, nft, factory } = await uniswapFactoryFixture(
     wallets,
@@ -198,10 +200,43 @@ export const uniswapFixture: Fixture<{
   for (const token of tokens) {
     await token.approve(nft.address, constants.MaxUint256)
   }
-  return { nft, tokens, staker, factory }
+
+  await nft.createAndInitializePoolIfNecessary(
+    tokens[0].address,
+    tokens[1].address,
+    FeeAmount.MEDIUM,
+    encodePriceSqrt(1, 1)
+  )
+
+  await nft.createAndInitializePoolIfNecessary(
+    tokens[1].address,
+    tokens[2].address,
+    FeeAmount.MEDIUM,
+    encodePriceSqrt(1, 1)
+  )
+
+  const pool01 = await factory.getPool(
+    tokens[0].address,
+    tokens[1].address,
+    FeeAmount.MEDIUM
+  )
+
+  const pool12 = await factory.getPool(
+    tokens[1].address,
+    tokens[2].address,
+    FeeAmount.MEDIUM
+  )
+
+  return { nft, tokens, staker, factory, pool01, pool12 }
 }
 
-import { FeeAmount, BNe18, BigNumberish, BigNumber } from '../shared'
+import {
+  FeeAmount,
+  BNe18,
+  BigNumberish,
+  BigNumber,
+  encodePriceSqrt,
+} from '../shared'
 
 export const createIncentive = async ({
   factory,
