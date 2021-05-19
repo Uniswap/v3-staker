@@ -10,7 +10,7 @@ import SwapRouter from '@uniswap/v3-periphery/artifacts/contracts/SwapRouter.sol
 import { UniswapV3Factory } from '../../typechain/v3'
 import WETH9 from '../contracts/WETH9.json'
 import { linkLibraries } from './linkLibraries'
-import type { TestERC20, INonfungiblePositionManager } from '../../typechain'
+import { INonfungiblePositionManager, TestERC20 } from '../../typechain'
 import { UniswapV3Staker } from '../../typechain/UniswapV3Staker'
 
 type IWETH9 = any
