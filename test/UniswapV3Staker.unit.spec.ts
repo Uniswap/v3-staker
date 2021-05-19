@@ -2,7 +2,11 @@ import { constants, BigNumber, BigNumberish } from 'ethers'
 import { ethers, waffle } from 'hardhat'
 import { Fixture } from 'ethereum-waffle'
 import { UniswapV3Staker } from '../typechain/UniswapV3Staker'
-import { TestERC20, INonfungiblePositionManager } from '../typechain'
+import {
+  TestERC20,
+  INonfungiblePositionManager,
+  IUniswapV3Factory,
+} from '../typechain'
 import {
   uniswapFixture,
   mintPosition,
@@ -21,7 +25,6 @@ import {
   BN,
   BNe18,
 } from './shared'
-import { UniswapV3Factory } from '../typechain/v3/'
 const { createFixtureLoader } = waffle
 let loadFixture: ReturnType<typeof createFixtureLoader>
 
@@ -29,7 +32,7 @@ describe('UniswapV3Staker.unit', async () => {
   const wallets = waffle.provider.getWallets()
   const [wallet, other] = wallets
   let tokens: [TestERC20, TestERC20, TestERC20]
-  let factory: UniswapV3Factory
+  let factory: IUniswapV3Factory
   let nft: INonfungiblePositionManager
   let staker: UniswapV3Staker
   let subject
