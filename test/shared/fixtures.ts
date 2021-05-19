@@ -250,29 +250,28 @@ export const uniswapFixture: Fixture<{
 import { FeeAmount, BNe18, BigNumberish, BigNumber } from '../shared'
 
 export const createIncentive = async ({
-  factory,
-  tokens,
+  rewardToken,
   staker,
   startTime,
   endTime,
   claimDeadline,
-  rewardToken,
   pool,
   totalReward = BNe18(1000),
 }: {
-  factory: IUniswapV3Factory
-  tokens: any
+  token0: TestERC20
+  token1: TestERC20
+  rewardToken: TestERC20
   staker: UniswapV3Staker
   startTime: number
   endTime: number
   claimDeadline: number
   totalReward: BigNumberish
-  rewardToken: string
   pool: string
 }) => {
-  await tokens[0].approve(staker.address, totalReward)
+  // TODO: make this the owner of the token using the fixture
+  await rewardToken.approve(staker.address, totalReward)
   const params = {
-    rewardToken,
+    rewardToken: rewardToken.address,
     pool: pool,
     startTime,
     endTime,

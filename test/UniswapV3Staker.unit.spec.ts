@@ -78,17 +78,17 @@ describe('UniswapV3Staker.unit', async () => {
         endTime = 20,
         claimDeadline = 30,
         totalReward = BNe18(1000),
-        rewardToken = tokens[0].address,
+        rewardToken = tokens[0],
       } = {}) =>
         await createIncentive({
-          factory,
-          tokens,
+          token0: tokens[0],
+          token1: tokens[1],
+          rewardToken,
           staker,
           totalReward,
           startTime,
           endTime,
           claimDeadline,
-          rewardToken,
           pool,
         })
     })
@@ -189,7 +189,6 @@ describe('UniswapV3Staker.unit', async () => {
     let claimDeadline: number
     let pool: string
     let subject: Function
-    let createIncentive: Function
 
     beforeEach('setup', async () => {
       await nft.createAndInitializePoolIfNecessary(
@@ -213,7 +212,7 @@ describe('UniswapV3Staker.unit', async () => {
 
       await tokens[0].approve(staker.address, totalReward)
 
-      createIncentive = async () =>
+      subject = async () =>
         staker.createIncentive({
           rewardToken,
           pool,
@@ -236,7 +235,7 @@ describe('UniswapV3Staker.unit', async () => {
 
     describe('works and', () => {
       it('emits IncentiveEnded event', async () => {
-        await createIncentive()
+        await subject()
         // Adjust the block.timestamp so it is after the claim deadline
         await ethers.provider.send('evm_setNextBlockTimestamp', [
           claimDeadline + 1,
@@ -248,7 +247,7 @@ describe('UniswapV3Staker.unit', async () => {
       })
 
       it('deletes incentives[key]', async () => {
-        await createIncentive()
+        await subject()
         const idGetter = await (
           await ethers.getContractFactory('TestIncentiveID')
         ).deploy()
@@ -277,7 +276,7 @@ describe('UniswapV3Staker.unit', async () => {
 
     describe('fails when ', () => {
       it('block.timestamp <= claim deadline', async () => {
-        await createIncentive()
+        await subject()
 
         // Adjust the block.timestamp so it is before the claim deadline
         await ethers.provider.send('evm_setNextBlockTimestamp', [
