@@ -14,9 +14,14 @@ import {
   createIncentive,
   expect,
   FeeAmount,
+  getMaxTick,
+  getMinTick,
+  TICK_SPACINGS,
+  toWei,
 } from './shared'
+import { zipObject } from 'lodash'
 
-import { uniswapFixture, userFixtures } from './shared/fixtures'
+import { mintPosition, uniswapFixture, userFixtures } from './shared/fixtures'
 
 type TestEnvironmentFixture = {
   token0: TestERC20
@@ -27,7 +32,10 @@ type TestEnvironmentFixture = {
   staker: UniswapV3Staker
   pool: string
   incentive: any
+  users: any
 }
+
+const FEE = FeeAmount.LOW
 
 const fullEnvironmentFixture: Fixture<TestEnvironmentFixture> = async (
   wallets,
@@ -44,12 +52,12 @@ const fullEnvironmentFixture: Fixture<TestEnvironmentFixture> = async (
 
   await uniswapV3Factory
     .connect(uniswapRootUser)
-    .createPool(token0.address, token1.address, FeeAmount.LOW)
+    .createPool(token0.address, token1.address, FEE)
 
   const pool = await uniswapV3Factory.getPool(
     token0.address,
     token1.address,
-    FeeAmount.LOW
+    FEE
   )
 
   const startTime = await blockTimestamp()
@@ -69,6 +77,12 @@ const fullEnvironmentFixture: Fixture<TestEnvironmentFixture> = async (
     totalReward,
   })
 
+  const resolvedWallets = await Promise.all(
+    Object.keys(userFixtures).map((key) => userFixtures[key](wallets, provider))
+  )
+
+  const users = zipObject(Object.keys(userFixtures), resolvedWallets)
+
   return {
     token0,
     token1,
@@ -78,6 +92,7 @@ const fullEnvironmentFixture: Fixture<TestEnvironmentFixture> = async (
     staker,
     pool,
     incentive,
+    users,
   }
 }
 
@@ -86,27 +101,88 @@ let loadFixture: ReturnType<typeof createFixtureLoader>
 
 describe.only('accounting integration tests', async () => {
   const wallets = waffle.provider.getWallets()
-  const ctx = ({} as unknown) as any
+
+  // @ts-ignore
+  let ctx: TestEnvironmentFixture = {}
 
   beforeEach('loader', async () => {
     loadFixture = createFixtureLoader(wallets)
   })
 
   beforeEach('create fixture loader', async () => {
-    ctx.foo = 'bar'
-    const items = await loadFixture(fullEnvironmentFixture)
-    console.info('after loadFixture')
-    console.info(items)
+    ctx = await loadFixture(fullEnvironmentFixture)
   })
 
-  it("doesn't shit the bed", async () => {
-    expect(ctx.foo).to.eq('bar')
+  it("doesn't die", async () => {
     // Test scenario
-    // (Done) Create Uniswap V3 Factory and surrounding contracts
-    // (Done) user0 creates token0, token1, rewardToken
-    // (Done) user0 transfers X amount of token0, token1 to user1
-    // user1 creates a uniswap liquidity pool for token0/token1
-    // user1 adds liquidity to a specific range
+    // lpUser adds liquidity to a specific range specified by ticks
+
+    // The widest possible tick range.
+    const tickParams = {
+      tickLower: getMinTick(TICK_SPACINGS[FEE]),
+      tickUpper: getMaxTick(TICK_SPACINGS[FEE]),
+    }
+    const amountParams = (amt) => ({
+      amount0Desired: amt,
+      amount1Desired: amt,
+      amount0Min: 0,
+      amount1Min: 0,
+    })
+
+    const connectedNft = ctx.nft.connect(ctx.users.uniswapRootUser)
+    // TokenID for lpUser1
+
+    console.info(connectedNft)
+
+    const mintPositionParams = {
+      token0: ctx.token0.address,
+      token1: ctx.token1.address,
+      fee: FEE,
+      recipient: ctx.users.uniswapRootUser.address,
+      deadline: (await blockTimestamp()) + 1000,
+      ...tickParams,
+      ...amountParams(toWei('1')),
+    }
+
+    await mintPosition(connectedNft, mintPositionParams)
+
+    // await connectedNft.mint(mintPositionParams, {
+    //   gasLimit: 12450000,
+    // })
+
+    // const tokenId: any = await new Promise((resolve) =>
+    //   connectedNft.on('Transfer', (from: any, to: any, tokenId: any) =>
+    //     resolve(tokenId)
+    //   )
+    // )
+    // // await connectedNft.approve(ctx.staker.address, tokenId, {
+    // //   gasLimit: 12450000,
+    // // })
+    // console.info(tokenId.toString())
+    // return tokenId.toString()
+
+    // const tokenId = await mintPosition(connectedNft, {
+    //   token0: ctx.token0.address,
+    //   token1: ctx.token1.address,
+    //   fee: FEE,
+    //   ...tickParams,
+    //   ...amountParams(toWei('1')),
+    //   recipient: ctx.users.lpUser1.address,
+    //   deadline: (await blockTimestamp()) + 1000,
+    // })
+
+    // await connectedNft.approve(ctx.staker.address, tokenId, {
+    //   gasLimit: 12450000,
+    // })
+
+    // console.info(tokenId)
+
+    // await ctx.nft.approve(ctx.staker.address, tokenIdForLpUser1, {
+    //   gasLimit: 12450000,
+    // })
+
+    // console.info('Token ID is ', tokenIdForLpUser1)
+
     // user0 transfers Y amount of token0, token1 to user2
     // move the clock forward
     // user0 transfers Z amount of token0 to user3

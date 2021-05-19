@@ -47,4 +47,6 @@ export const encodePriceSqrt = (
 export const BN = ethers.BigNumber.from
 export const BNe18 = (n) => ethers.BigNumber.from(n).mul(BN(10).pow(18))
 
+export const toWei = (n: BigNumberish) => BN(n).mul(BN(10).pow(18))
+
 export { BigNumber, BigNumberish } from 'ethers'

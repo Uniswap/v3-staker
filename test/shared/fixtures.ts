@@ -213,19 +213,24 @@ export const mintPosition = async (
     deadline: number
   }
 ): Promise<string> => {
-  nft.mint({
-    token0: mintParams.token0,
-    token1: mintParams.token1,
-    fee: mintParams.fee,
-    tickLower: mintParams.tickLower,
-    tickUpper: mintParams.tickUpper,
-    recipient: mintParams.recipient,
-    amount0Desired: mintParams.amount0Desired,
-    amount1Desired: mintParams.amount1Desired,
-    amount0Min: mintParams.amount0Min,
-    amount1Min: mintParams.amount1Min,
-    deadline: mintParams.deadline,
-  })
+  nft.mint(
+    {
+      token0: mintParams.token0,
+      token1: mintParams.token1,
+      fee: mintParams.fee,
+      tickLower: mintParams.tickLower,
+      tickUpper: mintParams.tickUpper,
+      recipient: mintParams.recipient,
+      amount0Desired: mintParams.amount0Desired,
+      amount1Desired: mintParams.amount1Desired,
+      amount0Min: mintParams.amount0Min,
+      amount1Min: mintParams.amount1Min,
+      deadline: mintParams.deadline,
+    },
+    {
+      gasLimit: 12450000,
+    }
+  )
 
   const tokenId: BigNumber = await new Promise((resolve) =>
     nft.on('Transfer', (from: any, to: any, tokenId: any) => resolve(tokenId))
