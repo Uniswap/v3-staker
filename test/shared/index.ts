@@ -1,5 +1,7 @@
-export * from '../../vendor/uniswap-v3-periphery/test/shared/constants'
-export * from '../../vendor/uniswap-v3-periphery/test/shared/ticks'
+export * from './external/v3-periphery/constants'
+export * from './external/v3-periphery/ticks'
+export * from './external/v3-periphery/tokenSort'
+
 export * from './fixtures'
 
 import { constants } from 'ethers'
@@ -41,8 +43,6 @@ export const encodePriceSqrt = (
       .toString()
   )
 }
-
-export { sortedTokens } from '../../vendor/uniswap-v3-periphery/test/shared/tokenSort'
 
 export const BN = ethers.BigNumber.from
 export const BNe18 = (n) => ethers.BigNumber.from(n).mul(BN(10).pow(18))
