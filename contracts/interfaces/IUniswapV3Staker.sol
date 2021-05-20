@@ -19,7 +19,7 @@ interface IUniswapV3Staker {
     );
 
     event TokenDeposited(uint256 tokenId, address indexed owner);
-    event TokenWithdrawn(uint256 tokenId);
+    event TokenWithdrawn(uint256 tokenId, address to);
 
     event TokenStaked(uint256 tokenId);
     event TokenUnstaked(uint256 tokenId);

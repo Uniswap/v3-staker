@@ -59,6 +59,8 @@
   },
   "scripts": {
     "compile": "hardhat compile",
-    "test": "hardhat test"
+    "test": "hardhat test",
+    "compile-uniswap-contract-types": "typechain --target ethers-v5 --outDir typechain './node_modules/@uniswap/?(v3-core|v3-periphery)/artifacts/contracts/**/*.json'",
+    "postinstall": "yarn compile-uniswap-contract-types"
   }
 }

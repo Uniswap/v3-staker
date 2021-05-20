@@ -34,7 +34,6 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, ReentrancyGuard {
 
     struct Stake {
         uint160 secondsPerLiquidityInitialX128;
-        address pool;
     }
 
     IUniswapV3Factory public immutable factory;
@@ -166,35 +165,7 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, ReentrancyGuard {
         emit TokenDeposited(tokenId, from);
 
         if (data.length > 0) {
-            (address poolAddress, int24 tickLower, int24 tickUpper, ) =
-                _getPositionDetails(tokenId);
-            (, uint160 secondsPerLiquidityInsideX128, ) =
-                IUniswapV3Pool(poolAddress).snapshotCumulativesInside(
-                    tickLower,
-                    tickUpper
-                );
-
-            StakeTokenParams memory params =
-                abi.decode(data, (StakeTokenParams));
-            bytes32 incentiveId =
-                IncentiveHelper.getIncentiveId(
-                    params.creator,
-                    params.rewardToken,
-                    poolAddress,
-                    params.startTime,
-                    params.endTime,
-                    params.claimDeadline
-                );
-            require(
-                incentives[incentiveId].rewardToken != address(0),
-                'non-existent incentive'
-            );
-            _stake(
-                tokenId,
-                incentiveId,
-                poolAddress,
-                secondsPerLiquidityInsideX128
-            );
+          _stakeToken(abi.decode(data, (StakeTokenParams)));
         }
         return this.onERC721Received.selector;
     }
@@ -205,11 +176,9 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, ReentrancyGuard {
         require(deposit.numberOfStakes == 0, 'NUMBER_OF_STAKES_NOT_ZERO');
         require(deposit.owner == msg.sender, 'NOT_YOUR_NFT');
 
-        // TODO: do we have to check for a failure here? Also double-check
-        // if safeTransferFrom is right.
         nonfungiblePositionManager.safeTransferFrom(address(this), to, tokenId);
 
-        emit TokenWithdrawn(tokenId);
+        emit TokenWithdrawn(tokenId, to);
     }
 
     /// @inheritdoc IUniswapV3Staker
@@ -219,29 +188,7 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, ReentrancyGuard {
             'NOT_YOUR_DEPOSIT'
         );
 
-        (address poolAddress, int24 tickLower, int24 tickUpper, ) =
-            _getPositionDetails(params.tokenId);
-        IUniswapV3Pool pool = IUniswapV3Pool(poolAddress);
-
-        bytes32 incentiveId =
-            IncentiveHelper.getIncentiveId(
-                params.creator,
-                params.rewardToken,
-                poolAddress,
-                params.startTime,
-                params.endTime,
-                params.claimDeadline
-            );
-
-        (, uint160 secondsPerLiquidityInsideX128, ) =
-            pool.snapshotCumulativesInside(tickLower, tickUpper);
-
-        _stake(
-            params.tokenId,
-            incentiveId,
-            poolAddress,
-            secondsPerLiquidityInsideX128
-        );
+        _stakeToken(params);
     }
 
     /// @inheritdoc IUniswapV3Staker
@@ -353,18 +300,28 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, ReentrancyGuard {
         emit TokenUnstaked(params.tokenId);
     }
 
-    function _stake(
-        uint256 tokenId,
-        bytes32 incentiveId,
-        address poolAddress,
-        uint160 secondsPerLiquidityInsideX128
-    ) internal {
-        stakes[tokenId][incentiveId] = Stake(
-            secondsPerLiquidityInsideX128,
-            poolAddress
+    function _stakeToken(StakeTokenParams memory params) internal {
+        (address poolAddress, int24 tickLower, int24 tickUpper, ) =
+            _getPositionDetails(params.tokenId);
+        IUniswapV3Pool pool = IUniswapV3Pool(poolAddress);
+
+        bytes32 incentiveId =
+            IncentiveHelper.getIncentiveId(
+                params.creator,
+                params.rewardToken,
+                poolAddress,
+                params.startTime,
+                params.endTime,
+                params.claimDeadline
+            );
+
+        (, uint160 secondsPerLiquidityInsideX128, ) =
+            pool.snapshotCumulativesInside(tickLower, tickUpper);
+        stakes[params.tokenId][incentiveId] = Stake(
+            secondsPerLiquidityInsideX128
         );
-        deposits[tokenId].numberOfStakes += 1;
-        emit TokenStaked(tokenId);
+        deposits[params.tokenId].numberOfStakes += 1;
+        emit TokenStaked(params.tokenId);
     }
 
     function _getPositionDetails(uint256 tokenId)
