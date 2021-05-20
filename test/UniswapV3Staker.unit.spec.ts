@@ -17,7 +17,6 @@ import {
   MaxUint256,
   encodePriceSqrt,
   blockTimestamp,
-  sortedTokens,
   BN,
   BNe18,
   snapshotGasCost,
@@ -57,8 +56,6 @@ describe('UniswapV3Staker.unit', async () => {
 
   describe('#createIncentive', async () => {
     beforeEach('setup', async () => {
-      const [token0, token1] = sortedTokens(tokens[0], tokens[1])
-
       subject = async ({
         startTime = 10,
         endTime = 20,
@@ -290,11 +287,9 @@ describe('UniswapV3Staker.unit', async () => {
     let subject
 
     beforeEach(async () => {
-      const [token0, token1] = sortedTokens(tokens[1], tokens[2])
-
       tokenId = await mintPosition(nft, {
-        token0: token0.address,
-        token1: token1.address,
+        token0: tokens[1].address,
+        token1: tokens[2].address,
         fee: FeeAmount.MEDIUM,
         tickLower: getMinTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
         tickUpper: getMaxTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
@@ -351,11 +346,9 @@ describe('UniswapV3Staker.unit', async () => {
     const recipient = wallet.address
 
     beforeEach(async () => {
-      const [token0, token1] = sortedTokens(tokens[1], tokens[2])
-
       tokenId = await mintPosition(nft, {
-        token0: token0.address,
-        token1: token1.address,
+        token0: tokens[1].address,
+        token1: tokens[2].address,
         fee: FeeAmount.MEDIUM,
         tickLower: getMinTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
         tickUpper: getMaxTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
@@ -448,7 +441,6 @@ describe('UniswapV3Staker.unit', async () => {
     beforeEach(async () => {
       const currentTime = await blockTimestamp()
 
-      const [token0, token1] = sortedTokens(tokens[0], tokens[1])
       rewardToken = tokens[0]
       otherRewardToken = tokens[1]
       startTime = currentTime
@@ -457,8 +449,8 @@ describe('UniswapV3Staker.unit', async () => {
       totalReward = BNe18(1000)
 
       tokenId = await mintPosition(nft, {
-        token0: token0.address,
-        token1: token1.address,
+        token0: tokens[0].address,
+        token1: tokens[1].address,
         fee: FeeAmount.MEDIUM,
         tickLower: getMinTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
         tickUpper: getMaxTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
@@ -558,7 +550,6 @@ describe('UniswapV3Staker.unit', async () => {
 
     beforeEach(async () => {
       const currentTime = await blockTimestamp()
-      const [token0, token1] = sortedTokens(tokens[1], tokens[2])
       rewardToken = tokens[1]
       otherRewardToken = tokens[2]
       startTime = currentTime
@@ -567,8 +558,8 @@ describe('UniswapV3Staker.unit', async () => {
       totalReward = BNe18(1000)
 
       tokenId = await mintPosition(nft, {
-        token0: token0.address,
-        token1: token1.address,
+        token0: tokens[1].address,
+        token1: tokens[2].address,
         fee: FeeAmount.MEDIUM,
         tickLower: getMinTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
         tickUpper: getMaxTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
@@ -668,11 +659,9 @@ describe('UniswapV3Staker.unit', async () => {
       claimDeadline = currentTime + 1000
       totalReward = BNe18(1000)
 
-      const [token0, token1] = sortedTokens(tokens[0], tokens[1])
-
       tokenId = await mintPosition(nft, {
-        token0: token0.address,
-        token1: token1.address,
+        token0: tokens[0].address,
+        token1: tokens[1].address,
         fee: FeeAmount.MEDIUM,
         tickLower: getMinTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
         tickUpper: getMaxTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
