@@ -5,8 +5,12 @@ export * from './fixtures'
 export * from './actors'
 
 import { Contract, ContractTransaction } from 'ethers'
-import { TransactionReceipt, TransactionResponse } from '@ethersproject/abstract-provider'
+import {
+  TransactionReceipt,
+  TransactionResponse,
+} from '@ethersproject/abstract-provider'
 import { constants } from 'ethers'
+
 export const { MaxUint256 } = constants
 
 import { ethers, waffle } from 'hardhat'
