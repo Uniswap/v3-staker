@@ -3,10 +3,13 @@ export * from './external/v3-periphery/ticks'
 export * from './external/v3-periphery/tokenSort'
 export * from './fixtures'
 export * from './actors'
+export * from './math'
 
-import { Contract, ContractTransaction } from 'ethers'
-import { TransactionReceipt, TransactionResponse } from '@ethersproject/abstract-provider'
-import { constants } from 'ethers'
+import { Contract, ContractTransaction, constants } from 'ethers'
+import {
+  TransactionReceipt,
+  TransactionResponse,
+} from '@ethersproject/abstract-provider'
 export const { MaxUint256 } = constants
 
 import { ethers } from 'hardhat'
@@ -45,11 +48,6 @@ export const encodePriceSqrt = (
       .toString()
   )
 }
-
-export const BN = ethers.BigNumber.from
-export const BNe18 = (n) => ethers.BigNumber.from(n).mul(BN(10).pow(18))
-
-export { BigNumber, BigNumberish } from 'ethers'
 
 export async function snapshotGasCost(
   x:
