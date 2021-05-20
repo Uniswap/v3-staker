@@ -2,9 +2,10 @@ export * from './external/v3-periphery/constants'
 export * from './external/v3-periphery/ticks'
 export * from './external/v3-periphery/tokenSort'
 export * from './fixtures'
+export * from './actors'
+
 import { Contract, ContractTransaction } from 'ethers'
 import { TransactionReceipt, TransactionResponse } from '@ethersproject/abstract-provider'
-
 import { constants } from 'ethers'
 export const { MaxUint256 } = constants
 
