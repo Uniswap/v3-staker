@@ -159,24 +159,44 @@ export const mintPosition = async (
     deadline: number
   }
 ): Promise<string> => {
-  nft.mint({
-    token0: mintParams.token0,
-    token1: mintParams.token1,
-    fee: mintParams.fee,
-    tickLower: mintParams.tickLower,
-    tickUpper: mintParams.tickUpper,
-    recipient: mintParams.recipient,
-    amount0Desired: mintParams.amount0Desired,
-    amount1Desired: mintParams.amount1Desired,
-    amount0Min: mintParams.amount0Min,
-    amount1Min: mintParams.amount1Min,
-    deadline: mintParams.deadline,
-  })
+  const transferFilter = nft.filters.Transfer(null, null, null)
+  const transferTopic = nft.interface.getEventTopic('Transfer')
 
-  const tokenId: BigNumber = await new Promise((resolve) =>
-    nft.on('Transfer', (from: any, to: any, tokenId: any) => resolve(tokenId))
-  )
-  return tokenId.toString()
+  let tokenId: BigNumber | undefined
+
+  const receipt = await (
+    await nft.mint({
+      token0: mintParams.token0,
+      token1: mintParams.token1,
+      fee: mintParams.fee,
+      tickLower: mintParams.tickLower,
+      tickUpper: mintParams.tickUpper,
+      recipient: mintParams.recipient,
+      amount0Desired: mintParams.amount0Desired,
+      amount1Desired: mintParams.amount1Desired,
+      amount0Min: mintParams.amount0Min,
+      amount1Min: mintParams.amount1Min,
+      deadline: mintParams.deadline,
+    })
+  ).wait()
+
+  for (let i = 0; i < receipt.logs.length; i++) {
+    const log = receipt.logs[i]
+    if (log.address === nft.address && log.topics.includes(transferTopic)) {
+      // for some reason log.data is 0x so this hack just re-fetches it
+      const events = await nft.queryFilter(transferFilter, log.blockHash)
+      if (events.length === 1) {
+        tokenId = events[0].args?.tokenId
+      }
+      break
+    }
+  }
+
+  if (tokenId === undefined) {
+    throw 'could not find tokenId after mint'
+  } else {
+    return tokenId.toString()
+  }
 }
 
 export const uniswapFixture: Fixture<{
