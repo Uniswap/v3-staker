@@ -13,6 +13,7 @@ import { linkLibraries } from './linkLibraries'
 import { INonfungiblePositionManager } from '../../typechain'
 import type { TestERC20 } from '../../typechain'
 import { UniswapV3Staker } from '../../typechain/UniswapV3Staker'
+import { FeeAmount, BigNumber, encodePriceSqrt } from '../shared'
 
 type IWETH9 = any
 type MockTimeSwapRouter = any
@@ -159,24 +160,44 @@ export const mintPosition = async (
     deadline: number
   }
 ): Promise<string> => {
-  nft.mint({
-    token0: mintParams.token0,
-    token1: mintParams.token1,
-    fee: mintParams.fee,
-    tickLower: mintParams.tickLower,
-    tickUpper: mintParams.tickUpper,
-    recipient: mintParams.recipient,
-    amount0Desired: mintParams.amount0Desired,
-    amount1Desired: mintParams.amount1Desired,
-    amount0Min: mintParams.amount0Min,
-    amount1Min: mintParams.amount1Min,
-    deadline: mintParams.deadline,
-  })
+  const transferFilter = nft.filters.Transfer(null, null, null)
+  const transferTopic = nft.interface.getEventTopic('Transfer')
 
-  const tokenId: BigNumber = await new Promise((resolve) =>
-    nft.on('Transfer', (from: any, to: any, tokenId: any) => resolve(tokenId))
-  )
-  return tokenId.toString()
+  let tokenId: BigNumber | undefined
+
+  const receipt = await (
+    await nft.mint({
+      token0: mintParams.token0,
+      token1: mintParams.token1,
+      fee: mintParams.fee,
+      tickLower: mintParams.tickLower,
+      tickUpper: mintParams.tickUpper,
+      recipient: mintParams.recipient,
+      amount0Desired: mintParams.amount0Desired,
+      amount1Desired: mintParams.amount1Desired,
+      amount0Min: mintParams.amount0Min,
+      amount1Min: mintParams.amount1Min,
+      deadline: mintParams.deadline,
+    })
+  ).wait()
+
+  for (let i = 0; i < receipt.logs.length; i++) {
+    const log = receipt.logs[i]
+    if (log.address === nft.address && log.topics.includes(transferTopic)) {
+      // for some reason log.data is 0x so this hack just re-fetches it
+      const events = await nft.queryFilter(transferFilter, log.blockHash)
+      if (events.length === 1) {
+        tokenId = events[0].args?.tokenId
+      }
+      break
+    }
+  }
+
+  if (tokenId === undefined) {
+    throw 'could not find tokenId after mint'
+  } else {
+    return tokenId.toString()
+  }
 }
 
 export const uniswapFixture: Fixture<{
@@ -184,6 +205,8 @@ export const uniswapFixture: Fixture<{
   factory: IUniswapV3Factory
   staker: UniswapV3Staker
   tokens: [TestERC20, TestERC20, TestERC20]
+  pool01: string
+  pool12: string
 }> = async (wallets, provider) => {
   const { tokens, nft, factory } = await uniswapFactoryFixture(
     wallets,
@@ -198,48 +221,32 @@ export const uniswapFixture: Fixture<{
   for (const token of tokens) {
     await token.approve(nft.address, constants.MaxUint256)
   }
-  return { nft, tokens, staker, factory }
-}
 
-import { FeeAmount, BNe18, BigNumberish, BigNumber } from '../shared'
+  await nft.createAndInitializePoolIfNecessary(
+    tokens[0].address,
+    tokens[1].address,
+    FeeAmount.MEDIUM,
+    encodePriceSqrt(1, 1)
+  )
 
-export const createIncentive = async ({
-  factory,
-  tokens,
-  staker,
-  startTime,
-  endTime,
-  claimDeadline,
-  rewardToken,
-  totalReward = BNe18(1000),
-}: {
-  factory: IUniswapV3Factory
-  tokens: any
-  staker: UniswapV3Staker
-  startTime: number
-  endTime: number
-  claimDeadline: number
-  totalReward: BigNumberish
-  rewardToken: string
-}) => {
-  const pool = await factory.getPool(
+  await nft.createAndInitializePoolIfNecessary(
+    tokens[1].address,
+    tokens[2].address,
+    FeeAmount.MEDIUM,
+    encodePriceSqrt(1, 1)
+  )
+
+  const pool01 = await factory.getPool(
     tokens[0].address,
     tokens[1].address,
     FeeAmount.MEDIUM
   )
 
-  // if (pool === constants.AddressZero) {
-  //   throw new Error('could not find pool')
-  // }
+  const pool12 = await factory.getPool(
+    tokens[1].address,
+    tokens[2].address,
+    FeeAmount.MEDIUM
+  )
 
-  await tokens[0].approve(staker.address, totalReward)
-  const params = {
-    rewardToken,
-    pool: pool,
-    startTime,
-    endTime,
-    claimDeadline,
-    totalReward,
-  }
-  return await staker.createIncentive(params)
+  return { nft, tokens, staker, factory, pool01, pool12 }
 }
