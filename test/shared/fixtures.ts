@@ -7,12 +7,13 @@ import NFTDescriptor from '@uniswap/v3-periphery/artifacts/contracts/libraries/N
 import MockTimeNonfungiblePositionManager from '@uniswap/v3-periphery/artifacts/contracts/NonfungiblePositionManager.sol/NonfungiblePositionManager.json'
 import NonfungibleTokenPositionDescriptor from '@uniswap/v3-periphery/artifacts/contracts/NonfungibleTokenPositionDescriptor.sol/NonfungibleTokenPositionDescriptor.json'
 import SwapRouter from '@uniswap/v3-periphery/artifacts/contracts/SwapRouter.sol/SwapRouter.json'
-import { IUniswapV3Factory, IUniswapV3Pool } from '../../typechain'
+import { IUniswapV3Factory } from '../../typechain'
 import WETH9 from '../contracts/WETH9.json'
 import { linkLibraries } from './linkLibraries'
 import { INonfungiblePositionManager } from '../../typechain'
 import type { TestERC20 } from '../../typechain'
 import { UniswapV3Staker } from '../../typechain/UniswapV3Staker'
+import { FeeAmount, BigNumber, encodePriceSqrt } from '../shared'
 
 type IWETH9 = any
 type MockTimeSwapRouter = any
@@ -249,11 +250,3 @@ export const uniswapFixture: Fixture<{
 
   return { nft, tokens, staker, factory, pool01, pool12 }
 }
-
-import {
-  FeeAmount,
-  BNe18,
-  BigNumberish,
-  BigNumber,
-  encodePriceSqrt,
-} from '../shared'
