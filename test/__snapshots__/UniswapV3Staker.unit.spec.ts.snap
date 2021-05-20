@@ -1,6 +1,6 @@
 // Jest Snapshot v1, https://goo.gl/fbAQLP
 
-exports[`UniswapV3Staker.unit #createIncentive works and has gas cost 1`] = `96984`;
+exports[`UniswapV3Staker.unit #createIncentive works and has gas cost 1`] = `96996`;
 
 exports[`UniswapV3Staker.unit #depositToken works and has gas cost 1`] = `96839`;
 
