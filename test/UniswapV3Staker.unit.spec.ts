@@ -24,6 +24,7 @@ import {
   sortedTokens,
   BN,
   BNe18,
+  snapshotGasCost,
 } from './shared'
 const { createFixtureLoader } = waffle
 let loadFixture: ReturnType<typeof createFixtureLoader>
@@ -127,6 +128,10 @@ describe('UniswapV3Staker.unit', async () => {
         expect(incentive.totalRewardUnclaimed).to.equal(BNe18(1000))
         expect(incentive.totalSecondsClaimedX128).to.equal(BN(0))
         expect(incentive.rewardToken).to.equal(tokens[0].address)
+      })
+
+      it('has gas cost', async () => {
+        await snapshotGasCost(subject())
       })
     })
 
@@ -272,6 +277,14 @@ describe('UniswapV3Staker.unit', async () => {
           constants.AddressZero
         )
       })
+
+      it('has gas cost', async () => {
+        await createIncentive()
+        await ethers.provider.send('evm_setNextBlockTimestamp', [
+          claimDeadline + 1,
+        ])
+        await snapshotGasCost(subject())
+      })
     })
 
     describe('fails when ', () => {
@@ -349,6 +362,10 @@ describe('UniswapV3Staker.unit', async () => {
         expect(deposit.owner).to.eq(wallet.address)
         expect(deposit.numberOfStakes).to.eq(0)
       })
+
+      it('has gas cost', async () => {
+        await snapshotGasCost(subject())
+      })
     })
 
     /*
@@ -414,6 +431,10 @@ describe('UniswapV3Staker.unit', async () => {
         await subject({ tokenId, recipient })
         expect(await nft.ownerOf(tokenId)).to.eq(recipient)
         await expect(subject({ tokenId, recipient })).to.be.reverted
+      })
+
+      it('has gas cost', async () => {
+        await snapshotGasCost(subject({tokenId, recipient}))
       })
     })
 
@@ -559,6 +580,10 @@ describe('UniswapV3Staker.unit', async () => {
         expect(await staker.stakes(tokenId, incentiveId)).to.be.gt(stakeBefore)
         expect((await staker.deposits(tokenId)).numberOfStakes).to.eq(nstakesBefore + 1)
       })
+
+      it('has gas cost', async () => {
+        await snapshotGasCost(subject())
+      })
     })
     describe('fails when', () => {
       it('you are not the owner of the deposit')
@@ -672,6 +697,10 @@ describe('UniswapV3Staker.unit', async () => {
         await expect(subject({ to: recipient }))
           .to.emit(staker, 'TokenUnstaked')
           .withArgs(tokenId)
+      })
+
+      it('has gas cost', async () => {
+        await snapshotGasCost(subject({to: recipient}))
       })
 
       it('transfers the right amount of the reward token')
@@ -794,6 +823,17 @@ describe('UniswapV3Staker.unit', async () => {
         )
         expect((await staker.deposits(tokenId)).numberOfStakes).to.equal(1)
         expect(await staker.stakes(tokenId, incentiveId)).to.be.gt(0)
+      })
+
+      it('has gas cost', async () => {
+        await snapshotGasCost(
+          nft['safeTransferFrom(address,address,uint256,bytes)'](
+            wallet.address,
+            staker.address,
+            tokenId,
+            data
+          )
+        )
       })
     })
 

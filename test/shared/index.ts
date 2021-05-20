@@ -1,10 +1,11 @@
 export * from './external/v3-periphery/constants'
 export * from './external/v3-periphery/ticks'
 export * from './external/v3-periphery/tokenSort'
-
 export * from './fixtures'
 export * from './actors'
 
+import { Contract, ContractTransaction } from 'ethers'
+import { TransactionReceipt, TransactionResponse } from '@ethersproject/abstract-provider'
 import { constants } from 'ethers'
 export const { MaxUint256 } = constants
 
@@ -49,3 +50,27 @@ export const BN = ethers.BigNumber.from
 export const BNe18 = (n) => ethers.BigNumber.from(n).mul(BN(10).pow(18))
 
 export { BigNumber, BigNumberish } from 'ethers'
+
+export async function snapshotGasCost(
+  x:
+    | TransactionResponse
+    | Promise<TransactionResponse>
+    | ContractTransaction
+    | Promise<ContractTransaction>
+    | TransactionReceipt
+    | Promise<BigNumber>
+    | BigNumber
+    | Contract
+    | Promise<Contract>
+): Promise<void> {
+  const resolved = await x
+  if ('deployTransaction' in resolved) {
+    const receipt = await resolved.deployTransaction.wait()
+    expect(receipt.gasUsed.toNumber()).toMatchSnapshot()
+  } else if ('wait' in resolved) {
+    const waited = await resolved.wait()
+    expect(waited.gasUsed.toNumber()).toMatchSnapshot()
+  } else if (BigNumber.isBigNumber(resolved)) {
+    expect(resolved.toNumber()).toMatchSnapshot()
+  }
+}

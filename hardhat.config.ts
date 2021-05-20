@@ -2,6 +2,7 @@ import 'hardhat-typechain'
 import '@nomiclabs/hardhat-ethers'
 import '@nomiclabs/hardhat-waffle'
 import '@nomiclabs/hardhat-etherscan'
+import { HardhatUserConfig } from 'hardhat/config'
 
 const DEFAULT_COMPILER_SETTINGS = {
   version: '0.7.6',
@@ -16,7 +17,7 @@ const DEFAULT_COMPILER_SETTINGS = {
   },
 }
 
-export default {
+const config: HardhatUserConfig = {
   networks: {
     hardhat: {
       allowUnlimitedContractSize: false,
@@ -46,3 +47,5 @@ export default {
     compilers: [DEFAULT_COMPILER_SETTINGS],
   },
 }
+
+export default config
