@@ -7,11 +7,7 @@ import {
   INonfungiblePositionManager,
   IUniswapV3Factory,
 } from '../typechain'
-import {
-  uniswapFixture,
-  mintPosition,
-  createIncentive,
-} from './shared/fixtures'
+import { uniswapFixture, mintPosition } from './shared/fixtures'
 import {
   expect,
   getMaxTick,
@@ -71,17 +67,18 @@ describe('UniswapV3Staker.unit', async () => {
         claimDeadline = 30,
         totalReward = BNe18(1000),
         rewardToken = tokens[0].address,
-      } = {}) =>
-        await createIncentive({
-          factory,
-          tokens,
-          staker,
-          totalReward,
+      } = {}) => {
+        await tokens[0].approve(staker.address, totalReward)
+
+        return await staker.createIncentive({
+          rewardToken,
+          pool: pool01,
           startTime,
           endTime,
           claimDeadline,
-          rewardToken,
+          totalReward,
         })
+      }
     })
 
     describe('works and', async () => {
