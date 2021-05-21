@@ -9,10 +9,12 @@ import { TransactionReceipt, TransactionResponse } from '@ethersproject/abstract
 import { constants } from 'ethers'
 export const { MaxUint256 } = constants
 
-import { ethers } from 'hardhat'
+import { ethers, waffle } from 'hardhat'
 export const blockTimestamp = async () => {
-  const blockNumber = await ethers.provider.getBlockNumber()
-  const block = await ethers.provider.getBlock(blockNumber)
+  const block = await waffle.provider.getBlock('latest')
+  if (!block) {
+    throw new Error('null block returned from provider')
+  }
   return block.timestamp
 }
 

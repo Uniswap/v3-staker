@@ -212,7 +212,7 @@ describe('UniswapV3Staker.unit', async () => {
       it('emits IncentiveEnded event', async () => {
         await createIncentive()
         // Adjust the block.timestamp so it is after the claim deadline
-        await ethers.provider.send('evm_setNextBlockTimestamp', [
+        await waffle.provider.send('evm_setNextBlockTimestamp', [
           claimDeadline + 1,
         ])
 
@@ -238,7 +238,7 @@ describe('UniswapV3Staker.unit', async () => {
         expect((await staker.incentives(incentiveId)).rewardToken).to.eq(
           tokens[0].address
         )
-        await ethers.provider.send('evm_setNextBlockTimestamp', [
+        await waffle.provider.send('evm_setNextBlockTimestamp', [
           claimDeadline + 1,
         ])
 
@@ -250,7 +250,7 @@ describe('UniswapV3Staker.unit', async () => {
 
       it('has gas cost', async () => {
         await createIncentive()
-        await ethers.provider.send('evm_setNextBlockTimestamp', [
+        await waffle.provider.send('evm_setNextBlockTimestamp', [
           claimDeadline + 1,
         ])
         await snapshotGasCost(subject())
@@ -262,7 +262,7 @@ describe('UniswapV3Staker.unit', async () => {
         await createIncentive()
 
         // Adjust the block.timestamp so it is before the claim deadline
-        await ethers.provider.send('evm_setNextBlockTimestamp', [
+        await waffle.provider.send('evm_setNextBlockTimestamp', [
           claimDeadline - 1,
         ])
 
@@ -273,7 +273,7 @@ describe('UniswapV3Staker.unit', async () => {
 
       it('incentive does not exist', async () => {
         // Adjust the block.timestamp so it is after the claim deadline
-        await ethers.provider.send('evm_setNextBlockTimestamp', [
+        await waffle.provider.send('evm_setNextBlockTimestamp', [
           claimDeadline + 1,
         ])
 
@@ -363,8 +363,8 @@ describe('UniswapV3Staker.unit', async () => {
       await nft.approve(staker.address, tokenId, { gasLimit: 12450000 })
 
       await staker.depositToken(tokenId)
-      subject = async ({ tokenId, recipient }) =>
-        await staker.withdrawToken(tokenId, recipient)
+      subject = ({ tokenId, recipient }) =>
+        staker.withdrawToken(tokenId, recipient)
     })
 
     describe('works and', () => {
@@ -386,13 +386,13 @@ describe('UniswapV3Staker.unit', async () => {
       })
 
       it('has gas cost', async () => {
-        await snapshotGasCost(subject({tokenId, recipient}))
+        await snapshotGasCost(subject({ tokenId, recipient }))
       })
     })
 
     describe('fails if', () => {
       it('you are withdrawing a token that is not yours', async () => {
-        expect(
+        await expect(
           staker.connect(other).withdrawToken(tokenId, wallet.address)
         ).to.revertedWith('NOT_YOUR_NFT')
       })
@@ -416,7 +416,7 @@ describe('UniswapV3Staker.unit', async () => {
           endTime: 20,
           claimDeadline: 30,
         })
-        expect(subject({ tokenId, recipient })).to.revertedWith(
+        await expect(subject({ tokenId, recipient })).to.revertedWith(
           'NUMBER_OF_STAKES_NOT_ZERO'
         )
       })
@@ -474,8 +474,8 @@ describe('UniswapV3Staker.unit', async () => {
         claimDeadline,
       })
 
-      subject = async () =>
-        await staker.stakeToken({
+      subject = () =>
+        staker.stakeToken({
           creator,
           rewardToken: rewardToken.address,
           tokenId,
@@ -594,8 +594,8 @@ describe('UniswapV3Staker.unit', async () => {
         claimDeadline,
       })
 
-      subject = async ({ to }) => {
-        const params = {
+      subject = ({ to }) =>
+        staker.unstakeToken({
           creator,
           rewardToken: rewardToken.address,
           tokenId,
@@ -603,9 +603,7 @@ describe('UniswapV3Staker.unit', async () => {
           endTime,
           claimDeadline,
           to,
-        }
-        return await staker.unstakeToken(params)
-      }
+        })
     })
 
     const recipient = wallets[3].address
