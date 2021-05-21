@@ -347,8 +347,8 @@ describe('UniswapV3Staker.unit', async () => {
 
     beforeEach(async () => {
       tokenId = await mintPosition(nft, {
-        token0: tokens[1].address,
-        token1: tokens[2].address,
+        token0: tokens[0].address,
+        token1: tokens[1].address,
         fee: FeeAmount.MEDIUM,
         tickLower: getMinTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
         tickUpper: getMaxTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
@@ -398,20 +398,16 @@ describe('UniswapV3Staker.unit', async () => {
       })
 
       it('number of stakes is not 0', async () => {
-        const pool = await factory.getPool(
-          tokens[0].address,
-          tokens[1].address,
-          FeeAmount.MEDIUM
-        )
         await tokens[0].approve(staker.address, BNe18(10))
         await staker.createIncentive({
-          pool,
+          pool: pool01,
           rewardToken: tokens[0].address,
           totalReward: BNe18(10),
           startTime: 10,
           endTime: 20,
           claimDeadline: 30,
         })
+
         await staker.stakeToken({
           creator: wallet.address,
           rewardToken: tokens[0].address,
@@ -751,9 +747,9 @@ describe('UniswapV3Staker.unit', async () => {
 
     describe('on invalid call', async () => {
       it('reverts when called by contract other than uniswap v3 nonfungiblePositionManager', async () => {
-        expect(
+        await expect(
           staker.onERC721Received(wallet.address, wallet.address, 1, data)
-        ).to.revertedWith('uniswap v3 nft only')
+        ).to.be.revertedWith('uniswap v3 nft only')
       })
 
       it('reverts when staking on invalid incentive', async () => {
@@ -770,16 +766,53 @@ describe('UniswapV3Staker.unit', async () => {
           [stakeParamsEncodeType],
           [invalidStakeParams]
         )
-        expect(
+        await expect(
           nft['safeTransferFrom(address,address,uint256,bytes)'](
             wallet.address,
             staker.address,
             tokenId,
             invalidData
           )
-        ).to.revertedWith('non-existent incentive')
+        ).to.be.revertedWith('non-existent incentive')
       })
     })
+  })
+
+  describe('#multicall', () => {
+      it('is implemented', async () => {
+        const rewardToken = tokens[2]
+        const currentTime = await blockTimestamp()
+        const tokenId = await mintPosition(nft, {
+          token0: tokens[0].address,
+          token1: tokens[1].address,
+          fee: FeeAmount.MEDIUM,
+          tickLower: getMinTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
+          tickUpper: getMaxTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
+          recipient: wallet.address,
+          amount0Desired: BN(10).mul(BN(10).pow(18)),
+          amount1Desired: BN(10).mul(BN(10).pow(18)),
+          amount0Min: 0,
+          amount1Min: 0,
+          deadline: currentTime + 10_000,
+        })
+        await nft.approve(staker.address, tokenId)
+        await rewardToken.approve(staker.address, BNe18(5))
+        const createIncentiveTx = staker.interface.encodeFunctionData(
+          'createIncentive', [{
+            pool: pool01,
+            rewardToken: rewardToken.address,
+            totalReward: BNe18(5),
+            startTime: currentTime,
+            endTime: currentTime + 100,
+            claimDeadline: currentTime + 200,
+          }]
+        )
+        const depositTx = staker.interface.encodeFunctionData(
+          'depositToken', [tokenId]
+        )
+        await staker.multicall([createIncentiveTx, depositTx])
+        expect((await staker.deposits(tokenId)).owner).to.eq(wallet.address)
+      })
   })
 
   describe('#getPositionDetails', () => {

@@ -12,6 +12,7 @@ import '@uniswap/v3-periphery/contracts/libraries/PoolAddress.sol';
 import '@uniswap/v3-periphery/contracts/interfaces/INonfungiblePositionManager.sol';
 import '@uniswap/v3-core/contracts/libraries/FixedPoint128.sol';
 import '@uniswap/v3-core/contracts/libraries/FullMath.sol';
+import '@uniswap/v3-periphery/contracts/base/Multicall.sol';
 import '@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol';
 import '@openzeppelin/contracts/math/Math.sol';
 import '@openzeppelin/contracts/math/SafeMath.sol';
@@ -20,7 +21,7 @@ import '@openzeppelin/contracts/utils/ReentrancyGuard.sol';
 /**
 @title Uniswap V3 canonical staking interface
 */
-contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, ReentrancyGuard {
+contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, ReentrancyGuard, Multicall {
     struct Incentive {
         uint128 totalRewardUnclaimed;
         uint160 totalSecondsClaimedX128;
@@ -314,6 +315,11 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, ReentrancyGuard {
                 params.endTime,
                 params.claimDeadline
             );
+
+        require(
+          incentives[incentiveId].rewardToken != address(0),
+          'non-existent incentive'
+        );
 
         (, uint160 secondsPerLiquidityInsideX128, ) =
             pool.snapshotCumulativesInside(tickLower, tickUpper);
