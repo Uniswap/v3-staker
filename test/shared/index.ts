@@ -4,6 +4,7 @@ export * from './external/v3-periphery/tokenSort'
 export * from './fixtures'
 export * from './actors'
 
+import { FeeAmount } from './external/v3-periphery/constants'
 import { Contract, ContractTransaction } from 'ethers'
 import {
   TransactionReceipt,
@@ -79,4 +80,22 @@ export async function snapshotGasCost(
   } else if (BigNumber.isBigNumber(resolved)) {
     expect(resolved.toNumber()).toMatchSnapshot()
   }
+}
+
+export function encodePath(path: string[], fees: FeeAmount[]): string {
+  if (path.length != fees.length + 1) {
+    throw new Error('path/fee lengths do not match')
+  }
+
+  let encoded = '0x'
+  for (let i = 0; i < fees.length; i++) {
+    // 20 byte encoding of the address
+    encoded += path[i].slice(2)
+    // 3 byte encoding of the fee
+    encoded += fees[i].toString(16).padStart(2 * 3, '0')
+  }
+  // encode the final token
+  encoded += path[path.length - 1].slice(2)
+
+  return encoded.toLowerCase()
 }

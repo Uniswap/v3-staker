@@ -7,16 +7,19 @@ import NFTDescriptor from '@uniswap/v3-periphery/artifacts/contracts/libraries/N
 import MockTimeNonfungiblePositionManager from '@uniswap/v3-periphery/artifacts/contracts/NonfungiblePositionManager.sol/NonfungiblePositionManager.json'
 import NonfungibleTokenPositionDescriptor from '@uniswap/v3-periphery/artifacts/contracts/NonfungibleTokenPositionDescriptor.sol/NonfungibleTokenPositionDescriptor.json'
 import SwapRouter from '@uniswap/v3-periphery/artifacts/contracts/SwapRouter.sol/SwapRouter.json'
-import { IUniswapV3Factory } from '../../typechain'
 import WETH9 from '../contracts/WETH9.json'
 import { linkLibraries } from './linkLibraries'
-import { INonfungiblePositionManager } from '../../typechain'
-import { TestERC20 } from '../../typechain'
-import { UniswapV3Staker } from '../../typechain'
+
+import {
+  UniswapV3Staker,
+  TestERC20,
+  INonfungiblePositionManager,
+  IUniswapV3Factory,
+} from '../../typechain'
 import { FeeAmount, BigNumber, encodePriceSqrt } from '../shared'
 
 type IWETH9 = any
-type MockTimeSwapRouter = any
+type ISwapRouter = any
 type WETH9Fixture = { weth9: IWETH9 }
 
 export const wethFixture: Fixture<WETH9Fixture> = async (
@@ -41,7 +44,7 @@ const v3CoreFactoryFixture: Fixture<IUniswapV3Factory> = async ([wallet]) => {
 export const v3RouterFixture: Fixture<{
   weth9: IWETH9
   factory: IUniswapV3Factory
-  router: MockTimeSwapRouter
+  router: ISwapRouter
 }> = async ([wallet], provider) => {
   const { weth9 } = await wethFixture([wallet], provider)
   const factory = await v3CoreFactoryFixture([wallet], provider)
@@ -52,7 +55,7 @@ export const v3RouterFixture: Fixture<{
       abi: SwapRouter.abi,
     },
     [factory.address, weth9.address]
-  )) as unknown) as any
+  )) as unknown) as ISwapRouter
 
   return { factory, weth9, router }
 }
@@ -72,7 +75,7 @@ const nftDescriptorLibraryFixture: Fixture<NFTDescriptorLibrary> = async ([
 type UniswapFactoryFixture = {
   weth9: IWETH9
   factory: IUniswapV3Factory
-  router: MockTimeSwapRouter
+  router: ISwapRouter
   nft: MockTimeNonfungiblePositionManager
   tokens: [TestERC20, TestERC20, TestERC20]
 }
@@ -202,6 +205,7 @@ export const mintPosition = async (
 
 export const uniswapFixture: Fixture<{
   nft: INonfungiblePositionManager
+  router: ISwapRouter
   factory: IUniswapV3Factory
   staker: UniswapV3Staker
   tokens: [TestERC20, TestERC20, TestERC20]
@@ -209,7 +213,7 @@ export const uniswapFixture: Fixture<{
   pool12: string
   fee: FeeAmount
 }> = async (wallets, provider) => {
-  const { tokens, nft, factory } = await uniswapFactoryFixture(
+  const { tokens, nft, factory, router } = await uniswapFactoryFixture(
     wallets,
     provider
   )
@@ -250,5 +254,5 @@ export const uniswapFixture: Fixture<{
     fee
   )
 
-  return { nft, tokens, staker, factory, pool01, pool12, fee }
+  return { nft, router, tokens, staker, factory, pool01, pool12, fee }
 }

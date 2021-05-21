@@ -20,6 +20,8 @@ import {
   getMaxTick,
   getMinTick,
   TICK_SPACINGS,
+  MaxUint256,
+  encodePath,
 } from './shared'
 import _ from 'lodash'
 import { hexlify, hexValue } from 'ethers/lib/utils'
@@ -29,6 +31,7 @@ export const MAX_SQRT_RATIO = BigNumber.from(
   '1461446703485210103287273052203988822378723970342'
 )
 
+type ISwapRouter = any
 const { createFixtureLoader } = waffle
 
 let loadFixture: ReturnType<typeof createFixtureLoader>
@@ -40,6 +43,7 @@ describe('Unstake accounting', async () => {
   let tokens: [TestERC20, TestERC20, TestERC20]
   let factory: IUniswapV3Factory
   let nft: INonfungiblePositionManager
+  let router: ISwapRouter
   let staker: UniswapV3Staker
   let pool01: string
   let pool12: string
@@ -52,7 +56,7 @@ describe('Unstake accounting', async () => {
   })
 
   beforeEach('create fixture loader', async () => {
-    ;({ nft, tokens, staker, factory, pool01, pool12, fee } = await loadFixture(
+    ;({ nft, router, tokens, staker, factory, pool01, pool12, fee } = await loadFixture(
       uniswapFixture
     ))
     actors = ActorFixture.forProvider(provider)
@@ -62,7 +66,7 @@ describe('Unstake accounting', async () => {
     const incentiveCreator = actors.tokensOwner()
     const lpUsers = [actors.lpUser0(), actors.lpUser1()]
     const traderUsers = [actors.traderUser0(), actors.traderUser1()]
-    const amount = BNe18(2)
+    const amount = BNe18(10_000)
     const pool = pool01
 
     /* Give some of token0 and token1 to lpUser0 and lpUser1 */
@@ -135,15 +139,16 @@ describe('Unstake accounting', async () => {
     const slot0 = await pool0.slot0()
 
     const trader1 = traderUsers[1]
-    await pool0
+    await tok0.connect(trader1).approve(router.address, BNe18(2))
+    await router
       .connect(trader1)
-      .swap(
-        trader0.address,
-        true,
-        amount.div(10000),
-        slot0.sqrtPriceX96.sub('1000'),
-        hexlify(0)
-      )
+      .exactInput({
+          recipient: trader1.address,
+          deadline: MaxUint256,
+          path: encodePath([tok0.address, tok1.address], [FeeAmount.MEDIUM]),
+          amountIn: BNe18(2),
+          amountOutMinimum: 0,
+        })
 
     /* Now someone creates an incentive program */
 
