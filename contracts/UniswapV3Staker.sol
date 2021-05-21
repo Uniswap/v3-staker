@@ -21,7 +21,12 @@ import '@openzeppelin/contracts/utils/ReentrancyGuard.sol';
 /**
 @title Uniswap V3 canonical staking interface
 */
-contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, ReentrancyGuard, Multicall {
+contract UniswapV3Staker is
+    IUniswapV3Staker,
+    IERC721Receiver,
+    ReentrancyGuard,
+    Multicall
+{
     struct Incentive {
         uint128 totalRewardUnclaimed;
         uint160 totalSecondsClaimedX128;
@@ -166,7 +171,7 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, ReentrancyGuard, 
         emit TokenDeposited(tokenId, from);
 
         if (data.length > 0) {
-          _stakeToken(abi.decode(data, (StakeTokenParams)));
+            _stakeToken(abi.decode(data, (StakeTokenParams)));
         }
         return this.onERC721Received.selector;
     }
@@ -317,8 +322,8 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, ReentrancyGuard, 
             );
 
         require(
-          incentives[incentiveId].rewardToken != address(0),
-          'non-existent incentive'
+            incentives[incentiveId].rewardToken != address(0),
+            'non-existent incentive'
         );
 
         (, uint160 secondsPerLiquidityInsideX128, ) =
