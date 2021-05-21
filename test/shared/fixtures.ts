@@ -207,6 +207,7 @@ export const uniswapFixture: Fixture<{
   tokens: [TestERC20, TestERC20, TestERC20]
   pool01: string
   pool12: string
+  fee: FeeAmount
 }> = async (wallets, provider) => {
   const { tokens, nft, factory } = await uniswapFactoryFixture(
     wallets,
@@ -222,31 +223,32 @@ export const uniswapFixture: Fixture<{
     await token.approve(nft.address, constants.MaxUint256)
   }
 
+  const fee = FeeAmount.MEDIUM
   await nft.createAndInitializePoolIfNecessary(
     tokens[0].address,
     tokens[1].address,
-    FeeAmount.MEDIUM,
+    fee,
     encodePriceSqrt(1, 1)
   )
 
   await nft.createAndInitializePoolIfNecessary(
     tokens[1].address,
     tokens[2].address,
-    FeeAmount.MEDIUM,
+    fee,
     encodePriceSqrt(1, 1)
   )
 
   const pool01 = await factory.getPool(
     tokens[0].address,
     tokens[1].address,
-    FeeAmount.MEDIUM
+    fee
   )
 
   const pool12 = await factory.getPool(
     tokens[1].address,
     tokens[2].address,
-    FeeAmount.MEDIUM
+    fee
   )
 
-  return { nft, tokens, staker, factory, pool01, pool12 }
+  return { nft, tokens, staker, factory, pool01, pool12, fee }
 }

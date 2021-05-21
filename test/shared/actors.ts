@@ -73,12 +73,12 @@ export class ActorFixture {
     return this._getActor(WALLET_USER_INDEXES.TRADER_USER_2)
   }
 
-  private _getActor(index: number) {
+  private _getActor(index: number): Wallet {
     /* Actual logic for fetching the wallet */
     if (!index) {
       throw new Error(`Invalid index: ${index}`)
     }
-    const account = this.provider.getSigner(index)
+    const account = this.provider.getWallets()[index]
     if (!account) {
       throw new Error(`Account ID ${index} could not be loaded`)
     }
