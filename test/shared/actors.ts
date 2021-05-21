@@ -12,6 +12,7 @@ export const WALLET_USER_INDEXES = {
   TRADER_USER_0: 7,
   TRADER_USER_1: 8,
   TRADER_USER_2: 9,
+  INCENTIVE_CREATOR: 10,
 }
 
 export class ActorFixture {
@@ -71,6 +72,10 @@ export class ActorFixture {
 
   traderUser2() {
     return this._getActor(WALLET_USER_INDEXES.TRADER_USER_2)
+  }
+
+  incentiveCreator() {
+    return this._getActor(WALLET_USER_INDEXES.INCENTIVE_CREATOR)
   }
 
   private _getActor(index: number): Wallet {

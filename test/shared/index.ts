@@ -99,3 +99,8 @@ export function encodePath(path: string[], fees: FeeAmount[]): string {
 
   return encoded.toLowerCase()
 }
+
+export const MIN_SQRT_RATIO = BigNumber.from('4295128739')
+export const MAX_SQRT_RATIO = BigNumber.from(
+  '1461446703485210103287273052203988822378723970342'
+)
