@@ -212,7 +212,7 @@ describe('UniswapV3Staker.unit', async () => {
       it('emits IncentiveEnded event', async () => {
         await createIncentive()
         // Adjust the block.timestamp so it is after the claim deadline
-        await ethers.provider.send('evm_setNextBlockTimestamp', [
+        await waffle.provider.send('evm_setNextBlockTimestamp', [
           claimDeadline + 1,
         ])
 
@@ -238,7 +238,7 @@ describe('UniswapV3Staker.unit', async () => {
         expect((await staker.incentives(incentiveId)).rewardToken).to.eq(
           tokens[0].address
         )
-        await ethers.provider.send('evm_setNextBlockTimestamp', [
+        await waffle.provider.send('evm_setNextBlockTimestamp', [
           claimDeadline + 1,
         ])
 
@@ -250,7 +250,7 @@ describe('UniswapV3Staker.unit', async () => {
 
       it('has gas cost', async () => {
         await createIncentive()
-        await ethers.provider.send('evm_setNextBlockTimestamp', [
+        await waffle.provider.send('evm_setNextBlockTimestamp', [
           claimDeadline + 1,
         ])
         await snapshotGasCost(subject())
@@ -262,7 +262,7 @@ describe('UniswapV3Staker.unit', async () => {
         await createIncentive()
 
         // Adjust the block.timestamp so it is before the claim deadline
-        await ethers.provider.send('evm_setNextBlockTimestamp', [
+        await waffle.provider.send('evm_setNextBlockTimestamp', [
           claimDeadline - 1,
         ])
 
@@ -273,7 +273,7 @@ describe('UniswapV3Staker.unit', async () => {
 
       it('incentive does not exist', async () => {
         // Adjust the block.timestamp so it is after the claim deadline
-        await ethers.provider.send('evm_setNextBlockTimestamp', [
+        await waffle.provider.send('evm_setNextBlockTimestamp', [
           claimDeadline + 1,
         ])
 
