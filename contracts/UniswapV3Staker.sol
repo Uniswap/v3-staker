@@ -18,6 +18,8 @@ import '@openzeppelin/contracts/math/Math.sol';
 import '@openzeppelin/contracts/math/SafeMath.sol';
 import '@openzeppelin/contracts/utils/ReentrancyGuard.sol';
 
+import 'hardhat/console.sol';
+
 /**
 @title Uniswap V3 canonical staking interface
 */
@@ -236,12 +238,25 @@ contract UniswapV3Staker is
             uint128 liquidity
         ) = _getPositionDetails(params.tokenId);
 
+        console.log('Position details:');
+        console.log('Pool Address=');
+        console.logAddress(poolAddress);
+        console.log('tickLower=');
+        console.logInt(tickLower);
+        console.log('tickUpper=');
+        console.logInt(tickUpper);
+        console.log('liquidity=');
+        console.log(liquidity);
+
         require(poolAddress != address(0), 'INVALID_POSITION');
 
         IUniswapV3Pool pool = IUniswapV3Pool(poolAddress);
 
         (, uint160 secondsPerLiquidityInsideX128, ) =
             pool.snapshotCumulativesInside(tickLower, tickUpper);
+
+        console.log('secondsPerLiquidityInsideX128=');
+        console.log(secondsPerLiquidityInsideX128);
 
         bytes32 incentiveId =
             IncentiveHelper.getIncentiveId(
@@ -263,6 +278,11 @@ contract UniswapV3Staker is
                 stakes[params.tokenId][incentiveId]
                     .secondsPerLiquidityInitialX128) * liquidity;
 
+        console.log('incentiveId=');
+        console.logBytes(abi.encodePacked(incentiveId));
+        console.log('secondsInPeriodX128=');
+        console.log(secondsInPeriodX128);
+
         /*
         * It looks at the liquidity on the NFT itself and multiplies
             that by secondsPerLiquidityInRangeX96 to get secondsX96.
@@ -283,6 +303,9 @@ contract UniswapV3Staker is
                 params.startTime -
                 incentives[incentiveId].totalSecondsClaimedX128;
 
+        console.log('totalSecondsUnclaimedX128=');
+        console.log(totalSecondsUnclaimedX128);
+
         // This is probably wrong
         uint160 rewardRate =
             uint160(
@@ -292,8 +315,16 @@ contract UniswapV3Staker is
                 )
             );
 
+        console.log('rewardRate=');
+        console.log(rewardRate);
+
         uint256 reward = SafeMath.mul(secondsInPeriodX128, rewardRate);
 
+        console.log('reward=');
+        console.logUint(reward);
+
+        console.log('params.to=');
+        console.log(reward);
         // TODO: Before release: wrap this in try-catch properly
         // try {
         // TODO: incentive.rewardToken or rewardToken?

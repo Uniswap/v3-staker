@@ -1,4 +1,4 @@
-import { BigNumber, Contract, Wallet } from 'ethers'
+import { BigNumber, Contract, ContractFactory, Wallet } from 'ethers'
 import { ethers, waffle } from 'hardhat'
 import _ from 'lodash'
 import { provider, createFixtureLoader } from './shared/provider'
@@ -58,7 +58,7 @@ describe('Unstake accounting', async () => {
   let actors: ActorFixture
 
   const fixture: Fixture<TestContext> = async (wallets, provider) => {
-    actors = ActorFixture.forProvider(provider)
+    actors = new ActorFixture(wallets, provider)
     const result = await uniswapFixture(wallets, provider)
     const lpUsers = [actors.lpUser0(), actors.lpUser1()]
     const traderUsers = [actors.traderUser0(), actors.traderUser1()]
@@ -96,7 +96,6 @@ describe('Unstake accounting', async () => {
     )) as INonfungiblePositionManager
 
     // deposit liquidity
-    const connectedNft = nftContract.connect(lpUser0)
 
     const tokenId = await mintPosition(result.nft, {
       token0: tok0.address,
@@ -142,10 +141,10 @@ describe('Unstake accounting', async () => {
 
   beforeEach('load fixture', async () => {
     ctx = await loadFixture(fixture)
-    actors = ActorFixture.forProvider(provider)
+    actors = new ActorFixture(wallets, provider)
   })
 
-  it('does not die', async () => {
+  it.only('does not die', async () => {
     // const incentiveCreator = actors.tokensOwner()
     const { tok0, tok1, router, staker, tokenId, lpUser0 } = ctx
 
@@ -198,6 +197,18 @@ describe('Unstake accounting', async () => {
       })
     ).to.emit(staker, 'IncentiveCreated')
 
+    // const pool = UniswapV3Pool()
+    const poolFactory = new ethers.ContractFactory(
+      UniswapV3Pool.abi,
+      UniswapV3Pool.bytecode,
+      lpUser0
+    )
+    const pool01Obj = poolFactory.attach(ctx.pool01) as IUniswapV3Pool
+    // console.debug(pool01Obj)
+
+    const prices = [] as any
+    prices.push(await pool01Obj.slot0())
+
     await setTime(now + 100)
 
     // console.info('lpUser0 is ', lpUser0.address)
@@ -228,6 +239,10 @@ describe('Unstake accounting', async () => {
       amountOutMinimum: 0,
     })
 
+    prices.push(await pool01Obj.slot0())
+    /* Move forward in the future */
+    await setTime((await blockTimestamp()) + 100)
+
     await router.connect(trader1).exactInput({
       recipient: trader1.address,
       deadline: MaxUint256,
@@ -235,6 +250,10 @@ describe('Unstake accounting', async () => {
       amountIn: BNe18(2),
       amountOutMinimum: 0,
     })
+
+    prices.push(await pool01Obj.slot0())
+
+    await setTime((await blockTimestamp()) + 100)
 
     await router.connect(trader0).exactInput({
       recipient: trader1.address,
@@ -243,6 +262,8 @@ describe('Unstake accounting', async () => {
       amountIn: BNe18(2),
       amountOutMinimum: 0,
     })
+    prices.push(await pool01Obj.slot0())
+    await setTime((await blockTimestamp()) + 100)
 
     await router.connect(trader1).exactInput({
       recipient: trader1.address,
@@ -251,9 +272,12 @@ describe('Unstake accounting', async () => {
       amountIn: BNe18(2),
       amountOutMinimum: 0,
     })
-
-    /* Move forward in the future */
+    prices.push(await pool01Obj.slot0())
     await setTime((await blockTimestamp()) + 100)
+    console.debug(
+      'Prices:',
+      prices.map((x) => x.sqrtPriceX96)
+    )
 
     const rewardTokenPre = await rewardToken.balanceOf(lpUser0.address)
 
@@ -287,8 +311,8 @@ describe('Unstake accounting', async () => {
 
     const rewardTokenPost = await rewardToken.balanceOf(lpUser0.address)
 
-    // console.info('Token balance before:', rewardTokenPre)
-    // console.info('Token balance after:', rewardTokenPost)
+    console.info('Token balance before:', rewardTokenPre)
+    console.info('Token balance after:', rewardTokenPost)
 
     /* They can */
   })
