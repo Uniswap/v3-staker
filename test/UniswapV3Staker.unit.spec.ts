@@ -20,6 +20,7 @@ import {
   BN,
   BNe18,
   snapshotGasCost,
+  MAX_GAS_LIMIT,
 } from './shared'
 const { createFixtureLoader } = waffle
 let loadFixture: ReturnType<typeof createFixtureLoader>
@@ -301,7 +302,7 @@ describe('UniswapV3Staker.unit', async () => {
         deadline: (await blockTimestamp()) + 1000,
       })
 
-      await nft.approve(staker.address, tokenId, { gasLimit: 12450000 })
+      await nft.approve(staker.address, tokenId, { gasLimit: MAX_GAS_LIMIT })
       subject = async () => await staker.depositToken(tokenId)
     })
 
@@ -360,7 +361,7 @@ describe('UniswapV3Staker.unit', async () => {
         deadline: (await blockTimestamp()) + 1000,
       })
 
-      await nft.approve(staker.address, tokenId, { gasLimit: 12450000 })
+      await nft.approve(staker.address, tokenId, { gasLimit: MAX_GAS_LIMIT })
 
       await staker.depositToken(tokenId)
       subject = ({ tokenId, recipient }) =>
@@ -458,7 +459,7 @@ describe('UniswapV3Staker.unit', async () => {
         deadline: claimDeadline,
       })
 
-      await nft.approve(staker.address, tokenId, { gasLimit: 12450000 })
+      await nft.approve(staker.address, tokenId, { gasLimit: MAX_GAS_LIMIT })
 
       await staker.depositToken(tokenId)
 
@@ -567,7 +568,7 @@ describe('UniswapV3Staker.unit', async () => {
         deadline: claimDeadline,
       })
 
-      await nft.approve(staker.address, tokenId, { gasLimit: 12450000 })
+      await nft.approve(staker.address, tokenId, { gasLimit: MAX_GAS_LIMIT })
 
       await staker.depositToken(tokenId)
 
@@ -620,7 +621,7 @@ describe('UniswapV3Staker.unit', async () => {
       })
 
       it('has gas cost', async () => {
-        await snapshotGasCost(subject({to: recipient}))
+        await snapshotGasCost(subject({ to: recipient }))
       })
 
       it('transfers the right amount of the reward token')
@@ -777,40 +778,43 @@ describe('UniswapV3Staker.unit', async () => {
   })
 
   describe('#multicall', () => {
-      it('is implemented', async () => {
-        const rewardToken = tokens[2]
-        const currentTime = await blockTimestamp()
-        const tokenId = await mintPosition(nft, {
-          token0: tokens[0].address,
-          token1: tokens[1].address,
-          fee: FeeAmount.MEDIUM,
-          tickLower: getMinTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
-          tickUpper: getMaxTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
-          recipient: wallet.address,
-          amount0Desired: BN(10).mul(BN(10).pow(18)),
-          amount1Desired: BN(10).mul(BN(10).pow(18)),
-          amount0Min: 0,
-          amount1Min: 0,
-          deadline: currentTime + 10_000,
-        })
-        await nft.approve(staker.address, tokenId)
-        await rewardToken.approve(staker.address, BNe18(5))
-        const createIncentiveTx = staker.interface.encodeFunctionData(
-          'createIncentive', [{
+    it('is implemented', async () => {
+      const rewardToken = tokens[2]
+      const currentTime = await blockTimestamp()
+      const tokenId = await mintPosition(nft, {
+        token0: tokens[0].address,
+        token1: tokens[1].address,
+        fee: FeeAmount.MEDIUM,
+        tickLower: getMinTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
+        tickUpper: getMaxTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
+        recipient: wallet.address,
+        amount0Desired: BN(10).mul(BN(10).pow(18)),
+        amount1Desired: BN(10).mul(BN(10).pow(18)),
+        amount0Min: 0,
+        amount1Min: 0,
+        deadline: currentTime + 10_000,
+      })
+      await nft.approve(staker.address, tokenId)
+      await rewardToken.approve(staker.address, BNe18(5))
+      const createIncentiveTx = staker.interface.encodeFunctionData(
+        'createIncentive',
+        [
+          {
             pool: pool01,
             rewardToken: rewardToken.address,
             totalReward: BNe18(5),
             startTime: currentTime,
             endTime: currentTime + 100,
             claimDeadline: currentTime + 200,
-          }]
-        )
-        const depositTx = staker.interface.encodeFunctionData(
-          'depositToken', [tokenId]
-        )
-        await staker.multicall([createIncentiveTx, depositTx])
-        expect((await staker.deposits(tokenId)).owner).to.eq(wallet.address)
-      })
+          },
+        ]
+      )
+      const depositTx = staker.interface.encodeFunctionData('depositToken', [
+        tokenId,
+      ])
+      await staker.multicall([createIncentiveTx, depositTx])
+      expect((await staker.deposits(tokenId)).owner).to.eq(wallet.address)
+    })
   })
 
   describe('#getPositionDetails', () => {

@@ -1,7 +1,7 @@
 import { MockProvider } from 'ethereum-waffle'
 import { Wallet, Signer } from 'ethers'
 
-const WALLET_USER_INDEXES = {
+export const WALLET_USER_INDEXES = {
   WETH_OWNER: 0,
   TOKENS_OWNER: 1,
   UNISWAP_ROOT: 2,
@@ -12,67 +12,81 @@ const WALLET_USER_INDEXES = {
   TRADER_USER_0: 7,
   TRADER_USER_1: 8,
   TRADER_USER_2: 9,
+  INCENTIVE_CREATOR: 10,
 }
 
-const _getActor = (
-  n: number,
-  wallets: Array<Wallet>,
+export class ActorFixture {
+  wallets: Array<Wallet>
   provider: MockProvider
-) => {
-  /* Actual logic for fetching the wallet */
-  if (!n) {
-    throw new Error(`Invalid index: ${n}`)
-  }
-  const account = provider.getSigner(n)
-  if (!account) {
-    throw new Error(`Account ID ${n} could not be loaded`)
-  }
-  return account
-}
 
-type Actor =
-  | 'wethOwner'
-  | 'tokensOwner'
-  | 'uniswapRootUser'
-  | 'stakerDeployer'
-  | 'lpUser0'
-  | 'lpUser1'
-  | 'lpUser2'
-  | 'traderUser0'
-  | 'traderUser1'
-  | 'traderUser2'
+  static forProvider(provider: MockProvider) {
+    return new ActorFixture(provider.getWallets(), provider)
+  }
 
-type GetActorFunc = (wallets: Array<Wallet>, provider: MockProvider) => Signer
-export const actors: { [K in Actor]: GetActorFunc } = {
+  constructor(wallets, provider) {
+    this.wallets = wallets
+    this.provider = provider
+  }
+  /* EOA that owns all Uniswap-related contracts */
+
   /* EOA that mints and transfers WETH to test accounts */
-  wethOwner: (wallets, provider) =>
-    _getActor(WALLET_USER_INDEXES.WETH_OWNER, wallets, provider),
+  wethOwner() {
+    return this._getActor(WALLET_USER_INDEXES.WETH_OWNER)
+  }
 
   /* EOA that mints all the Test ERC20s we use */
-  tokensOwner: (wallets, provider) =>
-    _getActor(WALLET_USER_INDEXES.TOKENS_OWNER, wallets, provider),
+  tokensOwner() {
+    return this._getActor(WALLET_USER_INDEXES.TOKENS_OWNER)
+  }
 
-  /* EOA that owns all Uniswap-related contracts */
-  uniswapRootUser: (wallets, provider) =>
-    _getActor(WALLET_USER_INDEXES.UNISWAP_ROOT, wallets, provider),
+  uniswapRootUser() {
+    return this._getActor(WALLET_USER_INDEXES.UNISWAP_ROOT)
+  }
 
   /* EOA that will deploy the staker */
-  stakerDeployer: (wallets, provider) =>
-    _getActor(WALLET_USER_INDEXES.STAKER_DEPLOYER, wallets, provider),
+  stakerDeployer() {
+    return this._getActor(WALLET_USER_INDEXES.STAKER_DEPLOYER)
+  }
 
   /* These EOAs provide liquidity in pools and collect fees/staking incentives */
-  lpUser0: (wallets, provider) =>
-    _getActor(WALLET_USER_INDEXES.LP_USER_0, wallets, provider),
-  lpUser1: (wallets, provider) =>
-    _getActor(WALLET_USER_INDEXES.LP_USER_1, wallets, provider),
-  lpUser2: (wallets, provider) =>
-    _getActor(WALLET_USER_INDEXES.LP_USER_2, wallets, provider),
+  lpUser0() {
+    return this._getActor(WALLET_USER_INDEXES.LP_USER_0)
+  }
+
+  lpUser1() {
+    return this._getActor(WALLET_USER_INDEXES.LP_USER_1)
+  }
+
+  lpUser2() {
+    return this._getActor(WALLET_USER_INDEXES.LP_USER_2)
+  }
 
   /* These EOAs trade in the uniswap pools and incur fees */
-  traderUser0: (wallets, provider) =>
-    _getActor(WALLET_USER_INDEXES.TRADER_USER_0, wallets, provider),
-  traderUser1: (wallets, provider) =>
-    _getActor(WALLET_USER_INDEXES.TRADER_USER_1, wallets, provider),
-  traderUser2: (wallets, provider) =>
-    _getActor(WALLET_USER_INDEXES.TRADER_USER_1, wallets, provider),
+  traderUser0() {
+    return this._getActor(WALLET_USER_INDEXES.TRADER_USER_0)
+  }
+
+  traderUser1() {
+    return this._getActor(WALLET_USER_INDEXES.TRADER_USER_1)
+  }
+
+  traderUser2() {
+    return this._getActor(WALLET_USER_INDEXES.TRADER_USER_2)
+  }
+
+  incentiveCreator() {
+    return this._getActor(WALLET_USER_INDEXES.INCENTIVE_CREATOR)
+  }
+
+  private _getActor(index: number): Wallet {
+    /* Actual logic for fetching the wallet */
+    if (!index) {
+      throw new Error(`Invalid index: ${index}`)
+    }
+    const account = this.provider.getWallets()[index]
+    if (!account) {
+      throw new Error(`Account ID ${index} could not be loaded`)
+    }
+    return account
+  }
 }

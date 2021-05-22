@@ -4,9 +4,14 @@ export * from './external/v3-periphery/tokenSort'
 export * from './fixtures'
 export * from './actors'
 
+import { FeeAmount } from './external/v3-periphery/constants'
 import { Contract, ContractTransaction } from 'ethers'
-import { TransactionReceipt, TransactionResponse } from '@ethersproject/abstract-provider'
+import {
+  TransactionReceipt,
+  TransactionResponse,
+} from '@ethersproject/abstract-provider'
 import { constants } from 'ethers'
+
 export const { MaxUint256 } = constants
 
 import { ethers, waffle } from 'hardhat'
@@ -76,3 +81,28 @@ export async function snapshotGasCost(
     expect(resolved.toNumber()).toMatchSnapshot()
   }
 }
+
+export function encodePath(path: string[], fees: FeeAmount[]): string {
+  if (path.length != fees.length + 1) {
+    throw new Error('path/fee lengths do not match')
+  }
+
+  let encoded = '0x'
+  for (let i = 0; i < fees.length; i++) {
+    // 20 byte encoding of the address
+    encoded += path[i].slice(2)
+    // 3 byte encoding of the fee
+    encoded += fees[i].toString(16).padStart(2 * 3, '0')
+  }
+  // encode the final token
+  encoded += path[path.length - 1].slice(2)
+
+  return encoded.toLowerCase()
+}
+
+export const MIN_SQRT_RATIO = BigNumber.from('4295128739')
+export const MAX_SQRT_RATIO = BigNumber.from(
+  '1461446703485210103287273052203988822378723970342'
+)
+
+export const MAX_GAS_LIMIT = 12_450_000

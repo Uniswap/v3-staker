@@ -39,6 +39,7 @@
     "@typechain/ethers-v5": "^7.0.0",
     "@typechain/hardhat": "^2.0.1",
     "@types/chai": "^4.2.6",
+    "@types/lodash": "^4.14.169",
     "@types/mocha": "^5.2.7",
     "chai": "^4.2.0",
     "decimal.js": "^10.2.1",
@@ -46,6 +47,7 @@
     "ethers": "^5.0.8",
     "hardhat": "^2.2.0",
     "is-svg": "^4.3.1",
+    "lodash": "^4.17.21",
     "mocha": "^6.2.2",
     "mocha-chai-jest-snapshot": "^1.1.0",
     "prettier": "^2.2.1",
@@ -64,6 +66,8 @@
     "compile": "hardhat compile",
     "test": "hardhat test",
     "compile-uniswap": "hardhat compile-uniswap",
-    "postinstall": "yarn compile-uniswap"
+    "postinstall": "yarn compile-uniswap",
+    "test:unit": "TS_NODE_TRANSPILE_ONLY=1 yarn test test/*.unit.spec.ts",
+    "test:integration": "TS_NODE_TRANSPILE_ONLY=1 yarn test test/*.integration.spec.ts"
   }
 }
