@@ -22,11 +22,13 @@ import {
   snapshotGasCost,
   MAX_GAS_LIMIT,
 } from './shared'
-const { createFixtureLoader } = waffle
+
+import { createFixtureLoader, provider } from './shared/provider'
+
 let loadFixture: ReturnType<typeof createFixtureLoader>
 
 describe('UniswapV3Staker.unit', async () => {
-  const wallets = waffle.provider.getWallets()
+  const wallets = provider.getWallets()
   const [wallet, other] = wallets
   let tokens: [TestERC20, TestERC20, TestERC20]
   let factory: IUniswapV3Factory
@@ -213,9 +215,7 @@ describe('UniswapV3Staker.unit', async () => {
       it('emits IncentiveEnded event', async () => {
         await createIncentive()
         // Adjust the block.timestamp so it is after the claim deadline
-        await waffle.provider.send('evm_setNextBlockTimestamp', [
-          claimDeadline + 1,
-        ])
+        await provider.send('evm_setNextBlockTimestamp', [claimDeadline + 1])
 
         await expect(subject())
           .to.emit(staker, 'IncentiveEnded')
@@ -239,9 +239,7 @@ describe('UniswapV3Staker.unit', async () => {
         expect((await staker.incentives(incentiveId)).rewardToken).to.eq(
           tokens[0].address
         )
-        await waffle.provider.send('evm_setNextBlockTimestamp', [
-          claimDeadline + 1,
-        ])
+        await provider.send('evm_setNextBlockTimestamp', [claimDeadline + 1])
 
         await subject()
         expect((await staker.incentives(incentiveId)).rewardToken).to.eq(
@@ -251,9 +249,7 @@ describe('UniswapV3Staker.unit', async () => {
 
       it('has gas cost', async () => {
         await createIncentive()
-        await waffle.provider.send('evm_setNextBlockTimestamp', [
-          claimDeadline + 1,
-        ])
+        await provider.send('evm_setNextBlockTimestamp', [claimDeadline + 1])
         await snapshotGasCost(subject())
       })
     })
@@ -263,9 +259,7 @@ describe('UniswapV3Staker.unit', async () => {
         await createIncentive()
 
         // Adjust the block.timestamp so it is before the claim deadline
-        await waffle.provider.send('evm_setNextBlockTimestamp', [
-          claimDeadline - 1,
-        ])
+        await provider.send('evm_setNextBlockTimestamp', [claimDeadline - 1])
 
         await expect(subject()).to.be.revertedWith(
           'TIMESTAMP_LTE_CLAIMDEADLINE'
@@ -274,9 +268,7 @@ describe('UniswapV3Staker.unit', async () => {
 
       it('incentive does not exist', async () => {
         // Adjust the block.timestamp so it is after the claim deadline
-        await waffle.provider.send('evm_setNextBlockTimestamp', [
-          claimDeadline + 1,
-        ])
+        await provider.send('evm_setNextBlockTimestamp', [claimDeadline + 1])
 
         await expect(subject()).to.be.revertedWith('INVALID_INCENTIVE')
       })

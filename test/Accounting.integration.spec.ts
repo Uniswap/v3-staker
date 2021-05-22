@@ -1,7 +1,7 @@
 import { BigNumber, Contract, Wallet } from 'ethers'
 import { ethers, waffle } from 'hardhat'
 import _ from 'lodash'
-
+import { provider, createFixtureLoader } from './shared/provider'
 import {
   TestERC20,
   INonfungiblePositionManager,
@@ -29,10 +29,8 @@ import MockTimeNonfungiblePositionManager from '@uniswap/v3-periphery/artifacts/
 import UniswapV3Pool from '@uniswap/v3-core/artifacts/contracts/UniswapV3Pool.sol/UniswapV3Pool.json'
 
 type ISwapRouter = any
-const { createFixtureLoader } = waffle
 
 let loadFixture: ReturnType<typeof createFixtureLoader>
-const provider = waffle.provider
 
 const setTime = async (blockTimestamp) => {
   return await provider.send('evm_setNextBlockTimestamp', [blockTimestamp])
@@ -267,8 +265,25 @@ describe('Unstake accounting', async () => {
       to: lpUser0.address,
     })
 
-    // expect(tx).to.emit(staker.address, 'Unstaked')
-    // console.info("Unstake TX:", res)
+    const topicUnstakedFilter = staker.filters.TokenUnstaked(null)
+    const tokenUnstakedTopic = staker.interface.getEventTopic('TokenUnstaked')
+
+    const receipt = await tx.wait()
+
+    const log = receipt.logs.find(
+      (log) =>
+        log.address === staker.address &&
+        log.topics.includes(tokenUnstakedTopic)
+    )
+    if (log) {
+      const events = await staker.queryFilter(
+        topicUnstakedFilter,
+        log.blockHash
+      )
+      if (events.length === 1) {
+        expect(events[0].args.tokenId).to.eq(tokenId)
+      }
+    }
 
     const rewardTokenPost = await rewardToken.balanceOf(lpUser0.address)
 
