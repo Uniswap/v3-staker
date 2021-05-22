@@ -257,10 +257,11 @@ describe('Unstake accounting', async () => {
     })
 
     /* Move forward in the future */
-    await setTime(now + 100)
+    await setTime((await blockTimestamp()) + 100)
 
     const rewardTokenPre = await rewardToken.balanceOf(lpUser0.address)
 
+    /* lpUser0 tries to withdraw their staking rewards */
     const res = await staker.connect(lpUser0).unstakeToken({
       ...incentiveParams,
       tokenId: ctx.tokenId,
@@ -273,8 +274,6 @@ describe('Unstake accounting', async () => {
 
     console.info('Token balance before:', rewardTokenPre)
     console.info('Token balance after:', rewardTokenPost)
-
-    /* lpUser0 tries to withdraw their staking rewards */
 
     /* They can */
   })
