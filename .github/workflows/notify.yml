@@ -1,0 +1,17 @@
+name: Telegram Notify
+on:
+  pull_request:
+    types: [closed]
+jobs:
+  notify_tg:
+    name: Notify Telegram
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@master
+    - name: send custom message with args
+      uses: appleboy/telegram-action@master
+      with:
+        to: ${{ secrets.TELEGRAM_TO }}
+        token: ${{ secrets.TELEGRAM_TOKEN }}
+        message: "New Pull Request: ${{ github.action_path }} "
+        disable_web_page_preview: true
