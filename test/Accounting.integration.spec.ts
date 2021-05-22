@@ -123,8 +123,6 @@ describe('Unstake accounting', async () => {
 
     await result.staker.connect(lpUser0).depositToken(tokenId)
 
-    console.info('token deposited')
-
     const pool0 = (await ethers.getContractAt(
       UniswapV3Pool.abi,
       pool
@@ -149,7 +147,7 @@ describe('Unstake accounting', async () => {
     actors = ActorFixture.forProvider(provider)
   })
 
-  it.only('does not die', async () => {
+  it('does not die', async () => {
     // const incentiveCreator = actors.tokensOwner()
     const { tok0, tok1, router, staker, tokenId, lpUser0 } = ctx
 
@@ -204,9 +202,9 @@ describe('Unstake accounting', async () => {
 
     await setTime(now + 100)
 
-    console.info('lpUser0 is ', lpUser0.address)
-    console.info('staker is ', staker.address)
-    console.info('owner is ', await ctx.nft.ownerOf(tokenId))
+    // console.info('lpUser0 is ', lpUser0.address)
+    // console.info('staker is ', staker.address)
+    // console.info('owner is ', await ctx.nft.ownerOf(tokenId))
 
     // await ctx.nft
     // .connect(lpUser0)
@@ -262,18 +260,20 @@ describe('Unstake accounting', async () => {
     const rewardTokenPre = await rewardToken.balanceOf(lpUser0.address)
 
     /* lpUser0 tries to withdraw their staking rewards */
-    const res = await staker.connect(lpUser0).unstakeToken({
+    const tx = await staker.connect(lpUser0).unstakeToken({
       ...incentiveParams,
       tokenId: ctx.tokenId,
       creator: incentiveCreator.address,
       to: lpUser0.address,
     })
-    console.info(res)
+
+    // expect(tx).to.emit(staker.address, 'Unstaked')
+    // console.info("Unstake TX:", res)
 
     const rewardTokenPost = await rewardToken.balanceOf(lpUser0.address)
 
-    console.info('Token balance before:', rewardTokenPre)
-    console.info('Token balance after:', rewardTokenPost)
+    // console.info('Token balance before:', rewardTokenPre)
+    // console.info('Token balance after:', rewardTokenPost)
 
     /* They can */
   })
