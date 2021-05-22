@@ -1,8 +1,35 @@
-import 'hardhat-typechain'
+import { task } from 'hardhat/config'
+import '@typechain/hardhat'
 import '@nomiclabs/hardhat-ethers'
 import '@nomiclabs/hardhat-waffle'
 import '@nomiclabs/hardhat-etherscan'
+
 import { HardhatUserConfig } from 'hardhat/config'
+
+task('compile-uniswap', 'Compiles uniswap contracts', async (args, hre) => {
+  const cwd = process.cwd()
+  const { runTypeChain, glob } = await import('typechain')
+  const allFiles = glob(cwd, [
+    './node_modules/@uniswap/?(v3-core|v3-periphery)/artifacts/contracts/**/*.json',
+    `${hre.config.paths.artifacts}/!(build-info)/**/+([a-zA-Z0-9_]).json`,
+  ])
+  const typechainCfg = hre.config?.typechain
+
+  const config = {
+    cwd,
+    filesToProcess: allFiles,
+    allFiles,
+    outDir: typechainCfg.outDir || 'typechain',
+    target: typechainCfg.target,
+    flags: {
+      alwaysGenerateOverloads:
+        hre.config.typechain?.alwaysGenerateOverloads || true,
+      environment: undefined,
+    },
+  }
+
+  const result = await runTypeChain(config)
+})
 
 const DEFAULT_COMPILER_SETTINGS = {
   version: '0.7.6',
