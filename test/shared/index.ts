@@ -5,6 +5,7 @@ export * from './fixtures'
 export * from './actors'
 
 import { FeeAmount } from './external/v3-periphery/constants'
+import { provider } from './provider'
 import { Contract, ContractTransaction } from 'ethers'
 import {
   TransactionReceipt,
@@ -14,9 +15,9 @@ import { constants } from 'ethers'
 
 export const { MaxUint256 } = constants
 
-import { ethers, waffle } from 'hardhat'
+import { ethers } from 'hardhat'
 export const blockTimestamp = async () => {
-  const block = await waffle.provider.getBlock('latest')
+  const block = await provider.getBlock('latest')
   if (!block) {
     throw new Error('null block returned from provider')
   }
