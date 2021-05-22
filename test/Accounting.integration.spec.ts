@@ -1,6 +1,6 @@
 import { BigNumber, Contract, Wallet } from 'ethers'
 import { ethers, waffle } from 'hardhat'
-import _, { result } from 'lodash'
+import _ from 'lodash'
 
 import {
   TestERC20,
@@ -21,6 +21,7 @@ import {
   TICK_SPACINGS,
   MaxUint256,
   encodePath,
+  MAX_GAS_LIMIT,
 } from './shared'
 import { Fixture } from 'ethereum-waffle'
 
@@ -32,6 +33,10 @@ const { createFixtureLoader } = waffle
 
 let loadFixture: ReturnType<typeof createFixtureLoader>
 const provider = waffle.provider
+
+const setTime = async (blockTimestamp) => {
+  return await provider.send('evm_setNextBlockTimestamp', [blockTimestamp])
+}
 
 type TestContext = {
   tokens: [TestERC20, TestERC20, TestERC20]
@@ -45,16 +50,14 @@ type TestContext = {
   pool12: string
   subject?: Function
   fee: FeeAmount
+  tokenId: string
+  lpUser0: Wallet
 }
 
 describe('Unstake accounting', async () => {
   const wallets = provider.getWallets()
   let ctx = {} as TestContext
   let actors: ActorFixture
-
-  before('create fixture loader', async () => {
-    loadFixture = createFixtureLoader(wallets, provider)
-  })
 
   const fixture: Fixture<TestContext> = async (wallets, provider) => {
     actors = ActorFixture.forProvider(provider)
@@ -63,6 +66,7 @@ describe('Unstake accounting', async () => {
     const traderUsers = [actors.traderUser0(), actors.traderUser1()]
     const amount = BNe18(10_000)
     const pool = result.pool01
+    const lpUser0 = actors.lpUser0()
 
     /* Give some of token0 and token1 to lpUser0 and lpUser1 */
     await Promise.all(
@@ -73,10 +77,10 @@ describe('Unstake accounting', async () => {
       })
     )
 
-    expect(await result.tokens[0].balanceOf(lpUsers[0].address)).to.eq(amount)
-    expect(await result.tokens[1].balanceOf(lpUsers[0].address)).to.eq(amount)
+    expect(await result.tokens[0].balanceOf(lpUser0.address)).to.eq(amount)
+    expect(await result.tokens[1].balanceOf(lpUser0.address)).to.eq(amount)
 
-    const lpUser0Signer = provider.getSigner(lpUsers[0].address)
+    const lpUser0Signer = provider.getSigner(lpUser0.address)
     const erc20Factory = await ethers.getContractFactory('TestERC20')
 
     /* Let the staker access them */
@@ -88,15 +92,13 @@ describe('Unstake accounting', async () => {
 
     /* lpUser0 deposits some liquidity into the pool */
     // TODO: make sure this is called from the right person
-    const nftContract = await ethers.getContractAt(
+    const nftContract = (await ethers.getContractAt(
       MockTimeNonfungiblePositionManager.abi,
       result.nft.address
-    )
+    )) as INonfungiblePositionManager
 
     // deposit liquidity
-    const connectedNft = nftContract.connect(
-      lpUser0Signer
-    ) as INonfungiblePositionManager
+    const connectedNft = nftContract.connect(lpUser0)
 
     const tokenId = await mintPosition(result.nft, {
       token0: tok0.address,
@@ -104,7 +106,7 @@ describe('Unstake accounting', async () => {
       fee: FeeAmount.MEDIUM,
       tickLower: getMinTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
       tickUpper: getMaxTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
-      recipient: lpUsers[0].address,
+      recipient: lpUser0.address,
       amount0Desired: amount,
       amount1Desired: amount.div(2),
       amount0Min: 0,
@@ -112,10 +114,16 @@ describe('Unstake accounting', async () => {
       deadline: (await blockTimestamp()) + 1000,
     })
 
-    await connectedNft.approve(result.staker.address, tokenId, {
-      gasLimit: 12450000,
+    const nftOwnerAddress = await result.nft.ownerOf(tokenId)
+    expect(nftOwnerAddress).to.eq(lpUser0.address)
+
+    await result.nft.connect(lpUser0).approve(result.staker.address, tokenId, {
+      gasLimit: MAX_GAS_LIMIT,
     })
-    await result.staker.connect(lpUsers[0]).depositToken(tokenId)
+
+    await result.staker.connect(lpUser0).depositToken(tokenId)
+
+    console.info('token deposited')
 
     const pool0 = (await ethers.getContractAt(
       UniswapV3Pool.abi,
@@ -127,8 +135,14 @@ describe('Unstake accounting', async () => {
       tok0,
       tok1,
       pool0,
+      tokenId,
+      lpUser0,
     }
   }
+
+  before('create fixture loader', async () => {
+    loadFixture = createFixtureLoader(wallets, provider)
+  })
 
   beforeEach('load fixture', async () => {
     ctx = await loadFixture(fixture)
@@ -137,7 +151,7 @@ describe('Unstake accounting', async () => {
 
   it.only('does not die', async () => {
     // const incentiveCreator = actors.tokensOwner()
-    const { tok0, tok1, router, staker } = ctx
+    const { tok0, tok1, router, staker, tokenId, lpUser0 } = ctx
 
     const trader0 = actors.traderUser0()
     const trader1 = actors.traderUser1()
@@ -170,17 +184,44 @@ describe('Unstake accounting', async () => {
       .connect(incentiveCreator)
       .approve(staker.address, totalReward)
 
-    const incentiveParams = (ts: number) => ({
+    let now = await blockTimestamp()
+    const [startTime, endTime, claimDeadline] = [now, now + 1000, now + 2000]
+
+    const incentiveParams = {
       pool: ctx.pool01,
+      totalReward,
+      startTime,
+      endTime,
+      claimDeadline,
       rewardToken: rewardToken.address,
-      totalReward: totalReward,
-      startTime: ts,
-      endTime: ts + 1000,
-      claimDeadline: ts + 2000,
-    })
-    await staker
-      .connect(incentiveCreator)
-      .createIncentive(incentiveParams(await blockTimestamp()))
+    }
+
+    await expect(
+      staker.connect(incentiveCreator).createIncentive({
+        ...incentiveParams,
+      })
+    ).to.emit(staker, 'IncentiveCreated')
+
+    await setTime(now + 100)
+
+    console.info('lpUser0 is ', lpUser0.address)
+    console.info('staker is ', staker.address)
+    console.info('owner is ', await ctx.nft.ownerOf(tokenId))
+
+    // await ctx.nft
+    // .connect(lpUser0)
+    // .approve(staker.address, tokenId, { gasLimit: MAX_GAS_LIMIT })
+
+    /* lpUser0 stakes their NFT */
+    await expect(
+      staker.connect(lpUser0).stakeToken({
+        ...incentiveParams,
+        tokenId: ctx.tokenId,
+        creator: incentiveCreator.address,
+      })
+    ).to.emit(staker, 'TokenStaked')
+
+    /* Make sure the price is within range */
 
     /* there's some trading within that range */
     await router.connect(trader0).exactInput({
@@ -198,6 +239,40 @@ describe('Unstake accounting', async () => {
       amountIn: BNe18(2),
       amountOutMinimum: 0,
     })
+
+    await router.connect(trader0).exactInput({
+      recipient: trader1.address,
+      deadline: MaxUint256,
+      path: encodePath([tok1.address, tok0.address], [FeeAmount.MEDIUM]),
+      amountIn: BNe18(2),
+      amountOutMinimum: 0,
+    })
+
+    await router.connect(trader1).exactInput({
+      recipient: trader1.address,
+      deadline: MaxUint256,
+      path: encodePath([tok1.address, tok0.address], [FeeAmount.MEDIUM]),
+      amountIn: BNe18(2),
+      amountOutMinimum: 0,
+    })
+
+    /* Move forward in the future */
+    await setTime(now + 100)
+
+    const rewardTokenPre = await rewardToken.balanceOf(lpUser0.address)
+
+    const res = await staker.connect(lpUser0).unstakeToken({
+      ...incentiveParams,
+      tokenId: ctx.tokenId,
+      creator: incentiveCreator.address,
+      to: lpUser0.address,
+    })
+    console.info(res)
+
+    const rewardTokenPost = await rewardToken.balanceOf(lpUser0.address)
+
+    console.info('Token balance before:', rewardTokenPre)
+    console.info('Token balance after:', rewardTokenPost)
 
     /* lpUser0 tries to withdraw their staking rewards */
 
