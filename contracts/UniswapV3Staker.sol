@@ -240,6 +240,9 @@ contract UniswapV3Staker is
         // console.log('params.startTime=', params.startTime);
         // console.log('params.endTime=', params.endTime);
         // console.log('block.timestamp', block.timestamp);
+        // console.log('[In unstake] block.timestamp=');
+        // console.log(block.timestamp);
+
         console.log(
             'Math.max(params.endTime, block.timestamp)',
             Math.max(params.endTime, block.timestamp)
@@ -271,15 +274,20 @@ contract UniswapV3Staker is
             'BAD INCENTIVE'
         );
 
-        /* I believe this is correct b/c we're doing a Q64.96 * Q128.0 then divide by Q128 to get Q160 */
+        console.log('secondsPerLiquidityInsideInPeriodX128');
+        console.log(
+            secondsPerLiquidityInsideX128 -
+                stakes[params.tokenId][incentiveId]
+                    .secondsPerLiquidityInitialX128
+        );
+
         uint160 secondsInPeriodX128 =
             uint160(
-                FullMath.mulDiv(
+                SafeMath.mul(
                     secondsPerLiquidityInsideX128 -
                         stakes[params.tokenId][incentiveId]
                             .secondsPerLiquidityInitialX128,
-                    liquidity,
-                    FixedPoint128.Q128
+                    liquidity
                 )
             );
 
@@ -297,39 +305,47 @@ contract UniswapV3Staker is
             is incremented by seconds.
         */
 
+        // TODO: double-check for overflow risk here
+        uint160 totalSecondsUnclaimedX128 =
+            uint160(
+                SafeMath.mul(
+                    Math.max(params.endTime, block.timestamp) -
+                        params.startTime,
+                    FixedPoint128.Q128
+                ) - incentives[incentiveId].totalSecondsClaimedX128
+            );
+
+        console.log('totalSecondsUnclaimedX128=');
+        console.log(totalSecondsUnclaimedX128);
+
+        // TODO: Make sure this truncates and not rounds up
+        uint256 rewardRate =
+            FullMath.mulDiv(
+                incentives[incentiveId].totalRewardUnclaimed,
+                FixedPoint128.Q128,
+                totalSecondsUnclaimedX128
+            );
+
+        console.log('rewardRate=');
+        console.log(rewardRate);
+
+        // uint256 reward = SafeMath.mul(secondsInPeriodX128, rewardRate);
+        uint256 reward =
+            FullMath.mulDiv(
+                secondsInPeriodX128,
+                rewardRate,
+                FixedPoint128.Q128
+            );
+
+        console.log('reward=');
+        console.logUint(reward);
+
         incentives[incentiveId].totalSecondsClaimedX128 += secondsInPeriodX128;
 
         console.log(
             'incentives[incentiveId].totalSecondsClaimedX128= ',
             incentives[incentiveId].totalSecondsClaimedX128
         );
-
-        // TODO: double-check for overflow risk here
-        uint32 totalSecondsUnclaimed =
-            uint32(
-                Math.max(params.endTime, block.timestamp) - params.startTime
-            );
-        console.log('totalSecondsUnclaimed=', totalSecondsUnclaimed);
-
-        // TODO: Make sure this truncates and not rounds up
-        uint256 rewardRate =
-            SafeMath.div(
-                incentives[incentiveId].totalRewardUnclaimed,
-                totalSecondsUnclaimed
-            );
-
-        console.log('rewardRate=');
-        console.log(rewardRate);
-
-        uint256 reward = SafeMath.mul(secondsInPeriodX128, rewardRate);
-        // uint256 reward =
-        //     FullMath.mulDiv(
-        //         secondsInPeriodX128,
-        //         rewardRate,
-        //         FixedPoint128.Q128
-        //     );
-        console.log('reward=');
-        console.logUint(reward);
 
         // incentives[incentiveId].totalRewardUnclaimed = SafeMath.sub(
         //     incentives[incentiveId].totalRewardUnclaimed,
@@ -371,6 +387,12 @@ contract UniswapV3Staker is
         stakes[params.tokenId][incentiveId] = Stake(
             secondsPerLiquidityInsideX128
         );
+        // console.log('[Stake] block.timestamp');
+        // console.log(block.timestamp);
+
+        // console.log('In Stake, secondsPerLiquidityInsideX128=');
+        // console.log(secondsPerLiquidityInsideX128);
+
         deposits[params.tokenId].numberOfStakes += 1;
         emit TokenStaked(params.tokenId);
     }

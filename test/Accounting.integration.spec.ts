@@ -105,7 +105,7 @@ describe('Unstake accounting', async () => {
       tickUpper: getMaxTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
       recipient: lpUser0.address,
       amount0Desired: amount,
-      amount1Desired: amount.div(2),
+      amount1Desired: amount,
       amount0Min: 0,
       amount1Min: 0,
       deadline: (await blockTimestamp()) + 1000,
@@ -144,7 +144,7 @@ describe('Unstake accounting', async () => {
     actors = new ActorFixture(wallets, provider)
   })
 
-  it.only('does not die', async () => {
+  it('does not die', async () => {
     // const incentiveCreator = actors.tokensOwner()
     const { tok0, tok1, router, staker, tokenId, lpUser0 } = ctx
 
@@ -166,7 +166,7 @@ describe('Unstake accounting', async () => {
 
     /* Now someone creates an incentive program */
     const rewardToken = ctx.tokens[2]
-    const totalReward = BNe18(100)
+    const totalReward = BNe18(1_000)
     const incentiveCreator = actors.incentiveCreator()
 
     // First, send the incentive creator totalReward of rewardToken
@@ -228,6 +228,8 @@ describe('Unstake accounting', async () => {
       })
     ).to.emit(staker, 'TokenStaked')
 
+    console.log('pool01 liquidity:', await pool01Obj.liquidity())
+
     /* Make sure the price is within range */
 
     /* there's some trading within that range */
@@ -239,9 +241,12 @@ describe('Unstake accounting', async () => {
       amountOutMinimum: 0,
     })
 
+    const time = await blockTimestamp()
+    console.info('Start time is ', time)
+
     prices.push(await pool01Obj.slot0())
     /* Move forward in the future */
-    await setTime((await blockTimestamp()) + 100)
+    await setTime(time + 100)
 
     await router.connect(trader1).exactInput({
       recipient: trader1.address,
@@ -253,7 +258,7 @@ describe('Unstake accounting', async () => {
 
     prices.push(await pool01Obj.slot0())
 
-    await setTime((await blockTimestamp()) + 100)
+    await setTime(time + 200)
 
     await router.connect(trader0).exactInput({
       recipient: trader1.address,
@@ -263,7 +268,7 @@ describe('Unstake accounting', async () => {
       amountOutMinimum: 0,
     })
     prices.push(await pool01Obj.slot0())
-    await setTime((await blockTimestamp()) + 100)
+    await setTime(time + 300)
 
     await router.connect(trader1).exactInput({
       recipient: trader1.address,
@@ -273,18 +278,21 @@ describe('Unstake accounting', async () => {
       amountOutMinimum: 0,
     })
     prices.push(await pool01Obj.slot0())
-    await setTime((await blockTimestamp()) + 100)
-    console.debug(
-      'Prices:',
-      prices.map((x) => x.sqrtPriceX96)
-    )
+    // await setTime(time + 400)
 
-    console.info('lpuser0 address is ', lpUser0.address)
+    // console.info(prices[prices.length - 1])
+    // console.debug(
+    //   'Prices:',
+    //   prices.map((x) => x.sqrtPriceX96)
+    // )
+
+    // console.info('lpuser0 address is ', lpUser0.address)
     const rewardTokenPre = await rewardToken.balanceOf(lpUser0.address)
 
     console.info(await rewardToken.balanceOf(staker.address))
 
     /* lpUser0 tries to withdraw their staking rewards */
+    await setTime(time + 400)
     const tx = await staker.connect(lpUser0).unstakeToken({
       ...incentiveParams,
       tokenId: ctx.tokenId,
