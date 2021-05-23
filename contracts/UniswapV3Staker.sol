@@ -4,14 +4,15 @@ pragma abicoder v2;
 
 import './interfaces/IUniswapV3Staker.sol';
 import './libraries/IncentiveHelper.sol';
+import './libraries/FixedPoint96.sol';
+import './libraries/FixedPoint128.sol';
+import './libraries/FullMath.sol';
 
 import '@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol';
 import '@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol';
 import '@uniswap/v3-core/contracts/interfaces/IERC20Minimal.sol';
 import '@uniswap/v3-periphery/contracts/libraries/PoolAddress.sol';
 import '@uniswap/v3-periphery/contracts/interfaces/INonfungiblePositionManager.sol';
-import '@uniswap/v3-core/contracts/libraries/FixedPoint128.sol';
-import '@uniswap/v3-core/contracts/libraries/FullMath.sol';
 import '@uniswap/v3-periphery/contracts/base/Multicall.sol';
 import '@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol';
 import '@openzeppelin/contracts/math/Math.sol';
@@ -239,8 +240,7 @@ contract UniswapV3Staker is
         ) = _getPositionDetails(params.tokenId);
 
         console.log('Position details:');
-        console.log('Pool Address=');
-        console.logAddress(poolAddress);
+        console.log('Pool Address=', poolAddress);
         console.log('tickLower=');
         console.logInt(tickLower);
         console.log('tickUpper=');
@@ -278,8 +278,8 @@ contract UniswapV3Staker is
                 stakes[params.tokenId][incentiveId]
                     .secondsPerLiquidityInitialX128) * liquidity;
 
-        console.log('incentiveId=');
-        console.logBytes(abi.encodePacked(incentiveId));
+        // console.log('incentiveId=');
+        // console.logBytes(abi.encodePacked(incentiveId));
         console.log('secondsInPeriodX128=');
         console.log(secondsInPeriodX128);
 
@@ -298,33 +298,68 @@ contract UniswapV3Staker is
 
         incentives[incentiveId].totalSecondsClaimedX128 += secondsInPeriodX128;
 
+        console.log('params.endTime=', params.endTime);
+        console.log('block.timestamp', block.timestamp);
+        console.log(
+            'Math.max(params.endTime, block.timestamp)',
+            Math.max(params.endTime, block.timestamp)
+        );
+        console.log('params.startTime', params.startTime);
+        console.log(
+            'Math.max(params.endTime, block.timestamp) - params.startTime',
+            Math.max(params.endTime, block.timestamp) - params.startTime
+        );
+        console.log(
+            'incentives[incentiveId].totalSecondsClaimedX128= ',
+            incentives[incentiveId].totalSecondsClaimedX128
+        );
+
+        console.log('total seconds since start time (decimal)');
+        console.log(
+            Math.max(params.endTime, block.timestamp) - params.startTime
+        );
+
+        // TODO: overflow check
         uint160 totalSecondsUnclaimedX128 =
-            uint32(Math.max(params.endTime, block.timestamp)) -
-                params.startTime -
-                incentives[incentiveId].totalSecondsClaimedX128;
-
-        console.log('totalSecondsUnclaimedX128=');
-        console.log(totalSecondsUnclaimedX128);
-
-        // This is probably wrong
-        uint160 rewardRate =
             uint160(
-                SafeMath.div(
+                FullMath.mulDiv(
+                    Math.max(params.endTime, block.timestamp) -
+                        params.startTime,
+                    FixedPoint96.Q96,
+                    1
+                )
+            ) - incentives[incentiveId].totalSecondsClaimedX128;
+
+        console.log('totalSecondsUnclaimedX128=', totalSecondsUnclaimedX128);
+
+        // TODO: Make sure this truncates and not rounds up
+        uint128 rewardRate =
+            uint128(
+                FullMath.mulDiv(
+                    totalSecondsUnclaimedX128,
                     incentives[incentiveId].totalRewardUnclaimed,
-                    totalSecondsUnclaimedX128
+                    FixedPoint128.Q128
                 )
             );
+
+        // console.log('params.to=');
+        // console.logAddress(params.to);
 
         console.log('rewardRate=');
         console.log(rewardRate);
 
-        uint256 reward = SafeMath.mul(secondsInPeriodX128, rewardRate);
+        uint128 reward =
+            uint128(
+                FullMath.mulDiv(
+                    secondsInPeriodX128,
+                    rewardRate,
+                    FixedPoint128.Q128
+                )
+            );
 
         console.log('reward=');
         console.logUint(reward);
 
-        console.log('params.to=');
-        console.log(reward);
         // TODO: Before release: wrap this in try-catch properly
         // try {
         // TODO: incentive.rewardToken or rewardToken?

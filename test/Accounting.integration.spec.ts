@@ -279,7 +279,10 @@ describe('Unstake accounting', async () => {
       prices.map((x) => x.sqrtPriceX96)
     )
 
+    console.info('lpuser0 address is ', lpUser0.address)
     const rewardTokenPre = await rewardToken.balanceOf(lpUser0.address)
+
+    console.info(await rewardToken.balanceOf(staker.address))
 
     /* lpUser0 tries to withdraw their staking rewards */
     const tx = await staker.connect(lpUser0).unstakeToken({
