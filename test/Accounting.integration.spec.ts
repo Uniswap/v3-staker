@@ -313,10 +313,9 @@ describe('Unstake accounting', async () => {
     }
 
     const rewardTokenPost = await rewardToken.balanceOf(lpUser0.address)
+    expect(rewardTokenPre).to.be.lt(rewardTokenPost)
 
     console.info('Token balance before:', rewardTokenPre)
     console.info('Token balance after:', rewardTokenPost)
-
-    /* They can */
   })
 })

@@ -327,44 +327,27 @@ contract UniswapV3Staker is
             Math.max(params.endTime, block.timestamp) - params.startTime
         );
 
-        // TODO: overflow check
-        uint160 totalSecondsUnclaimedX128 =
-            uint160(
-                FullMath.mulDiv(
-                    Math.max(params.endTime, block.timestamp) -
-                        params.startTime,
-                    FixedPoint96.Q96,
-                    1
-                )
-            ) - incentives[incentiveId].totalSecondsClaimedX128;
-
-        console.log('totalSecondsUnclaimedX128=', totalSecondsUnclaimedX128);
+        uint256 totalSecondsUnclaimed =
+            Math.max(params.endTime, block.timestamp) - params.startTime;
+        console.log('totalSecondsUnclaimed=', totalSecondsUnclaimed);
 
         // TODO: Make sure this truncates and not rounds up
-        uint128 rewardRate =
-            uint128(
-                FullMath.mulDiv(
-                    totalSecondsUnclaimedX128,
-                    incentives[incentiveId].totalRewardUnclaimed,
-                    FixedPoint128.Q128
-                )
+        uint256 rewardRate =
+            SafeMath.div(
+                incentives[incentiveId].totalRewardUnclaimed,
+                totalSecondsUnclaimed
             );
-
-        // console.log('params.to=');
-        // console.logAddress(params.to);
 
         console.log('rewardRate=');
         console.log(rewardRate);
 
-        uint128 reward =
-            uint128(
-                FullMath.mulDiv(
-                    secondsInPeriodX128,
-                    rewardRate,
-                    FixedPoint128.Q128
-                )
-            );
-
+        uint256 reward = SafeMath.mul(secondsInPeriodX128, rewardRate);
+        // uint256 reward =
+        //     FullMath.mulDiv(
+        //         secondsInPeriodX128,
+        //         rewardRate,
+        //         FixedPoint128.Q128
+        //     );
         console.log('reward=');
         console.logUint(reward);
 
