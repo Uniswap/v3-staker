@@ -13,7 +13,9 @@ This is a canonical staking contract designed for [Uniswap V3](https://github.co
 ```sh
 $ yarn
 $ yarn test
+```
 
+```sh
 # if gas snapshots need to be updated
 $ UPDATE_SNAPSHOT=1 yarn test
 ```
