@@ -43,6 +43,7 @@ contract UniswapV3Staker is
 
     struct Stake {
         uint160 secondsPerLiquidityInitialX128;
+        bool exists;
     }
 
     IUniswapV3Factory public immutable factory;
@@ -215,10 +216,15 @@ contract UniswapV3Staker is
             (with non-zero secondsPerLiquidityInitialX128).
         */
 
-        /*
-        deposit.numberOfStakes -= 1 - Make sure this decrements properly
-        */
+        console.log(
+            'deposits[params.tokenId].numberOfStakes=',
+            deposits[params.tokenId].numberOfStakes
+        );
         deposits[params.tokenId].numberOfStakes -= 1;
+        console.log(
+            'after deposits[params.tokenId].numberOfStakes=',
+            deposits[params.tokenId].numberOfStakes
+        );
 
         (
             address poolAddress,
@@ -268,6 +274,11 @@ contract UniswapV3Staker is
                 params.endTime,
                 params.claimDeadline
             );
+
+        require(
+            stakes[params.tokenId][incentiveId].exists == true,
+            'Stake does not exist'
+        );
 
         require(
             incentives[incentiveId].rewardToken != address(0),
@@ -329,16 +340,15 @@ contract UniswapV3Staker is
         console.log('rewardRate=');
         console.log(rewardRate);
 
-        // uint256 reward = SafeMath.mul(secondsInPeriodX128, rewardRate);
-        uint256 reward =
-            FullMath.mulDiv(
-                secondsInPeriodX128,
-                rewardRate,
-                FixedPoint128.Q128
+        // TODO: make sure casting is ok here
+        uint128 reward =
+            uint128(
+                FullMath.mulDiv(
+                    secondsInPeriodX128,
+                    rewardRate,
+                    FixedPoint128.Q128
+                )
             );
-
-        console.log('reward=');
-        console.logUint(reward);
 
         incentives[incentiveId].totalSecondsClaimedX128 += secondsInPeriodX128;
 
@@ -347,18 +357,23 @@ contract UniswapV3Staker is
             incentives[incentiveId].totalSecondsClaimedX128
         );
 
-        // incentives[incentiveId].totalRewardUnclaimed = SafeMath.sub(
-        //     incentives[incentiveId].totalRewardUnclaimed,
-        //     reward
-        // );
-
-        // TODO: Before release: wrap this in try-catch properly
-        // try {
-        IERC20Minimal(incentives[incentiveId].rewardToken).transfer(
-            params.to,
-            reward
+        // TODO: is SafeMath necessary here? Could we do just a subtraction?
+        incentives[incentiveId].totalRewardUnclaimed = uint128(
+            SafeMath.sub(incentives[incentiveId].totalRewardUnclaimed, reward)
         );
-        // } catch {}
+
+        // TODO: Tether?
+        try
+            IERC20Minimal(incentives[incentiveId].rewardToken).transfer(
+                params.to,
+                reward
+            )
+        returns (bool) {
+            // It didn't fail
+        } catch {
+            // It failed
+        }
+
         emit TokenUnstaked(params.tokenId);
     }
 
@@ -385,7 +400,8 @@ contract UniswapV3Staker is
         (, uint160 secondsPerLiquidityInsideX128, ) =
             pool.snapshotCumulativesInside(tickLower, tickUpper);
         stakes[params.tokenId][incentiveId] = Stake(
-            secondsPerLiquidityInsideX128
+            secondsPerLiquidityInsideX128,
+            true
         );
         // console.log('[Stake] block.timestamp');
         // console.log(block.timestamp);
