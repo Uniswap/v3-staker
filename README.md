@@ -15,6 +15,8 @@ $ yarn
 $ yarn test
 ```
 
+## Gas Snapshots
+
 ```sh
 # if gas snapshots need to be updated
 $ UPDATE_SNAPSHOT=1 yarn test
