@@ -226,7 +226,7 @@ contract UniswapV3Staker is
         // TODO: Zero-out the Stake with that key.
         // stakes[tokenId]
         /*
-        * It computes secondsPerLiquidityInPeriodX128 by computing
+        * It computes secondsPerLiquidityInPeriodX96 by computing
             secondsPerLiquidityInsideX128 using the Uniswap v3 core contract
             and subtracting secondsPerLiquidityInitialX128.
         */
@@ -273,10 +273,17 @@ contract UniswapV3Staker is
             'BAD INCENTIVE'
         );
 
+        // Double-check for overflow. this is where it was erring out before
         uint160 secondsInPeriodX128 =
-            (secondsPerLiquidityInsideX128 -
-                stakes[params.tokenId][incentiveId]
-                    .secondsPerLiquidityInitialX128) * liquidity;
+            uint160(
+                FullMath.mulDiv(
+                    secondsPerLiquidityInsideX128 -
+                        stakes[params.tokenId][incentiveId]
+                            .secondsPerLiquidityInitialX128,
+                    liquidity,
+                    FixedPoint128.Q128
+                )
+            );
 
         // console.log('incentiveId=');
         // console.logBytes(abi.encodePacked(incentiveId));
@@ -298,6 +305,7 @@ contract UniswapV3Staker is
 
         incentives[incentiveId].totalSecondsClaimedX128 += secondsInPeriodX128;
 
+        console.log('params.startTime=', params.startTime);
         console.log('params.endTime=', params.endTime);
         console.log('block.timestamp', block.timestamp);
         console.log(

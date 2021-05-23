@@ -69,7 +69,7 @@ It then creates a stake in the `stakes` mapping. `stakes` is a mapping from the 
 mapping (address => mapping (uint256 => mapping (bytes32 => Stake)))
 
 struct Stake {
-    uint160 secondsPerLiquidityInitialX96
+    uint160 secondsPerLiquidityInitialX128
 }
 ```
 
