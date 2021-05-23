@@ -206,32 +206,20 @@ contract UniswapV3Staker is
         override
         nonReentrant
     {
-        /*
-        Check:
-        * It checks that you are the owner of the Deposit,
-        * It checks that there exists a Stake for the provided key
-            (with non-zero secondsPerLiquidityInitialX128).
-        */
         require(
             deposits[params.tokenId].owner == msg.sender,
             'NOT_YOUR_DEPOSIT'
         );
+        /*
+        * TODO: it checks that there exists a Stake for the provided key
+            (with non-zero secondsPerLiquidityInitialX128).
+        */
 
         /*
-        Effects:
         deposit.numberOfStakes -= 1 - Make sure this decrements properly
         */
         deposits[params.tokenId].numberOfStakes -= 1;
 
-        // TODO: Zero-out the Stake with that key.
-        // stakes[tokenId]
-        /*
-        * It computes secondsPerLiquidityInPeriodX96 by computing
-            secondsPerLiquidityInsideX128 using the Uniswap v3 core contract
-            and subtracting secondsPerLiquidityInitialX128.
-        */
-
-        // TODO: make sure not null
         (
             address poolAddress,
             int24 tickLower,
@@ -239,18 +227,28 @@ contract UniswapV3Staker is
             uint128 liquidity
         ) = _getPositionDetails(params.tokenId);
 
-        console.log('Position details:');
-        console.log('Pool Address=', poolAddress);
-        console.log('tickLower=');
-        console.logInt(tickLower);
-        console.log('tickUpper=');
-        console.logInt(tickUpper);
-        console.log('liquidity=');
-        console.log(liquidity);
-
         require(poolAddress != address(0), 'INVALID_POSITION');
-
         IUniswapV3Pool pool = IUniswapV3Pool(poolAddress);
+
+        // console.log('Pool Address=', poolAddress);
+        // console.log('tickLower=');
+        // console.logInt(tickLower);
+        // console.log('tickUpper=');
+        // console.logInt(tickUpper);
+        // console.log('liquidity=');
+        // console.log(liquidity);
+        // console.log('params.startTime=', params.startTime);
+        // console.log('params.endTime=', params.endTime);
+        // console.log('block.timestamp', block.timestamp);
+        console.log(
+            'Math.max(params.endTime, block.timestamp)',
+            Math.max(params.endTime, block.timestamp)
+        );
+        console.log('params.startTime', params.startTime);
+        console.log(
+            'Math.max(params.endTime, block.timestamp) - params.startTime',
+            Math.max(params.endTime, block.timestamp) - params.startTime
+        );
 
         (, uint160 secondsPerLiquidityInsideX128, ) =
             pool.snapshotCumulativesInside(tickLower, tickUpper);
@@ -273,7 +271,7 @@ contract UniswapV3Staker is
             'BAD INCENTIVE'
         );
 
-        // Double-check for overflow. this is where it was erring out before
+        /* I believe this is correct b/c we're doing a Q64.96 * Q128.0 then divide by Q128 to get Q160 */
         uint160 secondsInPeriodX128 =
             uint160(
                 FullMath.mulDiv(
@@ -285,12 +283,12 @@ contract UniswapV3Staker is
                 )
             );
 
-        // console.log('incentiveId=');
-        // console.logBytes(abi.encodePacked(incentiveId));
         console.log('secondsInPeriodX128=');
         console.log(secondsInPeriodX128);
 
         /*
+        * From design doc: need to reconcile
+        *
         * It looks at the liquidity on the NFT itself and multiplies
             that by secondsPerLiquidityInRangeX96 to get secondsX96.
         * It computes reward rate for the Program and multiplies that
@@ -299,36 +297,18 @@ contract UniswapV3Staker is
             is incremented by seconds.
         */
 
-        // TODO: check for overflows and integer types
-        // uint160 secondsX96 = FullMath.mulDiv(secondsPerLiquidityInStakingPeriodX128, , denominator);
-        //     SafeMath.mul(secondsPerLiquidityInStakingPeriodX128, liquidity);
-
         incentives[incentiveId].totalSecondsClaimedX128 += secondsInPeriodX128;
 
-        console.log('params.startTime=', params.startTime);
-        console.log('params.endTime=', params.endTime);
-        console.log('block.timestamp', block.timestamp);
-        console.log(
-            'Math.max(params.endTime, block.timestamp)',
-            Math.max(params.endTime, block.timestamp)
-        );
-        console.log('params.startTime', params.startTime);
-        console.log(
-            'Math.max(params.endTime, block.timestamp) - params.startTime',
-            Math.max(params.endTime, block.timestamp) - params.startTime
-        );
         console.log(
             'incentives[incentiveId].totalSecondsClaimedX128= ',
             incentives[incentiveId].totalSecondsClaimedX128
         );
 
-        console.log('total seconds since start time (decimal)');
-        console.log(
-            Math.max(params.endTime, block.timestamp) - params.startTime
-        );
-
-        uint256 totalSecondsUnclaimed =
-            Math.max(params.endTime, block.timestamp) - params.startTime;
+        // TODO: double-check for overflow risk here
+        uint32 totalSecondsUnclaimed =
+            uint32(
+                Math.max(params.endTime, block.timestamp) - params.startTime
+            );
         console.log('totalSecondsUnclaimed=', totalSecondsUnclaimed);
 
         // TODO: Make sure this truncates and not rounds up
@@ -351,10 +331,13 @@ contract UniswapV3Staker is
         console.log('reward=');
         console.logUint(reward);
 
+        // incentives[incentiveId].totalRewardUnclaimed = SafeMath.sub(
+        //     incentives[incentiveId].totalRewardUnclaimed,
+        //     reward
+        // );
+
         // TODO: Before release: wrap this in try-catch properly
         // try {
-        // TODO: incentive.rewardToken or rewardToken?
-
         IERC20Minimal(incentives[incentiveId].rewardToken).transfer(
             params.to,
             reward
