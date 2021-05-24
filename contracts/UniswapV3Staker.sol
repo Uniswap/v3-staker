@@ -5,14 +5,17 @@ pragma abicoder v2;
 import './interfaces/IUniswapV3Staker.sol';
 import './libraries/IncentiveHelper.sol';
 
+import '@uniswap/v3-core/contracts/libraries/FixedPoint96.sol';
+import '@uniswap/v3-core/contracts/libraries/FixedPoint128.sol';
+import '@uniswap/v3-core/contracts/libraries/FullMath.sol';
 import '@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol';
 import '@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol';
 import '@uniswap/v3-core/contracts/interfaces/IERC20Minimal.sol';
+
 import '@uniswap/v3-periphery/contracts/libraries/PoolAddress.sol';
 import '@uniswap/v3-periphery/contracts/interfaces/INonfungiblePositionManager.sol';
-import '@uniswap/v3-core/contracts/libraries/FixedPoint128.sol';
-import '@uniswap/v3-core/contracts/libraries/FullMath.sol';
 import '@uniswap/v3-periphery/contracts/base/Multicall.sol';
+
 import '@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol';
 import '@openzeppelin/contracts/math/Math.sol';
 import '@openzeppelin/contracts/math/SafeMath.sol';
@@ -40,6 +43,7 @@ contract UniswapV3Staker is
 
     struct Stake {
         uint160 secondsPerLiquidityInitialX128;
+        bool exists;
     }
 
     IUniswapV3Factory public immutable factory;
@@ -203,32 +207,13 @@ contract UniswapV3Staker is
         override
         nonReentrant
     {
-        /*
-        Check:
-        * It checks that you are the owner of the Deposit,
-        * It checks that there exists a Stake for the provided key
-            (with non-zero secondsPerLiquidityInitialX128).
-        */
         require(
             deposits[params.tokenId].owner == msg.sender,
             'NOT_YOUR_DEPOSIT'
         );
 
-        /*
-        Effects:
-        deposit.numberOfStakes -= 1 - Make sure this decrements properly
-        */
         deposits[params.tokenId].numberOfStakes -= 1;
 
-        // TODO: Zero-out the Stake with that key.
-        // stakes[tokenId]
-        /*
-        * It computes secondsPerLiquidityInPeriodX128 by computing
-            secondsPerLiquidityInsideX128 using the Uniswap v3 core contract
-            and subtracting secondsPerLiquidityInitialX128.
-        */
-
-        // TODO: make sure not null
         (
             address poolAddress,
             int24 tickLower,
@@ -237,7 +222,6 @@ contract UniswapV3Staker is
         ) = _getPositionDetails(params.tokenId);
 
         require(poolAddress != address(0), 'INVALID_POSITION');
-
         IUniswapV3Pool pool = IUniswapV3Pool(poolAddress);
 
         (, uint160 secondsPerLiquidityInsideX128, ) =
@@ -254,55 +238,73 @@ contract UniswapV3Staker is
             );
 
         require(
+            stakes[params.tokenId][incentiveId].exists == true,
+            'Stake does not exist'
+        );
+
+        require(
             incentives[incentiveId].rewardToken != address(0),
             'BAD INCENTIVE'
         );
 
         uint160 secondsInPeriodX128 =
-            (secondsPerLiquidityInsideX128 -
-                stakes[params.tokenId][incentiveId]
-                    .secondsPerLiquidityInitialX128) * liquidity;
-
-        /*
-        * It looks at the liquidity on the NFT itself and multiplies
-            that by secondsPerLiquidityInRangeX96 to get secondsX96.
-        * It computes reward rate for the Program and multiplies that
-            by secondsX96 to get reward.
-        * totalRewardsUnclaimed is decremented by reward. totalSecondsClaimed
-            is incremented by seconds.
-        */
-
-        // TODO: check for overflows and integer types
-        // uint160 secondsX96 = FullMath.mulDiv(secondsPerLiquidityInStakingPeriodX128, , denominator);
-        //     SafeMath.mul(secondsPerLiquidityInStakingPeriodX128, liquidity);
-
-        incentives[incentiveId].totalSecondsClaimedX128 += secondsInPeriodX128;
-
-        uint160 totalSecondsUnclaimedX128 =
-            uint32(Math.max(params.endTime, block.timestamp)) -
-                params.startTime -
-                incentives[incentiveId].totalSecondsClaimedX128;
-
-        // This is probably wrong
-        uint160 rewardRate =
             uint160(
-                SafeMath.div(
-                    incentives[incentiveId].totalRewardUnclaimed,
-                    totalSecondsUnclaimedX128
+                SafeMath.mul(
+                    secondsPerLiquidityInsideX128 -
+                        stakes[params.tokenId][incentiveId]
+                            .secondsPerLiquidityInitialX128,
+                    liquidity
                 )
             );
 
-        uint256 reward = SafeMath.mul(secondsInPeriodX128, rewardRate);
+        // TODO: double-check for overflow risk here
+        uint160 totalSecondsUnclaimedX128 =
+            uint160(
+                SafeMath.mul(
+                    Math.max(params.endTime, block.timestamp) -
+                        params.startTime,
+                    FixedPoint128.Q128
+                ) - incentives[incentiveId].totalSecondsClaimedX128
+            );
 
-        // TODO: Before release: wrap this in try-catch properly
-        // try {
-        // TODO: incentive.rewardToken or rewardToken?
+        // TODO: Make sure this truncates and not rounds up
+        uint256 rewardRate =
+            FullMath.mulDiv(
+                incentives[incentiveId].totalRewardUnclaimed,
+                FixedPoint128.Q128,
+                totalSecondsUnclaimedX128
+            );
 
-        IERC20Minimal(incentives[incentiveId].rewardToken).transfer(
-            params.to,
-            reward
+        // TODO: make sure casting is ok here
+        uint128 reward =
+            uint128(
+                FullMath.mulDiv(
+                    secondsInPeriodX128,
+                    rewardRate,
+                    FixedPoint128.Q128
+                )
+            );
+
+        incentives[incentiveId].totalSecondsClaimedX128 += secondsInPeriodX128;
+
+        // TODO: is SafeMath necessary here? Could we do just a subtraction?
+        incentives[incentiveId].totalRewardUnclaimed = uint128(
+            SafeMath.sub(incentives[incentiveId].totalRewardUnclaimed, reward)
         );
-        // } catch {}
+
+        /* TODO: This will be fixed in https://github.com/omarish/uniswap-v3-staker/issues/38
+        so that collecting and unstaking are two separate functions */
+        try
+            IERC20Minimal(incentives[incentiveId].rewardToken).transfer(
+                params.to,
+                reward
+            )
+        returns (bool) {
+            // It didn't fail
+        } catch {
+            // It failed
+        }
+
         emit TokenUnstaked(params.tokenId);
     }
 
@@ -329,8 +331,10 @@ contract UniswapV3Staker is
         (, uint160 secondsPerLiquidityInsideX128, ) =
             pool.snapshotCumulativesInside(tickLower, tickUpper);
         stakes[params.tokenId][incentiveId] = Stake(
-            secondsPerLiquidityInsideX128
+            secondsPerLiquidityInsideX128,
+            true
         );
+
         deposits[params.tokenId].numberOfStakes += 1;
         emit TokenStaked(params.tokenId);
     }

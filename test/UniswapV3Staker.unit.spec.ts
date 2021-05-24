@@ -500,13 +500,15 @@ describe('UniswapV3Staker.unit', async () => {
         )
 
         const stakeBefore = await staker.stakes(tokenId, incentiveId)
-        const nstakesBefore = (await staker.deposits(tokenId)).numberOfStakes
-        await subject()
+        expect(stakeBefore.exists).to.be.false
 
-        expect(stakeBefore).to.eq(0)
-        expect(await staker.stakes(tokenId, incentiveId)).to.be.gt(stakeBefore)
+        const nStakesBefore = (await staker.deposits(tokenId)).numberOfStakes
+        expect(nStakesBefore).to.eq(0)
+
+        await subject()
+        expect((await staker.stakes(tokenId, incentiveId)).exists).to.be
         expect((await staker.deposits(tokenId)).numberOfStakes).to.eq(
-          nstakesBefore + 1
+          nStakesBefore + 1
         )
       })
 
@@ -713,7 +715,8 @@ describe('UniswapV3Staker.unit', async () => {
         )
 
         expect((await staker.deposits(tokenId)).numberOfStakes).to.equal(0)
-        expect(await staker.stakes(tokenId, incentiveId)).to.equal(0)
+        const { exists } = await staker.stakes(tokenId, incentiveId)
+        expect(exists).to.be.false
         await nft['safeTransferFrom(address,address,uint256,bytes)'](
           wallet.address,
           staker.address,
@@ -721,7 +724,7 @@ describe('UniswapV3Staker.unit', async () => {
           data
         )
         expect((await staker.deposits(tokenId)).numberOfStakes).to.equal(1)
-        expect(await staker.stakes(tokenId, incentiveId)).to.be.gt(0)
+        expect((await staker.stakes(tokenId, incentiveId)).exists).to.be
       })
 
       it('has gas cost', async () => {

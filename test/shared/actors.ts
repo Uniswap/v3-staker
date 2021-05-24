@@ -19,10 +19,6 @@ export class ActorFixture {
   wallets: Array<Wallet>
   provider: MockProvider
 
-  static forProvider(provider: MockProvider) {
-    return new ActorFixture(provider.getWallets(), provider)
-  }
-
   constructor(wallets, provider) {
     this.wallets = wallets
     this.provider = provider
@@ -83,7 +79,7 @@ export class ActorFixture {
     if (!index) {
       throw new Error(`Invalid index: ${index}`)
     }
-    const account = this.provider.getWallets()[index]
+    const account = this.wallets[index]
     if (!account) {
       throw new Error(`Account ID ${index} could not be loaded`)
     }
