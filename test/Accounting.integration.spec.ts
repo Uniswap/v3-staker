@@ -307,7 +307,7 @@ describe('Unstake accounting', async () => {
     // console.info('lpuser0 address is ', lpUser0.address)
     const rewardTokenPre = await rewardToken.balanceOf(lpUser0.address)
 
-    console.info(await rewardToken.balanceOf(staker.address))
+    // console.info(await rewardToken.balanceOf(staker.address))
 
     /* lpUser0 tries to withdraw their staking rewards */
     await setTime(time + 400)
@@ -341,11 +341,11 @@ describe('Unstake accounting', async () => {
     const rewardTokenPost = await rewardToken.balanceOf(lpUser0.address)
     expect(rewardTokenPre).to.be.lt(rewardTokenPost)
 
-    console.info('Token balance before:', rewardTokenPre)
-    console.info('Token balance after:', rewardTokenPost)
+    // console.info('Token balance before:', rewardTokenPre)
+    // console.info('Token balance after:', rewardTokenPost)
   })
 
-  it.only('multiple liquidity providers: math works', async () => {
+  it('multiple liquidity providers: math works', async () => {
     const {
       tokens: [tok0, tok1, tok2],
       router,
