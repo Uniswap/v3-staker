@@ -500,13 +500,15 @@ describe('UniswapV3Staker.unit', async () => {
         )
 
         const stakeBefore = await staker.stakes(tokenId, incentiveId)
-        const nstakesBefore = (await staker.deposits(tokenId)).numberOfStakes
-        await subject()
+        expect(stakeBefore.exists).to.be.false
 
-        expect(stakeBefore).to.eq(0)
-        expect(await staker.stakes(tokenId, incentiveId)).to.be.gt(stakeBefore)
+        const nStakesBefore = (await staker.deposits(tokenId)).numberOfStakes
+        expect(nStakesBefore).to.eq(0)
+
+        await subject()
+        expect((await staker.stakes(tokenId, incentiveId)).exists).to.be
         expect((await staker.deposits(tokenId)).numberOfStakes).to.eq(
-          nstakesBefore + 1
+          nStakesBefore + 1
         )
       })
 
