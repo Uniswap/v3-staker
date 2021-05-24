@@ -19,8 +19,6 @@ import '@openzeppelin/contracts/math/Math.sol';
 import '@openzeppelin/contracts/math/SafeMath.sol';
 import '@openzeppelin/contracts/utils/ReentrancyGuard.sol';
 
-import 'hardhat/console.sol';
-
 /**
 @title Uniswap V3 canonical staking interface
 */
@@ -211,20 +209,8 @@ contract UniswapV3Staker is
             deposits[params.tokenId].owner == msg.sender,
             'NOT_YOUR_DEPOSIT'
         );
-        /*
-        * TODO: it checks that there exists a Stake for the provided key
-            (with non-zero secondsPerLiquidityInitialX128).
-        */
 
-        console.log(
-            'deposits[params.tokenId].numberOfStakes=',
-            deposits[params.tokenId].numberOfStakes
-        );
         deposits[params.tokenId].numberOfStakes -= 1;
-        console.log(
-            'after deposits[params.tokenId].numberOfStakes=',
-            deposits[params.tokenId].numberOfStakes
-        );
 
         (
             address poolAddress,
@@ -236,34 +222,8 @@ contract UniswapV3Staker is
         require(poolAddress != address(0), 'INVALID_POSITION');
         IUniswapV3Pool pool = IUniswapV3Pool(poolAddress);
 
-        // console.log('Pool Address=', poolAddress);
-        // console.log('tickLower=');
-        // console.logInt(tickLower);
-        // console.log('tickUpper=');
-        // console.logInt(tickUpper);
-        // console.log('liquidity=');
-        // console.log(liquidity);
-        // console.log('params.startTime=', params.startTime);
-        // console.log('params.endTime=', params.endTime);
-        // console.log('block.timestamp', block.timestamp);
-        // console.log('[In unstake] block.timestamp=');
-        // console.log(block.timestamp);
-
-        console.log(
-            'Math.max(params.endTime, block.timestamp)',
-            Math.max(params.endTime, block.timestamp)
-        );
-        console.log('params.startTime', params.startTime);
-        console.log(
-            'Math.max(params.endTime, block.timestamp) - params.startTime',
-            Math.max(params.endTime, block.timestamp) - params.startTime
-        );
-
         (, uint160 secondsPerLiquidityInsideX128, ) =
             pool.snapshotCumulativesInside(tickLower, tickUpper);
-
-        console.log('secondsPerLiquidityInsideX128=');
-        console.log(secondsPerLiquidityInsideX128);
 
         bytes32 incentiveId =
             IncentiveHelper.getIncentiveId(
@@ -285,13 +245,6 @@ contract UniswapV3Staker is
             'BAD INCENTIVE'
         );
 
-        console.log('secondsPerLiquidityInsideInPeriodX128');
-        console.log(
-            secondsPerLiquidityInsideX128 -
-                stakes[params.tokenId][incentiveId]
-                    .secondsPerLiquidityInitialX128
-        );
-
         uint160 secondsInPeriodX128 =
             uint160(
                 SafeMath.mul(
@@ -301,20 +254,6 @@ contract UniswapV3Staker is
                     liquidity
                 )
             );
-
-        console.log('secondsInPeriodX128=');
-        console.log(secondsInPeriodX128);
-
-        /*
-        * From design doc: need to reconcile
-        *
-        * It looks at the liquidity on the NFT itself and multiplies
-            that by secondsPerLiquidityInRangeX96 to get secondsX96.
-        * It computes reward rate for the Program and multiplies that
-            by secondsX96 to get reward.
-        * totalRewardsUnclaimed is decremented by reward. totalSecondsClaimed
-            is incremented by seconds.
-        */
 
         // TODO: double-check for overflow risk here
         uint160 totalSecondsUnclaimedX128 =
@@ -326,9 +265,6 @@ contract UniswapV3Staker is
                 ) - incentives[incentiveId].totalSecondsClaimedX128
             );
 
-        console.log('totalSecondsUnclaimedX128=');
-        console.log(totalSecondsUnclaimedX128);
-
         // TODO: Make sure this truncates and not rounds up
         uint256 rewardRate =
             FullMath.mulDiv(
@@ -336,9 +272,6 @@ contract UniswapV3Staker is
                 FixedPoint128.Q128,
                 totalSecondsUnclaimedX128
             );
-
-        console.log('rewardRate=');
-        console.log(rewardRate);
 
         // TODO: make sure casting is ok here
         uint128 reward =
@@ -352,17 +285,13 @@ contract UniswapV3Staker is
 
         incentives[incentiveId].totalSecondsClaimedX128 += secondsInPeriodX128;
 
-        console.log(
-            'incentives[incentiveId].totalSecondsClaimedX128= ',
-            incentives[incentiveId].totalSecondsClaimedX128
-        );
-
         // TODO: is SafeMath necessary here? Could we do just a subtraction?
         incentives[incentiveId].totalRewardUnclaimed = uint128(
             SafeMath.sub(incentives[incentiveId].totalRewardUnclaimed, reward)
         );
 
-        // TODO: Tether?
+        /* TODO: This will be fixed in https://github.com/omarish/uniswap-v3-staker/issues/38
+        so that collecting and unstaking are two separate functions */
         try
             IERC20Minimal(incentives[incentiveId].rewardToken).transfer(
                 params.to,
@@ -403,11 +332,6 @@ contract UniswapV3Staker is
             secondsPerLiquidityInsideX128,
             true
         );
-        // console.log('[Stake] block.timestamp');
-        // console.log(block.timestamp);
-
-        // console.log('In Stake, secondsPerLiquidityInsideX128=');
-        // console.log(secondsPerLiquidityInsideX128);
 
         deposits[params.tokenId].numberOfStakes += 1;
         emit TokenStaked(params.tokenId);
