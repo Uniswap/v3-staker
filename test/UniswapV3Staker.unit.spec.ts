@@ -500,13 +500,14 @@ describe('UniswapV3Staker.unit', async () => {
         )
 
         const stakeBefore = await staker.stakes(tokenId, incentiveId)
-        expect(stakeBefore.exists).to.be.false
-
         const nStakesBefore = (await staker.deposits(tokenId)).numberOfStakes
-        expect(nStakesBefore).to.eq(0)
-
         await subject()
-        expect((await staker.stakes(tokenId, incentiveId)).exists).to.be
+        const stakeAfter = await staker.stakes(tokenId, incentiveId)
+
+        expect(stakeBefore.secondsPerLiquidityInitialX128).to.eq(0)
+        expect(stakeBefore.exists).to.be.false
+        expect(stakeAfter.secondsPerLiquidityInitialX128).to.be.gt(0)
+        expect(stakeAfter.exists).to.be.true
         expect((await staker.deposits(tokenId)).numberOfStakes).to.eq(
           nStakesBefore + 1
         )
@@ -517,6 +518,11 @@ describe('UniswapV3Staker.unit', async () => {
       })
     })
     describe('fails when', () => {
+      it('deposit is already staked in the incentive', async () => {
+        await subject()
+        await expect(subject()).to.be.revertedWith('already staked')
+      })
+
       it('you are not the owner of the deposit')
       it('is before the start time')
       it('is after the end time')
@@ -714,17 +720,22 @@ describe('UniswapV3Staker.unit', async () => {
           claimDeadline
         )
 
-        expect((await staker.deposits(tokenId)).numberOfStakes).to.equal(0)
-        const { exists } = await staker.stakes(tokenId, incentiveId)
-        expect(exists).to.be.false
+        const stakeBefore = await staker.stakes(tokenId, incentiveId)
+        const depositBefore = await staker.deposits(tokenId)
         await nft['safeTransferFrom(address,address,uint256,bytes)'](
           wallet.address,
           staker.address,
           tokenId,
           data
         )
+        const stakeAfter = await staker.stakes(tokenId, incentiveId)
+
+        expect(depositBefore.numberOfStakes).to.equal(0)
         expect((await staker.deposits(tokenId)).numberOfStakes).to.equal(1)
-        expect((await staker.stakes(tokenId, incentiveId)).exists).to.be
+        expect(stakeBefore.secondsPerLiquidityInitialX128).to.equal(0)
+        expect(stakeBefore.exists).to.be.false
+        expect(stakeAfter.secondsPerLiquidityInitialX128).to.be.gt(0)
+        expect(stakeAfter.exists).to.be.true
       })
 
       it('has gas cost', async () => {
