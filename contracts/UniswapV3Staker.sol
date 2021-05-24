@@ -327,6 +327,10 @@ contract UniswapV3Staker is
             incentives[incentiveId].rewardToken != address(0),
             'non-existent incentive'
         );
+        require(
+            stakes[params.tokenId][incentiveId].exists != true,
+            'already staked'
+        );
 
         (, uint160 secondsPerLiquidityInsideX128, ) =
             pool.snapshotCumulativesInside(tickLower, tickUpper);

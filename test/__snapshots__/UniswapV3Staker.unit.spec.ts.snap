@@ -6,9 +6,9 @@ exports[`UniswapV3Staker.unit #depositToken works and has gas cost 1`] = `96839`
 
 exports[`UniswapV3Staker.unit #endIncentive works and has gas cost 1`] = `29666`;
 
-exports[`UniswapV3Staker.unit #onERC721Received on successful transfer with staking data has gas cost 1`] = `172619`;
+exports[`UniswapV3Staker.unit #onERC721Received on successful transfer with staking data has gas cost 1`] = `172912`;
 
-exports[`UniswapV3Staker.unit #stakeToken works and has gas cost 1`] = `93420`;
+exports[`UniswapV3Staker.unit #stakeToken works and has gas cost 1`] = `93713`;
 
 exports[`UniswapV3Staker.unit #unstakeToken works and has gas cost 1`] = `138082`;
 
