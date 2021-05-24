@@ -715,7 +715,8 @@ describe('UniswapV3Staker.unit', async () => {
         )
 
         expect((await staker.deposits(tokenId)).numberOfStakes).to.equal(0)
-        expect(await staker.stakes(tokenId, incentiveId)).to.equal(0)
+        const { exists } = await staker.stakes(tokenId, incentiveId)
+        expect(exists).to.be.false
         await nft['safeTransferFrom(address,address,uint256,bytes)'](
           wallet.address,
           staker.address,
@@ -723,7 +724,7 @@ describe('UniswapV3Staker.unit', async () => {
           data
         )
         expect((await staker.deposits(tokenId)).numberOfStakes).to.equal(1)
-        expect(await staker.stakes(tokenId, incentiveId)).to.be.gt(0)
+        expect((await staker.stakes(tokenId, incentiveId)).exists).to.be
       })
 
       it('has gas cost', async () => {
