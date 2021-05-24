@@ -40,6 +40,7 @@ contract UniswapV3Staker is
 
     struct Stake {
         uint160 secondsPerLiquidityInitialX128;
+        bool currentlyStaked;
     }
 
     IUniswapV3Factory public immutable factory;
@@ -325,11 +326,17 @@ contract UniswapV3Staker is
             incentives[incentiveId].rewardToken != address(0),
             'non-existent incentive'
         );
+        require(
+            stakes[params.tokenId][incentiveId]
+                .currentlyStaked != true,
+            'already staked'
+        );
 
         (, uint160 secondsPerLiquidityInsideX128, ) =
             pool.snapshotCumulativesInside(tickLower, tickUpper);
         stakes[params.tokenId][incentiveId] = Stake(
-            secondsPerLiquidityInsideX128
+            secondsPerLiquidityInsideX128,
+            true
         );
         deposits[params.tokenId].numberOfStakes += 1;
         emit TokenStaked(params.tokenId);
