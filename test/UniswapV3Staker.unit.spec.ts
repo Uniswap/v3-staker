@@ -731,11 +731,11 @@ describe('UniswapV3Staker.unit', async () => {
         const stakeAfter = await staker.stakes(tokenId, incentiveId)
 
         expect(depositBefore.numberOfStakes).to.equal(0)
-        expect(stakeBefore.secondsPerLiquidityInitialX128).to.equal(0)
-        expect(stakeBefore.exists).to.equal(false)
         expect((await staker.deposits(tokenId)).numberOfStakes).to.equal(1)
+        expect(stakeBefore.secondsPerLiquidityInitialX128).to.equal(0)
+        expect(stakeBefore.exists).to.be.false
         expect(stakeAfter.secondsPerLiquidityInitialX128).to.be.gt(0)
-        expect(stakeAfter.exists).to.equal(true)
+        expect(stakeAfter.exists).to.be.true
       })
 
       it('has gas cost', async () => {
