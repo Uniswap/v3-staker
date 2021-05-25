@@ -634,7 +634,10 @@ describe('UniswapV3Staker.unit', async () => {
         await snapshotGasCost(subject({ to: recipient }))
       })
       it('updates the reward available for the staker', async () => {
-        const rewardsAccured = await staker.rewards(rewardToken.address, rewardClaimer.address)
+        const rewardsAccured = await staker.rewards(
+          rewardToken.address,
+          rewardClaimer.address
+        )
         await subject({ to: recipient })
         expect(
           await staker.rewards(rewardToken.address, rewardClaimer.address)
@@ -875,11 +878,15 @@ describe('UniswapV3Staker.unit', async () => {
     })
 
     it('emits RewardClaimed event', async () => {
+      const reward = await staker.rewards(
+        rewardToken.address,
+        rewardClaimer.address
+      )
       await expect(
         subject({ token: rewardToken.address, actor: rewardClaimer })
       )
         .to.emit(staker, 'RewardClaimed')
-        .withArgs()
+        .withArgs(rewardClaimer.address, reward)
     })
 
     it('fails if the reward amount is 0', async () => {

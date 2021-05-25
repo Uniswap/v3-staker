@@ -300,20 +300,23 @@ contract UniswapV3Staker is
         emit TokenUnstaked(params.tokenId);
     }
 
+    /// @inheritdoc IUniswapV3Staker
     function claimReward(address rewardToken) external override {
-        require(rewards[rewardToken][msg.sender] != 0, 'NO_REWARDS_AVAILABLE');
+        uint256 reward = rewards[rewardToken][msg.sender];
 
+        require(reward != 0, 'NO_REWARDS_AVAILABLE');
+        
         require(
             IERC20Minimal(rewardToken).transfer(
                 msg.sender,
-                rewards[rewardToken][msg.sender]
+                reward
             ),
             'REWARD_TRANSFER_FAILED'
         );
 
         rewards[rewardToken][msg.sender] = 0;
         
-        emit RewardClaimed();
+        emit RewardClaimed(msg.sender, reward);
     }
 
     function _stakeToken(StakeTokenParams memory params) internal {
