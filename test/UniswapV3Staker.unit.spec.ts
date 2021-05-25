@@ -878,7 +878,7 @@ describe('UniswapV3Staker.unit', async () => {
     })
 
     it('emits RewardClaimed event', async () => {
-      const reward = await staker.rewards(
+      const claimable = await staker.rewards(
         rewardToken.address,
         rewardClaimer.address
       )
@@ -886,7 +886,7 @@ describe('UniswapV3Staker.unit', async () => {
         subject({ token: rewardToken.address, actor: rewardClaimer })
       )
         .to.emit(staker, 'RewardClaimed')
-        .withArgs(rewardClaimer.address, reward)
+        .withArgs(rewardClaimer.address, claimable)
     })
 
     it('fails if the reward amount is 0', async () => {
@@ -896,9 +896,13 @@ describe('UniswapV3Staker.unit', async () => {
     })
 
     it('transfers the reward amount to the msg.sender', async () => {
+      const claimable = await staker.rewards(
+        rewardToken.address,
+        rewardClaimer.address
+      )
       await subject({ token: rewardToken.address })
       expect(await rewardToken.balanceOf(rewardClaimer.address)).to.be.equal(
-        rewardClaimable
+        claimable
       )
     })
 
