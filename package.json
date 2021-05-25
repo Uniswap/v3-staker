@@ -64,10 +64,10 @@
   },
   "scripts": {
     "compile": "hardhat compile",
-    "test": "hardhat test",
+    "test": "TS_NODE_TRANSPILE_ONLY=1 hardhat test",
     "compile-uniswap": "hardhat compile-uniswap",
     "postinstall": "yarn compile-uniswap",
-    "test:unit": "TS_NODE_TRANSPILE_ONLY=1 yarn test test/*.unit.spec.ts",
-    "test:integration": "TS_NODE_TRANSPILE_ONLY=1 yarn test test/*.integration.spec.ts"
+    "test:unit": "yarn test test/*.unit.spec.ts",
+    "test:integration": "yarn test test/*.integration.spec.ts"
   }
 }
