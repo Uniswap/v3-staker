@@ -207,10 +207,16 @@ export class HelperCommands {
           tokenId: params.tokenId,
         }),
         rewardToken: params.createIncentiveResult.rewardToken.address,
-        to: params.lp.address,
       },
       maxGas
     )
+
+    await this.staker
+      .connect(params.lp)
+      .claimReward(
+        params.createIncentiveResult.rewardToken.address,
+        params.lp.address
+      )
 
     await this.staker
       .connect(params.lp)

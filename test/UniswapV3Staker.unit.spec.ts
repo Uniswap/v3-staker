@@ -633,7 +633,7 @@ describe('UniswapV3Staker.unit', async () => {
       it('updates the reward available for the staker', async () => {
         const rewardsAccured = await staker.rewards(
           rewardToken.address,
-          rewardClaimer.address
+          lpUser0.address
         )
         console.log(rewardsAccured)
         const time = await blockTimestamp()
@@ -641,11 +641,11 @@ describe('UniswapV3Staker.unit', async () => {
         await subject()
         console.log(await staker.rewards(
           rewardToken.address,
-          rewardClaimer.address
+          lpUser0.address
         ))
 
         expect(
-          await staker.rewards(rewardToken.address, rewardClaimer.address)
+          await staker.rewards(rewardToken.address, lpUser0.address)
         ).to.be.gt(rewardsAccured)
       })
       it('calculates the right secondsPerLiquidity')
@@ -868,7 +868,7 @@ describe('UniswapV3Staker.unit', async () => {
     })
   })
 
-  describe.only('#claimReward', () => {
+  describe('#claimReward', () => {
     let rewardToken: TestERC20
     let startTime;
     let endTime;
