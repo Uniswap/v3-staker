@@ -544,7 +544,7 @@ describe('UniswapV3Staker.integration', async () => {
     console.info('✅ Token0 burn complete')
   })
 
-  it.only('complex scenarios', async () => {
+  it('complex scenarios', async () => {
     const incentiveCreator = actors.incentiveCreator()
     const { staker } = ctx
     const rewardToken = ctx.tokens[2]
