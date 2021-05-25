@@ -58,6 +58,9 @@ contract UniswapV3Staker is
     /// @dev stakes[tokenId][incentiveHash] => Stake
     mapping(uint256 => mapping(bytes32 => Stake)) public stakes;
 
+    /// @dev rewards[rewardToken][msg.sender] => Stake
+    mapping(address => mapping(address => uint128)) public rewards;
+
     /// @param _factory the Uniswap V3 factory
     /// @param _nonfungiblePositionManager the NFT position manager contract address
     constructor(address _factory, address _nonfungiblePositionManager) {
@@ -292,20 +295,25 @@ contract UniswapV3Staker is
             SafeMath.sub(incentives[incentiveId].totalRewardUnclaimed, reward)
         );
 
-        /* TODO: This will be fixed in https://github.com/omarish/uniswap-v3-staker/issues/38
-        so that collecting and unstaking are two separate functions */
-        try
-            IERC20Minimal(incentives[incentiveId].rewardToken).transfer(
-                params.to,
-                reward
-            )
-        returns (bool) {
-            // It didn't fail
-        } catch {
-            // It failed
-        }
+        rewards[incentives[incentiveId].rewardToken][msg.sender] += reward;
 
         emit TokenUnstaked(params.tokenId);
+    }
+
+    function claimReward(address rewardToken) external override {
+        require(rewards[rewardToken][msg.sender] != 0, 'NO_REWARDS_AVAILABLE');
+
+        require(
+            IERC20Minimal(rewardToken).transfer(
+                msg.sender,
+                rewards[rewardToken][msg.sender]
+            ),
+            'REWARD_TRANSFER_FAILED'
+        );
+
+        rewards[rewardToken][msg.sender] = 0;
+        
+        emit RewardClaimed();
     }
 
     function _stakeToken(StakeTokenParams memory params) internal {
