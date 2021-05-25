@@ -295,14 +295,16 @@ contract UniswapV3Staker is
             SafeMath.sub(incentives[incentiveId].totalRewardUnclaimed, reward)
         );
 
-        rewards[incentives[incentiveId].rewardToken][msg.sender] += reward;
+        rewards[incentives[incentiveId].rewardToken][msg.sender] = uint128(
+            SafeMath.add(rewards[incentives[incentiveId].rewardToken][msg.sender], reward)
+        );
 
         emit TokenUnstaked(params.tokenId);
     }
 
     /// @inheritdoc IUniswapV3Staker
     function claimReward(address rewardToken) external override {
-        uint256 reward = rewards[rewardToken][msg.sender];
+        uint128 reward = rewards[rewardToken][msg.sender];
 
         require(reward != 0, 'NO_REWARDS_AVAILABLE');
         
