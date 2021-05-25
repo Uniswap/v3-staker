@@ -547,7 +547,7 @@ describe('UniswapV3Staker.unit', async () => {
     })
   })
 
-  describe('#unstakeToken', () => {
+  describe.only('#unstakeToken', () => {
     let tokenId: string
     let subject
     let rewardToken: TestERC20
@@ -570,6 +570,12 @@ describe('UniswapV3Staker.unit', async () => {
         .connect(incentiveCreator)
         .approve(staker.address, totalReward)
 
+      await tokens[0].connect(wallets[0]).transfer(lpUser0.address, BNe18(10))
+      await tokens[1].connect(wallets[0]).transfer(lpUser0.address, BNe18(10))
+
+      await tokens[0].connect(lpUser0).approve(nft.address, BNe18(10))
+      await tokens[1].connect(lpUser0).approve(nft.address, BNe18(10))
+
       await staker.connect(incentiveCreator).createIncentive({
         pool: pool01,
         rewardToken: rewardToken.address,
@@ -579,13 +585,13 @@ describe('UniswapV3Staker.unit', async () => {
         claimDeadline,
       })
 
-      tokenId = await mintPosition(nft.connect(wallets[0]), {
+      tokenId = await mintPosition(nft.connect(lpUser0), {
         token0: tokens[0].address,
         token1: tokens[1].address,
         fee: FeeAmount.MEDIUM,
         tickLower: getMinTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
         tickUpper: getMaxTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
-        recipient: wallet.address,
+        recipient: lpUser0.address,
         amount0Desired: BNe18(10),
         amount1Desired: BNe18(10),
         amount0Min: 0,
@@ -593,10 +599,12 @@ describe('UniswapV3Staker.unit', async () => {
         deadline: claimDeadline,
       })
 
-      await nft.approve(staker.address, tokenId, { gasLimit: MAX_GAS_LIMIT })
-      await staker.connect(wallets[0]).depositToken(tokenId)
+      await nft
+        .connect(lpUser0)
+        .approve(staker.address, tokenId, { gasLimit: MAX_GAS_LIMIT })
+      await staker.connect(lpUser0).depositToken(tokenId)
 
-      await staker.connect(wallets[0]).stakeToken({
+      await staker.connect(lpUser0).stakeToken({
         creator: incentiveCreator.address,
         rewardToken: rewardToken.address,
         tokenId,
@@ -606,7 +614,7 @@ describe('UniswapV3Staker.unit', async () => {
       })
 
       subject = () =>
-        staker.connect(wallets[0]).unstakeToken({
+        staker.connect(lpUser0).unstakeToken({
           creator: incentiveCreator.address,
           rewardToken: rewardToken.address,
           tokenId,

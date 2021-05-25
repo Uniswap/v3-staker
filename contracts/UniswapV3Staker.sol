@@ -291,10 +291,10 @@ contract UniswapV3Staker is
                 )
             );
 
-        incentive.totalSecondsClaimedX128 += secondsInPeriodX128;
+        incentives[incentiveId].totalSecondsClaimedX128 += secondsInPeriodX128;
 
         // TODO: is SafeMath necessary here? Could we do just a subtraction?
-        incentive.totalRewardUnclaimed = uint128(
+        incentives[incentiveId].totalRewardUnclaimed = uint128(
             SafeMath.sub(incentive.totalRewardUnclaimed, reward)
         );
 
