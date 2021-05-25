@@ -88,5 +88,5 @@ interface IUniswapV3Staker {
 
     function unstakeToken(UnstakeTokenParams memory params) external;
 
-    function claimReward(address rewardToken) external;
+    function claimReward(address rewardToken, address to) external;
 }

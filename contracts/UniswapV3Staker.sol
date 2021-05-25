@@ -306,14 +306,12 @@ contract UniswapV3Staker is
     }
 
     /// @inheritdoc IUniswapV3Staker
-    function claimReward(address rewardToken) external override {
+    function claimReward(address rewardToken, address to) external override {
         uint128 reward = rewards[rewardToken][msg.sender];
 
-        require(reward != 0, 'NO_REWARDS_AVAILABLE');
-        
         require(
             IERC20Minimal(rewardToken).transfer(
-                msg.sender,
+                to,
                 reward
             ),
             'REWARD_TRANSFER_FAILED'
@@ -321,7 +319,7 @@ contract UniswapV3Staker is
 
         rewards[rewardToken][msg.sender] = 0;
         
-        emit RewardClaimed(msg.sender, reward);
+        emit RewardClaimed(to, reward);
     }
 
     function _stakeToken(StakeTokenParams memory params) internal {

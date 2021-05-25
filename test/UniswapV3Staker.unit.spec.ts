@@ -630,12 +630,20 @@ describe('UniswapV3Staker.unit', async () => {
       it('has gas cost', async () => {
         await snapshotGasCost(subject())
       })
-      it('updates the reward available for the staker', async () => {
+      it.only('updates the reward available for the staker', async () => {
         const rewardsAccured = await staker.rewards(
           rewardToken.address,
           rewardClaimer.address
         )
+        console.log(rewardsAccured)
+        const time = await blockTimestamp()
+        await provider.send('evm_setNextBlockTimestamp', [time + 100])
         await subject()
+        console.log(await staker.rewards(
+          rewardToken.address,
+          rewardClaimer.address
+        ))
+
         expect(
           await staker.rewards(rewardToken.address, rewardClaimer.address)
         ).to.be.gt(rewardsAccured)
@@ -871,7 +879,7 @@ describe('UniswapV3Staker.unit', async () => {
       await rewardToken.transfer(staker.address, 100)
 
       subject = ({ token, actor = rewardClaimer }) =>
-        staker.connect(actor).claimReward(token)
+        staker.connect(actor).claimReward(token, actor.address)
     })
 
     it('emits RewardClaimed event', async () => {
