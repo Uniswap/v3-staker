@@ -544,7 +544,7 @@ describe('UniswapV3Staker.integration', async () => {
     console.info('✅ Token0 burn complete')
   })
 
-  it('complex scenarios', async () => {
+  it.only('complex scenarios', async () => {
     const incentiveCreator = actors.incentiveCreator()
     const { staker } = ctx
     const rewardToken = ctx.tokens[2]
@@ -707,6 +707,61 @@ describe('UniswapV3Staker.integration', async () => {
       }
     }
 
+    const poolFactory = new ethers.ContractFactory(
+      UniswapV3Pool.abi,
+      UniswapV3Pool.bytecode
+    )
+
+    type SimulateTradingArgs = {
+      numberOfTrades: number
+    }
+    type SimulateTradingResult = {
+      timeseries: Array<{ slot0: any; time: number }>
+    }
+
+    const simulateTradingFlow: FlowHelper<
+      SimulateTradingArgs,
+      SimulateTradingResult
+    > = async (params) => {
+      const {
+        router,
+        tokens: [tok0, tok1],
+      } = ctx
+      const timeseries = [] as any
+      const trader0 = actors.traderUser0()
+
+      // await tok0.transfer(trader0.address, BNe18(2).mul(params.numberOfTrades))
+      // await tok0
+      //   .connect(trader0)
+      //   .approve(router.address, BNe18(2).mul(params.numberOfTrades))
+
+      for (let i = 0; i < params.numberOfTrades; i++) {
+        // await router.connect(trader0).exactInput(
+        //   {
+        //     recipient: trader0.address,
+        //     deadline: MaxUint256,
+        //     path: encodePath([tok0.address, tok1.address], [FeeAmount.MEDIUM]),
+        //     amountIn: BNe18(2).div(10),
+        //     amountOutMinimum: 0,
+        //   },
+        //   maxGas
+        // )
+
+        const pool = poolFactory.attach(ctx.pool01) as IUniswapV3Pool
+        const time = await blockTimestamp()
+
+        timeseries.push({
+          slot0: await pool.slot0(),
+          time,
+        })
+        await setTime(time + 100)
+      }
+
+      return {
+        timeseries,
+      }
+    }
+
     type UnstakeCollectBurnArgs = {
       lp: Wallet
       tokenId: string
@@ -739,7 +794,6 @@ describe('UniswapV3Staker.integration', async () => {
         .connect(params.lp)
         .positions(params.tokenId)
 
-      console.info('decreaseeLiquidity')
       await nft.connect(params.lp).decreaseLiquidity(
         {
           tokenId: params.tokenId,
@@ -771,7 +825,6 @@ describe('UniswapV3Staker.integration', async () => {
         .connect(params.lp)
         .balanceOf(params.lp.address)
 
-      console.info('✅ Token burn complete')
       return {
         newBalance,
       }
@@ -803,11 +856,21 @@ describe('UniswapV3Staker.integration', async () => {
       createIncentiveResult,
     })
 
+    // Now just simulate trades
+    // const { timeseries } = await simulateTradingFlow({ numberOfTrades: 2 })
+
     // lpUser0 pulls out their liquidity
     await unstakeCollectBurnFlow({
       lp: actors.lpUser0(),
       tokenId: lp0token0,
-      createIncentiveResult: createIncentiveResult,
+      createIncentiveResult,
+    })
+
+    // lpUser1 pulls out their liquidity
+    await unstakeCollectBurnFlow({
+      lp: actors.lpUser1(),
+      tokenId: lp1token0,
+      createIncentiveResult,
     })
   })
 })
