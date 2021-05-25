@@ -43,8 +43,6 @@ describe('UniswapV3Staker.unit', async () => {
   const totalReward = BNe18(100)
 
   before('loader', async () => {
-    // set timestamp for consistency
-    await provider.send('evm_setNextBlockTimestamp', [2000000000])
     loadFixture = createFixtureLoader(wallets)
   })
 
