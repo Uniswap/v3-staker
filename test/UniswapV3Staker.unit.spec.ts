@@ -547,7 +547,7 @@ describe('UniswapV3Staker.unit', async () => {
     })
   })
 
-  describe.only('#unstakeToken', () => {
+  describe('#unstakeToken', () => {
     let tokenId: string
     let subject
     let rewardToken: TestERC20
@@ -605,40 +605,37 @@ describe('UniswapV3Staker.unit', async () => {
         claimDeadline,
       })
 
-      subject = ({ to }) =>
+      subject = () =>
         staker.connect(wallets[0]).unstakeToken({
           creator: incentiveCreator.address,
           rewardToken: rewardToken.address,
           tokenId,
           startTime,
           endTime,
-          claimDeadline,
-          to,
+          claimDeadline
         })
     })
 
-    const recipient = wallets[3].address
-
     describe('works and', async () => {
       it('decrements numberOfStakes by 1', async () => {
-        await subject({ to: recipient })
+        await subject()
       })
 
       it('emits an unstaked event', async () => {
-        await expect(subject({ to: recipient }))
+        await expect(subject())
           .to.emit(staker, 'TokenUnstaked')
           .withArgs(tokenId)
       })
 
       it('has gas cost', async () => {
-        await snapshotGasCost(subject({ to: recipient }))
+        await snapshotGasCost(subject())
       })
       it('updates the reward available for the staker', async () => {
         const rewardsAccured = await staker.rewards(
           rewardToken.address,
           rewardClaimer.address
         )
-        await subject({ to: recipient })
+        await subject()
         expect(
           await staker.rewards(rewardToken.address, rewardClaimer.address)
         ).to.be.gt(rewardsAccured)
@@ -863,7 +860,7 @@ describe('UniswapV3Staker.unit', async () => {
     })
   })
 
-  describe.only('#claimReward', () => {
+  describe.skip('#claimReward', () => {
     let rewardToken: TestERC20
     let rewardClaimable: BigNumber
 

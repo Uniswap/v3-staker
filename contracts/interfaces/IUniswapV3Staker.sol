@@ -84,7 +84,6 @@ interface IUniswapV3Staker {
         uint32 startTime;
         uint32 endTime;
         uint32 claimDeadline;
-        address to;
     }
 
     function unstakeToken(UnstakeTokenParams memory params) external;

@@ -298,7 +298,6 @@ describe('UniswapV3Staker.integration', async () => {
       ...incentiveParams,
       tokenId: ctx.tokenIds[0],
       creator: incentiveCreator.address,
-      to: lpUser0.address,
     })
 
     const topicUnstakedFilter = staker.filters.TokenUnstaked(null)
@@ -512,7 +511,6 @@ describe('UniswapV3Staker.integration', async () => {
       ...incentiveParams,
       tokenId: ctx.tokenIds[0],
       creator: incentiveCreator.address,
-      to: lpUser0.address,
     })
 
     await staker
