@@ -1,6 +1,5 @@
 import { constants, BigNumber, BigNumberish } from 'ethers'
-import { ethers, waffle } from 'hardhat'
-import { Fixture } from 'ethereum-waffle'
+import { ethers } from 'hardhat'
 import { UniswapV3Staker } from '../typechain/UniswapV3Staker'
 import {
   TestERC20,
@@ -14,15 +13,13 @@ import {
   getMinTick,
   FeeAmount,
   TICK_SPACINGS,
-  MaxUint256,
-  encodePriceSqrt,
   blockTimestamp,
   BN,
   BNe18,
   snapshotGasCost,
   MAX_GAS_LIMIT,
+  ActorFixture,
 } from './shared'
-
 import { createFixtureLoader, provider } from './shared/provider'
 
 let loadFixture: ReturnType<typeof createFixtureLoader>
@@ -37,6 +34,13 @@ describe('UniswapV3Staker.unit', async () => {
   let pool01: string
   let pool12: string
   let subject
+  const actors = new ActorFixture(wallets, provider)
+
+  // The account that has rewardToken and creates the incentive program
+  const incentiveCreator = actors.incentiveCreator()
+
+  // Default total reward for incentive
+  const totalReward = BNe18(100)
 
   before('loader', async () => {
     loadFixture = createFixtureLoader(wallets)
@@ -66,9 +70,11 @@ describe('UniswapV3Staker.unit', async () => {
         totalReward = BNe18(1000),
         rewardToken = tokens[0].address,
       } = {}) => {
-        await tokens[0].approve(staker.address, totalReward)
-
-        return await staker.createIncentive({
+        await tokens[0].transfer(incentiveCreator.address, totalReward)
+        await tokens[0]
+          .connect(incentiveCreator)
+          .approve(staker.address, totalReward)
+        return await staker.connect(incentiveCreator).createIncentive({
           rewardToken,
           pool: pool01,
           startTime,
@@ -82,7 +88,6 @@ describe('UniswapV3Staker.unit', async () => {
     describe('works and', async () => {
       it('transfers the right amount of rewardToken', async () => {
         const balanceBefore = await tokens[0].balanceOf(staker.address)
-        const totalReward = BNe18(1234)
         await subject({ totalReward })
         expect(await tokens[0].balanceOf(staker.address)).to.eq(
           balanceBefore.add(totalReward)
@@ -102,7 +107,7 @@ describe('UniswapV3Staker.unit', async () => {
         ).deploy()
 
         const incentiveId = idGetter.getIncentiveId(
-          wallet.address,
+          incentiveCreator.address,
           tokens[0].address,
           pool01,
           10,
@@ -163,7 +168,7 @@ describe('UniswapV3Staker.unit', async () => {
       it('totalReward is 0 or an invalid amount', async () => {
         await expect(
           subject({
-            totalReward: 0,
+            totalReward: BNe18(0),
           })
         ).to.be.revertedWith('INVALID_REWARD_AMOUNT')
       })
@@ -173,7 +178,6 @@ describe('UniswapV3Staker.unit', async () => {
   describe('#endIncentive', async () => {
     let rewardToken: string
     let blockTime: number
-    let totalReward: BigNumber
     let startTime: number
     let endTime: number
     let claimDeadline: number
@@ -183,15 +187,17 @@ describe('UniswapV3Staker.unit', async () => {
     beforeEach('setup', async () => {
       rewardToken = tokens[0].address
       blockTime = await blockTimestamp()
-      totalReward = BNe18(1000)
       startTime = blockTime
       endTime = blockTime + 1000
       claimDeadline = blockTime + 2000
 
-      await tokens[0].approve(staker.address, totalReward)
+      await tokens[0].transfer(incentiveCreator.address, totalReward)
+      await tokens[0]
+        .connect(incentiveCreator)
+        .approve(staker.address, totalReward)
 
       createIncentive = async () =>
-        staker.createIncentive({
+        staker.connect(incentiveCreator).createIncentive({
           rewardToken,
           pool: pool01,
           startTime,
@@ -201,7 +207,7 @@ describe('UniswapV3Staker.unit', async () => {
         })
 
       subject = async ({ ...args } = {}) =>
-        await staker.endIncentive({
+        await staker.connect(incentiveCreator).endIncentive({
           rewardToken,
           pool: pool01,
           startTime,
@@ -229,7 +235,7 @@ describe('UniswapV3Staker.unit', async () => {
         ).deploy()
 
         const incentiveId = idGetter.getIncentiveId(
-          wallet.address,
+          incentiveCreator.address,
           rewardToken,
           pool01,
           startTime,
@@ -295,7 +301,7 @@ describe('UniswapV3Staker.unit', async () => {
       })
 
       await nft.approve(staker.address, tokenId, { gasLimit: MAX_GAS_LIMIT })
-      subject = async () => await staker.depositToken(tokenId)
+      subject = async () => await staker.connect(wallet).depositToken(tokenId)
     })
 
     describe('works and', async () => {
@@ -335,7 +341,6 @@ describe('UniswapV3Staker.unit', async () => {
   describe('#withdrawToken', () => {
     let tokenId: string
     let subject
-    let depositToken
     const recipient = wallet.address
 
     beforeEach(async () => {
@@ -353,11 +358,13 @@ describe('UniswapV3Staker.unit', async () => {
         deadline: (await blockTimestamp()) + 1000,
       })
 
-      await nft.approve(staker.address, tokenId, { gasLimit: MAX_GAS_LIMIT })
+      await nft
+        .connect(wallets[0])
+        .approve(staker.address, tokenId, { gasLimit: MAX_GAS_LIMIT })
 
-      await staker.depositToken(tokenId)
+      await staker.connect(wallets[0]).depositToken(tokenId)
       subject = ({ tokenId, recipient }) =>
-        staker.withdrawToken(tokenId, recipient)
+        staker.connect(wallets[0]).withdrawToken(tokenId, recipient)
     })
 
     describe('works and', () => {
@@ -391,17 +398,17 @@ describe('UniswapV3Staker.unit', async () => {
       })
 
       it('number of stakes is not 0', async () => {
-        await tokens[0].approve(staker.address, BNe18(10))
-        await staker.createIncentive({
+        await tokens[0].approve(staker.address, totalReward)
+        await staker.connect(wallets[0]).createIncentive({
           pool: pool01,
           rewardToken: tokens[0].address,
-          totalReward: BNe18(10),
+          totalReward,
           startTime: 10,
           endTime: 20,
           claimDeadline: 30,
         })
 
-        await staker.stakeToken({
+        await staker.connect(wallets[0]).stakeToken({
           creator: wallet.address,
           rewardToken: tokens[0].address,
           tokenId,
@@ -419,13 +426,11 @@ describe('UniswapV3Staker.unit', async () => {
   describe('#stakeToken', () => {
     let tokenId: string
     let subject
-    const recipient = wallet.address
     let rewardToken: TestERC20
     let otherRewardToken: TestERC20
     let startTime: number
     let endTime: number
     let claimDeadline: number
-    let totalReward: BigNumber
 
     beforeEach(async () => {
       const currentTime = await blockTimestamp()
@@ -435,7 +440,6 @@ describe('UniswapV3Staker.unit', async () => {
       startTime = currentTime
       endTime = currentTime + 100
       claimDeadline = currentTime + 1000
-      totalReward = BNe18(1000)
 
       tokenId = await mintPosition(nft, {
         token0: tokens[0].address,
@@ -451,14 +455,22 @@ describe('UniswapV3Staker.unit', async () => {
         deadline: claimDeadline,
       })
 
-      await nft.approve(staker.address, tokenId, { gasLimit: MAX_GAS_LIMIT })
+      await nft
+        .connect(wallets[0])
+        .approve(staker.address, tokenId, { gasLimit: MAX_GAS_LIMIT })
 
-      await staker.depositToken(tokenId)
+      await staker.connect(wallets[0]).depositToken(tokenId)
 
-      const creator = wallet.address
+      await tokens[0].transfer(incentiveCreator.address, totalReward)
+      await tokens[0]
+        .connect(incentiveCreator)
+        .approve(staker.address, totalReward)
 
-      await rewardToken.approve(staker.address, totalReward)
-      await staker.createIncentive({
+      await rewardToken
+        .connect(incentiveCreator)
+        .approve(staker.address, totalReward)
+
+      await staker.connect(incentiveCreator).createIncentive({
         pool: pool01,
         rewardToken: rewardToken.address,
         totalReward,
@@ -468,8 +480,8 @@ describe('UniswapV3Staker.unit', async () => {
       })
 
       subject = () =>
-        staker.stakeToken({
-          creator,
+        staker.connect(wallets[0]).stakeToken({
+          creator: incentiveCreator.address,
           rewardToken: rewardToken.address,
           tokenId,
           startTime,
@@ -491,7 +503,7 @@ describe('UniswapV3Staker.unit', async () => {
         ).deploy()
 
         const incentiveId = await idGetter.getIncentiveId(
-          wallet.address,
+          incentiveCreator.address,
           rewardToken.address,
           pool01,
           startTime,
@@ -535,59 +547,54 @@ describe('UniswapV3Staker.unit', async () => {
   describe('#unstakeToken', () => {
     let tokenId: string
     let subject
-
     let rewardToken: TestERC20
-    let otherRewardToken: TestERC20
     let startTime: number
     let endTime: number
     let claimDeadline: number
-    let totalReward: BigNumber
-    let stake
-    let stakeParams
 
     beforeEach(async () => {
       const currentTime = await blockTimestamp()
-      rewardToken = tokens[1]
-      otherRewardToken = tokens[2]
+      rewardToken = tokens[2]
       startTime = currentTime
       endTime = currentTime + 100
-      claimDeadline = currentTime + 1000
-      totalReward = BNe18(1000)
+      claimDeadline = currentTime + 200
 
-      tokenId = await mintPosition(nft, {
-        token0: tokens[1].address,
-        token1: tokens[2].address,
+      await rewardToken
+        .connect(wallets[0])
+        .transfer(incentiveCreator.address, totalReward)
+
+      await rewardToken
+        .connect(incentiveCreator)
+        .approve(staker.address, totalReward)
+
+      await staker.connect(incentiveCreator).createIncentive({
+        pool: pool01,
+        rewardToken: rewardToken.address,
+        totalReward,
+        startTime,
+        endTime,
+        claimDeadline,
+      })
+
+      tokenId = await mintPosition(nft.connect(wallets[0]), {
+        token0: tokens[0].address,
+        token1: tokens[1].address,
         fee: FeeAmount.MEDIUM,
         tickLower: getMinTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
         tickUpper: getMaxTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
         recipient: wallet.address,
-        amount0Desired: BN(10).mul(BN(10).pow(18)),
-        amount1Desired: BN(10).mul(BN(10).pow(18)),
+        amount0Desired: BNe18(10),
+        amount1Desired: BNe18(10),
         amount0Min: 0,
         amount1Min: 0,
         deadline: claimDeadline,
       })
 
       await nft.approve(staker.address, tokenId, { gasLimit: MAX_GAS_LIMIT })
+      await staker.connect(wallets[0]).depositToken(tokenId)
 
-      await staker.depositToken(tokenId)
-
-      const creator = wallet.address
-
-      await rewardToken.approve(staker.address, totalReward)
-      await tokens[0].approve(staker.address, totalReward)
-
-      await staker.createIncentive({
-        rewardToken: rewardToken.address,
-        pool: pool12,
-        startTime,
-        endTime,
-        claimDeadline,
-        totalReward,
-      })
-
-      await staker.stakeToken({
-        creator,
+      await staker.connect(wallets[0]).stakeToken({
+        creator: incentiveCreator.address,
         rewardToken: rewardToken.address,
         tokenId,
         startTime,
@@ -596,8 +603,8 @@ describe('UniswapV3Staker.unit', async () => {
       })
 
       subject = ({ to }) =>
-        staker.unstakeToken({
-          creator,
+        staker.connect(wallets[0]).unstakeToken({
+          creator: incentiveCreator.address,
           rewardToken: rewardToken.address,
           tokenId,
           startTime,
@@ -642,7 +649,6 @@ describe('UniswapV3Staker.unit', async () => {
     let startTime: number
     let endTime: number
     let claimDeadline: number
-    let totalReward: BigNumber
     let data: string
 
     beforeEach(async () => {
@@ -652,9 +658,8 @@ describe('UniswapV3Staker.unit', async () => {
       startTime = currentTime
       endTime = currentTime + 100
       claimDeadline = currentTime + 1000
-      totalReward = BNe18(1000)
 
-      tokenId = await mintPosition(nft, {
+      tokenId = await mintPosition(nft.connect(wallets[0]), {
         token0: tokens[0].address,
         token1: tokens[1].address,
         fee: FeeAmount.MEDIUM,
@@ -668,10 +673,12 @@ describe('UniswapV3Staker.unit', async () => {
         deadline: (await blockTimestamp()) + 1000,
       })
 
-      const creator = wallet.address
+      await rewardToken.transfer(incentiveCreator.address, totalReward)
+      await rewardToken
+        .connect(incentiveCreator)
+        .approve(staker.address, totalReward)
 
-      await rewardToken.approve(staker.address, totalReward)
-      await staker.createIncentive({
+      await staker.connect(incentiveCreator).createIncentive({
         pool: pool01,
         rewardToken: rewardToken.address,
         totalReward,
@@ -681,7 +688,7 @@ describe('UniswapV3Staker.unit', async () => {
       })
 
       const stakeParams = {
-        creator,
+        creator: incentiveCreator.address,
         rewardToken: rewardToken.address,
         tokenId,
         startTime,
@@ -699,9 +706,13 @@ describe('UniswapV3Staker.unit', async () => {
       it('deposits the token', async () => {
         expect((await staker.deposits(1)).owner).to.equal(constants.AddressZero)
         await nft['safeTransferFrom(address,address,uint256)'](
-          wallet.address,
+          wallets[0].address,
           staker.address,
-          tokenId
+          tokenId,
+          {
+            gasLimit: MAX_GAS_LIMIT,
+            from: wallets[0].address,
+          }
         )
         expect((await staker.deposits(1)).owner).to.equal(wallet.address)
       })
@@ -712,7 +723,7 @@ describe('UniswapV3Staker.unit', async () => {
         ).deploy()
 
         const incentiveId = await idGetter.getIncentiveId(
-          wallet.address,
+          incentiveCreator.address,
           rewardToken.address,
           pool01,
           startTime,
@@ -723,10 +734,14 @@ describe('UniswapV3Staker.unit', async () => {
         const stakeBefore = await staker.stakes(tokenId, incentiveId)
         const depositBefore = await staker.deposits(tokenId)
         await nft['safeTransferFrom(address,address,uint256,bytes)'](
-          wallet.address,
+          wallets[0].address,
           staker.address,
           tokenId,
-          data
+          data,
+          {
+            gasLimit: MAX_GAS_LIMIT,
+            from: wallets[0].address,
+          }
         )
         const stakeAfter = await staker.stakes(tokenId, incentiveId)
 
@@ -741,10 +756,14 @@ describe('UniswapV3Staker.unit', async () => {
       it('has gas cost', async () => {
         await snapshotGasCost(
           nft['safeTransferFrom(address,address,uint256,bytes)'](
-            wallet.address,
+            wallets[0].address,
             staker.address,
             tokenId,
-            data
+            data,
+            {
+              gasLimit: MAX_GAS_LIMIT,
+              from: wallets[0].address,
+            }
           )
         )
       })
@@ -753,13 +772,18 @@ describe('UniswapV3Staker.unit', async () => {
     describe('on invalid call', async () => {
       it('reverts when called by contract other than uniswap v3 nonfungiblePositionManager', async () => {
         await expect(
-          staker.onERC721Received(wallet.address, wallet.address, 1, data)
+          staker.onERC721Received(
+            incentiveCreator.address,
+            wallet.address,
+            1,
+            data
+          )
         ).to.be.revertedWith('uniswap v3 nft only')
       })
 
       it('reverts when staking on invalid incentive', async () => {
         const invalidStakeParams = {
-          creator: wallet.address,
+          creator: incentiveCreator.address,
           rewardToken: rewardToken.address,
           tokenId,
           startTime: 100,
@@ -787,6 +811,7 @@ describe('UniswapV3Staker.unit', async () => {
     it('is implemented', async () => {
       const rewardToken = tokens[2]
       const currentTime = await blockTimestamp()
+
       const tokenId = await mintPosition(nft, {
         token0: tokens[0].address,
         token1: tokens[1].address,
@@ -794,14 +819,16 @@ describe('UniswapV3Staker.unit', async () => {
         tickLower: getMinTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
         tickUpper: getMaxTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
         recipient: wallet.address,
-        amount0Desired: BN(10).mul(BN(10).pow(18)),
-        amount1Desired: BN(10).mul(BN(10).pow(18)),
+        amount0Desired: BNe18(10),
+        amount1Desired: BNe18(10),
         amount0Min: 0,
         amount1Min: 0,
         deadline: currentTime + 10_000,
       })
-      await nft.approve(staker.address, tokenId)
-      await rewardToken.approve(staker.address, BNe18(5))
+      await rewardToken.transfer(wallet.address, BNe18(5))
+      await nft.connect(wallet).approve(staker.address, tokenId)
+      await rewardToken.connect(wallet).approve(staker.address, BNe18(5))
+
       const createIncentiveTx = staker.interface.encodeFunctionData(
         'createIncentive',
         [
@@ -818,7 +845,9 @@ describe('UniswapV3Staker.unit', async () => {
       const depositTx = staker.interface.encodeFunctionData('depositToken', [
         tokenId,
       ])
-      await staker.multicall([createIncentiveTx, depositTx])
+      await staker.connect(wallet).multicall([createIncentiveTx, depositTx], {
+        gasLimit: MAX_GAS_LIMIT,
+      })
       expect((await staker.deposits(tokenId)).owner).to.eq(wallet.address)
     })
   })
