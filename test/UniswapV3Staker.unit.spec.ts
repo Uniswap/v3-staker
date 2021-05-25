@@ -40,7 +40,7 @@ describe('UniswapV3Staker.unit', async () => {
   const incentiveCreator = actors.incentiveCreator()
 
   // The account the collects the reward token
-  const rewardClaimer = actors.lpUser0()
+  const lpUser0 = actors.lpUser0()
 
   // Default total reward for incentive
   const totalReward = BNe18(100)
@@ -630,7 +630,7 @@ describe('UniswapV3Staker.unit', async () => {
       it('has gas cost', async () => {
         await snapshotGasCost(subject())
       })
-      it.only('updates the reward available for the staker', async () => {
+      it('updates the reward available for the staker', async () => {
         const rewardsAccured = await staker.rewards(
           rewardToken.address,
           rewardClaimer.address
@@ -868,58 +868,108 @@ describe('UniswapV3Staker.unit', async () => {
     })
   })
 
-  describe.skip('#claimReward', () => {
+  describe.only('#claimReward', () => {
     let rewardToken: TestERC20
-    let rewardClaimable: BigNumber
+    let startTime;
+    let endTime;
+    let claimDeadline;
+    let tokenId;
 
     beforeEach('setup', async () => {
-      rewardToken = tokens[0]
-      rewardClaimable = BNe18(10)
+      const currentTime = await blockTimestamp()
+      rewardToken = tokens[2]
+      startTime = currentTime
+      endTime = currentTime + 100
+      claimDeadline = currentTime + 200
 
-      await rewardToken.transfer(staker.address, 100)
+      await rewardToken
+        .connect(lpUser0)
+        .transfer(incentiveCreator.address, totalReward)
 
-      subject = ({ token, actor = rewardClaimer }) =>
+      await rewardToken
+        .connect(incentiveCreator)
+        .approve(staker.address, totalReward)
+
+      await staker.connect(incentiveCreator).createIncentive({
+        pool: pool01,
+        rewardToken: rewardToken.address,
+        totalReward,
+        startTime,
+        endTime,
+        claimDeadline,
+      })
+
+      tokenId = await mintPosition(nft.connect(lpUser0), {
+        token0: tokens[0].address,
+        token1: tokens[1].address,
+        fee: FeeAmount.MEDIUM,
+        tickLower: getMinTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
+        tickUpper: getMaxTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
+        recipient: wallet.address,
+        amount0Desired: BNe18(10),
+        amount1Desired: BNe18(10),
+        amount0Min: 0,
+        amount1Min: 0,
+        deadline: claimDeadline,
+      })
+
+      await nft.approve(staker.address, tokenId, { gasLimit: MAX_GAS_LIMIT })
+      await staker.connect(lpUser0).depositToken(tokenId)
+
+      await staker.connect(lpUser0).stakeToken({
+        creator: incentiveCreator.address,
+        rewardToken: rewardToken.address,
+        tokenId,
+        startTime,
+        endTime,
+        claimDeadline,
+      })
+
+      await staker.connect(lpUser0).unstakeToken({
+        creator: incentiveCreator.address,
+        rewardToken: rewardToken.address,
+        tokenId,
+        startTime,
+        endTime,
+        claimDeadline
+      })
+
+      subject = ({ token, actor = lpUser0 }) =>
         staker.connect(actor).claimReward(token, actor.address)
     })
 
     it('emits RewardClaimed event', async () => {
       const claimable = await staker.rewards(
         rewardToken.address,
-        rewardClaimer.address
+        lpUser0.address
       )
       await expect(
-        subject({ token: rewardToken.address, actor: rewardClaimer })
+        subject({ token: rewardToken.address, actor: lpUser0 })
       )
         .to.emit(staker, 'RewardClaimed')
-        .withArgs(rewardClaimer.address, claimable)
+        .withArgs(lpUser0.address, claimable)
     })
 
-    it('fails if the reward amount is 0', async () => {
-      await expect(subject({ token: rewardToken.address })).to.be.revertedWith(
-        'NO_REWARDS_AVAILABLE'
-      )
-    })
-
-    it('transfers the reward amount to the msg.sender', async () => {
+    it('transfers the correct reward amount to destination address', async () => {
       const claimable = await staker.rewards(
         rewardToken.address,
-        rewardClaimer.address
+        lpUser0.address
       )
       await subject({ token: rewardToken.address })
-      expect(await rewardToken.balanceOf(rewardClaimer.address)).to.be.equal(
+      expect(await rewardToken.balanceOf(lpUser0.address)).to.be.equal(
         claimable
       )
     })
 
     it('sets the claimed reward amount to zero', async () => {
       expect(
-        await staker.rewards(rewardToken.address, rewardClaimer.address)
+        await staker.rewards(rewardToken.address, lpUser0.address)
       ).to.be.not.equal(BNe18(0))
 
-      await subject({ token: rewardToken.address })
+      await subject({ token: rewardToken.address, actor: lpUser0 })
 
       expect(
-        await staker.rewards(rewardToken.address, rewardClaimer.address)
+        await staker.rewards(rewardToken.address, lpUser0.address)
       ).to.be.equal(BNe18(0))
     })
   })
