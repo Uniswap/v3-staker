@@ -551,6 +551,7 @@ describe('UniswapV3Staker.integration', async () => {
 
   it('complex scenarios', async () => {
     const { staker, nft, pool01 } = ctx
+    const incentiveCreator = actors.incentiveCreator()
     const rewardToken = ctx.tokens[2]
 
     const helpers = new HelperCommands(
