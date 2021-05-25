@@ -612,7 +612,7 @@ describe('UniswapV3Staker.unit', async () => {
           tokenId,
           startTime,
           endTime,
-          claimDeadline
+          claimDeadline,
         })
     })
 
@@ -635,15 +635,7 @@ describe('UniswapV3Staker.unit', async () => {
           rewardToken.address,
           lpUser0.address
         )
-        console.log(rewardsAccured)
-        const time = await blockTimestamp()
-        await provider.send('evm_setNextBlockTimestamp', [time + 100])
         await subject()
-        console.log(await staker.rewards(
-          rewardToken.address,
-          lpUser0.address
-        ))
-
         expect(
           await staker.rewards(rewardToken.address, lpUser0.address)
         ).to.be.gt(rewardsAccured)
@@ -870,10 +862,10 @@ describe('UniswapV3Staker.unit', async () => {
 
   describe('#claimReward', () => {
     let rewardToken: TestERC20
-    let startTime;
-    let endTime;
-    let claimDeadline;
-    let tokenId;
+    let startTime: number
+    let endTime: number
+    let claimDeadline: number
+    let tokenId: string
 
     beforeEach('setup', async () => {
       const currentTime = await blockTimestamp()
@@ -882,8 +874,14 @@ describe('UniswapV3Staker.unit', async () => {
       endTime = currentTime + 100
       claimDeadline = currentTime + 200
 
+      await tokens[0].connect(wallets[0]).transfer(lpUser0.address, 100)
+      await tokens[1].connect(wallets[0]).transfer(lpUser0.address, 100)
+
+      await tokens[0].connect(lpUser0).approve(nft.address, 100)
+      await tokens[1].connect(lpUser0).approve(nft.address, 100)
+
       await rewardToken
-        .connect(lpUser0)
+        .connect(wallets[0])
         .transfer(incentiveCreator.address, totalReward)
 
       await rewardToken
@@ -905,15 +903,17 @@ describe('UniswapV3Staker.unit', async () => {
         fee: FeeAmount.MEDIUM,
         tickLower: getMinTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
         tickUpper: getMaxTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
-        recipient: wallet.address,
-        amount0Desired: BNe18(10),
-        amount1Desired: BNe18(10),
+        recipient: lpUser0.address,
+        amount0Desired: 10,
+        amount1Desired: 10,
         amount0Min: 0,
         amount1Min: 0,
         deadline: claimDeadline,
       })
 
-      await nft.approve(staker.address, tokenId, { gasLimit: MAX_GAS_LIMIT })
+      await nft
+        .connect(lpUser0)
+        .approve(staker.address, tokenId, { gasLimit: MAX_GAS_LIMIT })
       await staker.connect(lpUser0).depositToken(tokenId)
 
       await staker.connect(lpUser0).stakeToken({
@@ -931,7 +931,7 @@ describe('UniswapV3Staker.unit', async () => {
         tokenId,
         startTime,
         endTime,
-        claimDeadline
+        claimDeadline,
       })
 
       subject = ({ token, actor = lpUser0 }) =>
@@ -943,9 +943,7 @@ describe('UniswapV3Staker.unit', async () => {
         rewardToken.address,
         lpUser0.address
       )
-      await expect(
-        subject({ token: rewardToken.address, actor: lpUser0 })
-      )
+      await expect(subject({ token: rewardToken.address, actor: lpUser0 }))
         .to.emit(staker, 'RewardClaimed')
         .withArgs(lpUser0.address, claimable)
     })
@@ -964,13 +962,13 @@ describe('UniswapV3Staker.unit', async () => {
     it('sets the claimed reward amount to zero', async () => {
       expect(
         await staker.rewards(rewardToken.address, lpUser0.address)
-      ).to.be.not.equal(BNe18(0))
+      ).to.be.not.equal(0)
 
       await subject({ token: rewardToken.address, actor: lpUser0 })
 
       expect(
         await staker.rewards(rewardToken.address, lpUser0.address)
-      ).to.be.equal(BNe18(0))
+      ).to.be.equal(0)
     })
   })
 
