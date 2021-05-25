@@ -64,7 +64,7 @@
   },
   "scripts": {
     "compile": "hardhat compile",
-    "test": "TS_NODE_TRANSPILE_ONLY=1 hardhat test",
+    "test": "hardhat test",
     "compile-uniswap": "hardhat compile-uniswap",
     "postinstall": "yarn compile-uniswap",
     "test:unit": "yarn test test/*.unit.spec.ts",

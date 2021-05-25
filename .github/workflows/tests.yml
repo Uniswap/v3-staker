@@ -38,7 +38,5 @@ jobs:
       # - name: Compile Uniswap V3 types
       #   run: yarn compile-uniswap-contract-types
 
-      - name: Run unit tests
-        run: "yarn test:unit"
-      - name: Run integration tests
-        run: "yarn test:integration"
+      - name: Run tests
+        run: yarn test
