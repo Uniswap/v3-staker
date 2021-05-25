@@ -16,7 +16,8 @@ import {
   INonfungiblePositionManager,
   IUniswapV3Factory,
 } from '../../typechain'
-import { FeeAmount, BigNumber, encodePriceSqrt } from '../shared'
+import { FeeAmount, BigNumber, encodePriceSqrt, MAX_GAS_LIMIT } from '../shared'
+import { ActorFixture } from './actors'
 
 type IWETH9 = any
 type ISwapRouter = any
@@ -125,13 +126,15 @@ export const uniswapFactoryFixture: Fixture<UniswapFactoryFixture> = async (
     [tokens[0].address]
   )
 
-  const nft = await waffle.deployContract(
-    wallets[0],
-    {
-      bytecode: MockTimeNonfungiblePositionManager.bytecode,
-      abi: MockTimeNonfungiblePositionManager.abi,
-    },
-    [factory.address, weth9.address, positionDescriptor.address]
+  const nftFactory = new ethers.ContractFactory(
+    MockTimeNonfungiblePositionManager.abi,
+    MockTimeNonfungiblePositionManager.bytecode,
+    wallets[0]
+  )
+  const nft = await nftFactory.deploy(
+    factory.address,
+    weth9.address,
+    positionDescriptor.address
   )
 
   tokens.sort((a, b) =>
@@ -169,19 +172,24 @@ export const mintPosition = async (
   let tokenId: BigNumber | undefined
 
   const receipt = await (
-    await nft.mint({
-      token0: mintParams.token0,
-      token1: mintParams.token1,
-      fee: mintParams.fee,
-      tickLower: mintParams.tickLower,
-      tickUpper: mintParams.tickUpper,
-      recipient: mintParams.recipient,
-      amount0Desired: mintParams.amount0Desired,
-      amount1Desired: mintParams.amount1Desired,
-      amount0Min: mintParams.amount0Min,
-      amount1Min: mintParams.amount1Min,
-      deadline: mintParams.deadline,
-    })
+    await nft.mint(
+      {
+        token0: mintParams.token0,
+        token1: mintParams.token1,
+        fee: mintParams.fee,
+        tickLower: mintParams.tickLower,
+        tickUpper: mintParams.tickUpper,
+        recipient: mintParams.recipient,
+        amount0Desired: mintParams.amount0Desired,
+        amount1Desired: mintParams.amount1Desired,
+        amount0Min: mintParams.amount0Min,
+        amount1Min: mintParams.amount1Min,
+        deadline: mintParams.deadline,
+      },
+      {
+        gasLimit: MAX_GAS_LIMIT,
+      }
+    )
   ).wait()
 
   for (let i = 0; i < receipt.logs.length; i++) {
@@ -217,7 +225,11 @@ export const uniswapFixture: Fixture<{
     wallets,
     provider
   )
-  const stakerFactory = await ethers.getContractFactory('UniswapV3Staker')
+  const signer = new ActorFixture(wallets, provider).stakerDeployer()
+  const stakerFactory = await ethers.getContractFactory(
+    'UniswapV3Staker',
+    signer
+  )
   const staker = (await stakerFactory.deploy(
     factory.address,
     nft.address
