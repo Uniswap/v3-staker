@@ -2,6 +2,7 @@ import { Fixture } from 'ethereum-waffle'
 import { constants } from 'ethers'
 import { ethers, waffle } from 'hardhat'
 
+import UniswapV3Pool from '@uniswap/v3-core/artifacts/contracts/UniswapV3Pool.sol/UniswapV3Pool.json'
 import UniswapV3FactoryJson from '@uniswap/v3-core/artifacts/contracts/UniswapV3Factory.sol/UniswapV3Factory.json'
 import NFTDescriptor from '@uniswap/v3-periphery/artifacts/contracts/libraries/NFTDescriptor.sol/NFTDescriptor.json'
 import MockTimeNonfungiblePositionManager from '@uniswap/v3-periphery/artifacts/contracts/NonfungiblePositionManager.sol/NonfungiblePositionManager.json'
@@ -268,3 +269,8 @@ export const uniswapFixture: Fixture<{
 
   return { nft, router, tokens, staker, factory, pool01, pool12, fee }
 }
+
+export const poolFactory = new ethers.ContractFactory(
+  UniswapV3Pool.abi,
+  UniswapV3Pool.bytecode
+)

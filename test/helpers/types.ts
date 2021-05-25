@@ -9,6 +9,7 @@ export module HelperTypes {
       rewardToken: TestERC20
       totalReward: BigNumber
       poolAddress: string
+      startTime: number
     }
     export type Result = {
       poolAddress: string
@@ -29,7 +30,6 @@ export module HelperTypes {
       tokensToStake: [TestERC20, TestERC20]
       amountsToStake: [BigNumber, BigNumber]
       ticks: [number, number]
-      timeToStake: number
       createIncentiveResult: CreateIncentive.Result
     }
 

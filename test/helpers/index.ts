@@ -47,7 +47,7 @@ export class HelperCommands {
    *  Transfers `rewardToken` to `incentiveCreator` if they do not have sufficient blaance.
    */
   createIncentiveFlow: HelperTypes.CreateIncentive.Command = async (params) => {
-    const startTime = await blockTimestamp()
+    const { startTime } = params
     const incentiveCreator = this.actors.incentiveCreator()
     const times = {
       startTime,
