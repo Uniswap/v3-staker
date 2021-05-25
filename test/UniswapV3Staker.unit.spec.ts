@@ -630,8 +630,7 @@ describe('UniswapV3Staker.unit', async () => {
       it('has gas cost', async () => {
         await snapshotGasCost(subject({ to: recipient }))
       })
-
-      it('transfers the right amount of the reward token')
+      it('updates the reward available for the staker')
       it('calculates the right secondsPerLiquidity')
       it('does not overflow totalSecondsUnclaimed')
     })
@@ -850,6 +849,14 @@ describe('UniswapV3Staker.unit', async () => {
       })
       expect((await staker.deposits(tokenId)).owner).to.eq(wallet.address)
     })
+  })
+
+  describe('#claimReward', () => {
+    it('emits RewardClaimed event')
+    it('fails if the reward address is 0')
+    it('fails if the reward amount is 0')
+    it('transfers the reward amount to the msg.sender')
+    it('sets the claimed reward amount to zero')
   })
 
   describe('#getPositionDetails', () => {
