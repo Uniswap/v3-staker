@@ -547,7 +547,7 @@ describe('UniswapV3Staker.unit', async () => {
     })
   })
 
-  describe.only('#unstakeToken', () => {
+  describe('#unstakeToken', () => {
     let tokenId: string
     let subject
     let rewardToken: TestERC20
