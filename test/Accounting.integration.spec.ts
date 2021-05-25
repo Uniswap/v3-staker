@@ -22,6 +22,8 @@ import {
   MaxUint256,
   encodePath,
   MAX_GAS_LIMIT,
+  maxGas,
+  BN,
 } from './shared'
 import { Fixture } from 'ethereum-waffle'
 
@@ -533,53 +535,140 @@ describe('UniswapV3Staker.integration', async () => {
       amount1Max: tokensOwed1,
     })
 
-    await nft.connect(lpUser0).burn(ctx.tokenIds[0], {
-      gasLimit: MAX_GAS_LIMIT,
-    })
+    await nft.connect(lpUser0).burn(ctx.tokenIds[0], maxGas)
 
     let newBalance = await rewardToken
       .connect(lpUser0)
       .balanceOf(lpUser0.address)
 
     console.info('✅ Token0 burn complete')
+  })
 
-    type MegaOperationParams = {
+  it('complex scenarios', async () => {
+    const incentiveCreator = actors.incentiveCreator()
+    const { staker } = ctx
+    const rewardToken = ctx.tokens[2]
+
+    type CreateIncentiveArgs = {
+      rewardToken: TestERC20
+      totalReward: BigNumber
+      poolAddress: string
+    }
+    type CreateIncentiveResult = {
+      poolAddress: string
+      rewardToken: TestERC20
+      totalReward: BigNumber
+      startTime: number
+      endTime: number
+      claimDeadline: number
+      creatorAddress: string
+    }
+
+    type FlowHelper<Input, Output> = (input: Input) => Promise<Output>
+
+    const incentiveLookupAdapter: (
+      params: CreateIncentiveResult & { tokenId: string }
+    ) => {
+      creator: string
+      rewardToken: TestERC20
+      tokenId: string
+      startTime: number
+      endTime: number
+      claimDeadline: number
+    } = (params) =>
+      _.assign(
+        _.pick(params, [
+          'tokenId',
+          'startTime',
+          'endTime',
+          'claimDeadline',
+          'rewardToken',
+        ]),
+        {
+          creator: params.creatorAddress,
+        }
+      )
+
+    // Mega Helpers
+    const createIncentiveFlow: FlowHelper<
+      CreateIncentiveArgs,
+      CreateIncentiveResult
+    > = async (params) => {
+      const startTime = await blockTimestamp()
+      const times = {
+        startTime,
+        endTime: startTime + 2000,
+        claimDeadline: startTime + 3000,
+      }
+      const bal = await params.rewardToken.balanceOf(incentiveCreator.address)
+
+      if (bal < params.totalReward) {
+        await params.rewardToken.transfer(
+          incentiveCreator.address,
+          params.totalReward
+        )
+      }
+
+      await params.rewardToken
+        .connect(incentiveCreator)
+        .approve(staker.address, params.totalReward)
+
+      await staker.connect(incentiveCreator).createIncentive({
+        pool: params.poolAddress,
+        rewardToken: params.rewardToken.address,
+        totalReward: params.totalReward,
+        ...times,
+      })
+
+      return {
+        ..._.pick(params, ['poolAddress', 'totalReward', 'rewardToken']),
+        ...times,
+        creatorAddress: incentiveCreator.address,
+      }
+    }
+
+    type MintStakeArgs = {
       lp: Wallet
       tokensToStake: [TestERC20, TestERC20]
       amountsToStake: [BigNumber, BigNumber]
       ticks: [number, number]
       timeToStake: number
+      createIncentiveResult: CreateIncentiveResult
+    }
+    type MintStakeResult = {
+      tokenId: string
     }
 
-    const mintStake = async (params: MegaOperationParams) => {
-      const result = {
-        tokenId: undefined as any,
-      }
+    const mintDepositStakeFlow: FlowHelper<
+      MintStakeArgs,
+      MintStakeResult
+    > = async (params) => {
+      const { nft } = ctx
 
       // Make sure LP has enough balance
       const tokensOwner = actors.tokensOwner()
-      const bal0 = await tok0.balanceOf(params.lp.address)
-      const bal1 = await tok1.balanceOf(params.lp.address)
-
-      if (bal0 < BigNumber.from(params.amountsToStake[0]))
-        await tok0
-          .connect(tokensOwner)
+      const bal0 = await params.tokensToStake[0].balanceOf(params.lp.address)
+      if (bal0 < params.amountsToStake[0])
+        await params.tokensToStake[0]
+          // .connect(tokensOwner)
           .transfer(params.lp.address, params.amountsToStake[0])
-      if (bal1 < BigNumber.from(params.amountsToStake[1]))
-        await tok1
-          .connect(tokensOwner)
+
+      const bal1 = await params.tokensToStake[1].balanceOf(params.lp.address)
+      if (bal1 < params.amountsToStake[1])
+        await params.tokensToStake[1]
+          // .connect(tokensOwner)
           .transfer(params.lp.address, params.amountsToStake[1])
 
-      // Make sure LP has authorized staker
-      await tok0
+      // Make sure LP has authorized NFT to withdraw
+      await params.tokensToStake[0]
         .connect(params.lp)
-        .approve(staker.address, params.amountsToStake[0])
-      await tok1
+        .approve(nft.address, params.amountsToStake[0])
+      await params.tokensToStake[1]
         .connect(params.lp)
-        .approve(staker.address, params.amountsToStake[1])
+        .approve(nft.address, params.amountsToStake[1])
 
       // The LP mints their NFT
-      result.tokenId = await mintPosition(nft.connect(params.lp), {
+      const tokenId = await mintPosition(nft.connect(params.lp), {
         token0: params.tokensToStake[0].address,
         token1: params.tokensToStake[1].address,
         fee: FeeAmount.MEDIUM,
@@ -590,67 +679,135 @@ describe('UniswapV3Staker.integration', async () => {
         amount1Desired: params.amountsToStake[1],
         amount0Min: 0,
         amount1Min: 0,
-        deadline: (await blockTimestamp()) + 10000,
+        deadline: (await blockTimestamp()) + 1000,
       })
+
+      // Make sure LP has authorized staker
+      await params.tokensToStake[0]
+        .connect(params.lp)
+        .approve(staker.address, params.amountsToStake[0])
+      await params.tokensToStake[1]
+        .connect(params.lp)
+        .approve(staker.address, params.amountsToStake[1])
+
+      // The LP approves and stakes their NFT
+
+      await nft.connect(params.lp).approve(staker.address, tokenId)
+      await staker.connect(params.lp).depositToken(tokenId, maxGas)
+      await staker.connect(params.lp).stakeToken({
+        ...incentiveLookupAdapter({
+          ...params.createIncentiveResult,
+          tokenId,
+        }),
+        rewardToken: params.createIncentiveResult.rewardToken.address,
+      })
+
+      return {
+        tokenId,
+      }
     }
 
-    const unstakeCollectBurn = (params) => {
-      // TODO
+    type UnstakeCollectBurnArgs = {
+      lp: Wallet
+      tokenId: string
+      createIncentiveResult: CreateIncentiveResult
+    }
+    type UnstakeCollectBurnResult = {}
+    const unstakeCollectBurnFlow: FlowHelper<
+      UnstakeCollectBurnArgs,
+      UnstakeCollectBurnResult
+    > = async (params) => {
+      const { nft } = ctx
+
+      await staker.connect(params.lp).unstakeToken(
+        {
+          ...incentiveLookupAdapter({
+            ...params.createIncentiveResult,
+            tokenId: params.tokenId,
+          }),
+          rewardToken: params.createIncentiveResult.rewardToken.address,
+          to: params.lp.address,
+        },
+        maxGas
+      )
+
+      await staker
+        .connect(params.lp)
+        .withdrawToken(params.tokenId, params.lp.address, maxGas)
+
+      const { liquidity } = await ctx.nft
+        .connect(params.lp)
+        .positions(params.tokenId)
+
+      console.info('decreaseeLiquidity')
+      await nft.connect(params.lp).decreaseLiquidity(
+        {
+          tokenId: params.tokenId,
+          liquidity,
+          amount0Min: 0,
+          amount1Min: 0,
+          deadline: (await blockTimestamp()) + 1000,
+        },
+        maxGas
+      )
+
+      const { tokensOwed0, tokensOwed1 } = await ctx.nft
+        .connect(params.lp)
+        .positions(params.tokenId)
+
+      await nft.connect(params.lp).collect(
+        {
+          tokenId: params.tokenId,
+          recipient: params.lp.address,
+          amount0Max: tokensOwed0,
+          amount1Max: tokensOwed1,
+        },
+        maxGas
+      )
+
+      await nft.connect(params.lp).burn(params.tokenId, maxGas)
+
+      let newBalance = await rewardToken
+        .connect(params.lp)
+        .balanceOf(params.lp.address)
+
+      console.info('✅ Token burn complete')
+      return {
+        newBalance,
+      }
     }
 
-    // await setTime(time + 500)
-    // await staker.connect(lpUser0).unstakeToken(
-    //   {
-    //     ...incentiveParams,
-    //     tokenId: ctx.tokenIds[1],
-    //     creator: incentiveCreator.address,
-    //     to: lpUser0.address,
-    //   },
-    //   { gasLimit: MAX_GAS_LIMIT }
-    // )
-    // await staker.connect(lpUser0).withdrawToken(tokenId1, lpUser0.address)
+    const createIncentiveResult = await createIncentiveFlow({
+      rewardToken,
+      poolAddress: ctx.pool01,
+      totalReward: BNe18(100),
+    })
 
-    // position = await nft.positions(tokenId1)
-    // await nft.decreaseLiquidity(
-    //   {
-    //     tokenId: tokenId1,
-    //     liquidity: position[7],
-    //     amount0Min: 0,
-    //     amount1Min: 0,
-    //     deadline: time + 1000,
-    //   },
-    //   { gasLimit: MAX_GAS_LIMIT }
-    // )
-    // await nft.burn(tokenId1)
+    // lpUser0 stakes from 0 - MAX
+    const { tokenId: lp0token0 } = await mintDepositStakeFlow({
+      lp: actors.lpUser0(),
+      tokensToStake: [ctx.tokens[0], ctx.tokens[1]],
+      amountsToStake: [BNe18(2), BNe18(2)],
+      ticks: [0, getMaxTick(TICK_SPACINGS[FeeAmount.MEDIUM])],
+      timeToStake: 1234,
+      createIncentiveResult,
+    })
 
-    // newBalance = await rewardToken.connect(lpUser0).balanceOf(lpUser0.address)
+    // lpUser1 stakes from MIN - 0
+    const { tokenId: lp1token0 } = await mintDepositStakeFlow({
+      lp: actors.lpUser1(),
+      tokensToStake: [ctx.tokens[0], ctx.tokens[1]],
+      amountsToStake: [BNe18(2), BNe18(2)],
+      ticks: [getMinTick(TICK_SPACINGS[FeeAmount.MEDIUM]), 0],
+      timeToStake: 1234,
+      createIncentiveResult,
+    })
 
-    // await setTime(time + 600)
-
-    // await staker.connect(lpUser0).unstakeToken(
-    //   {
-    //     ...incentiveParams,
-    //     tokenId: ctx.tokenIds[2],
-    //     creator: incentiveCreator.address,
-    //     to: lpUser0.address,
-    //   },
-    //   { gasLimit: MAX_GAS_LIMIT }
-    // )
-    // await staker.connect(lpUser0).withdrawToken(tokenId2, lpUser0.address)
-
-    // position = await nft.positions(tokenId2)
-    // await nft.decreaseLiquidity(
-    //   {
-    //     tokenId: ctx.tokenIds[2],
-    //     liquidity: position[7],
-    //     amount0Min: 0,
-    //     amount1Min: 0,
-    //     deadline: time + 1000,
-    //   },
-    //   { gasLimit: MAX_GAS_LIMIT }
-    // )
-    // await nft.burn(tokenId2)
-
-    // newBalance = await rewardToken.connect(lpUser0).balanceOf(lpUser0.address)
+    // lpUser0 pulls out their liquidity
+    await unstakeCollectBurnFlow({
+      lp: actors.lpUser0(),
+      tokenId: lp0token0,
+      createIncentiveResult: createIncentiveResult,
+    })
   })
 })
