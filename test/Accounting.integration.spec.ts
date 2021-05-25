@@ -35,8 +35,6 @@ const setTime = async (blockTimestamp) => {
   return await provider.send('evm_setNextBlockTimestamp', [blockTimestamp])
 }
 
-type Address = string
-
 type TestContext = {
   tokens: [TestERC20, TestERC20, TestERC20]
   factory: IUniswapV3Factory
@@ -544,6 +542,61 @@ describe('UniswapV3Staker.integration', async () => {
       .balanceOf(lpUser0.address)
 
     console.info('✅ Token0 burn complete')
+
+    type MegaOperationParams = {
+      lp: Wallet
+      tokensToStake: [TestERC20, TestERC20]
+      amountsToStake: [BigNumber, BigNumber]
+      ticks: [number, number]
+      timeToStake: number
+    }
+
+    const mintStake = async (params: MegaOperationParams) => {
+      const result = {
+        tokenId: undefined as any,
+      }
+
+      // Make sure LP has enough balance
+      const tokensOwner = actors.tokensOwner()
+      const bal0 = await tok0.balanceOf(params.lp.address)
+      const bal1 = await tok1.balanceOf(params.lp.address)
+
+      if (bal0 < BigNumber.from(params.amountsToStake[0]))
+        await tok0
+          .connect(tokensOwner)
+          .transfer(params.lp.address, params.amountsToStake[0])
+      if (bal1 < BigNumber.from(params.amountsToStake[1]))
+        await tok1
+          .connect(tokensOwner)
+          .transfer(params.lp.address, params.amountsToStake[1])
+
+      // Make sure LP has authorized staker
+      await tok0
+        .connect(params.lp)
+        .approve(staker.address, params.amountsToStake[0])
+      await tok1
+        .connect(params.lp)
+        .approve(staker.address, params.amountsToStake[1])
+
+      // The LP mints their NFT
+      result.tokenId = await mintPosition(nft.connect(params.lp), {
+        token0: params.tokensToStake[0].address,
+        token1: params.tokensToStake[1].address,
+        fee: FeeAmount.MEDIUM,
+        tickLower: params.ticks[0],
+        tickUpper: params.ticks[1],
+        recipient: params.lp.address,
+        amount0Desired: params.amountsToStake[0],
+        amount1Desired: params.amountsToStake[1],
+        amount0Min: 0,
+        amount1Min: 0,
+        deadline: (await blockTimestamp()) + 10000,
+      })
+    }
+
+    const unstakeCollectBurn = (params) => {
+      // TODO
+    }
 
     // await setTime(time + 500)
     // await staker.connect(lpUser0).unstakeToken(
