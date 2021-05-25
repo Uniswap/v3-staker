@@ -39,6 +39,9 @@ describe('UniswapV3Staker.unit', async () => {
   // The account that has rewardToken and creates the incentive program
   const incentiveCreator = actors.incentiveCreator()
 
+  // The account the collects the reward token
+  const rewardClaimer = actors.lpUser0()
+
   // Default total reward for incentive
   const totalReward = BNe18(100)
 
@@ -544,7 +547,7 @@ describe('UniswapV3Staker.unit', async () => {
     })
   })
 
-  describe('#unstakeToken', () => {
+  describe.only('#unstakeToken', () => {
     let tokenId: string
     let subject
     let rewardToken: TestERC20
@@ -630,7 +633,13 @@ describe('UniswapV3Staker.unit', async () => {
       it('has gas cost', async () => {
         await snapshotGasCost(subject({ to: recipient }))
       })
-      it('updates the reward available for the staker')
+      it('updates the reward available for the staker', async () => {
+        const rewardsAccured = await staker.rewards(rewardToken.address, rewardClaimer.address)
+        await subject({ to: recipient })
+        expect(
+          await staker.rewards(rewardToken.address, rewardClaimer.address)
+        ).to.be.gt(rewardsAccured)
+      })
       it('calculates the right secondsPerLiquidity')
       it('does not overflow totalSecondsUnclaimed')
     })
@@ -851,12 +860,52 @@ describe('UniswapV3Staker.unit', async () => {
     })
   })
 
-  describe('#claimReward', () => {
-    it('emits RewardClaimed event')
-    it('fails if the reward address is 0')
-    it('fails if the reward amount is 0')
-    it('transfers the reward amount to the msg.sender')
-    it('sets the claimed reward amount to zero')
+  describe.only('#claimReward', () => {
+    let rewardToken: TestERC20
+    let rewardClaimable: BigNumber
+
+    beforeEach('setup', async () => {
+      rewardToken = tokens[0]
+      rewardClaimable = BNe18(10)
+
+      await rewardToken.transfer(staker.address, 100)
+
+      subject = ({ token, actor = rewardClaimer }) =>
+        staker.connect(actor).claimReward(token)
+    })
+
+    it('emits RewardClaimed event', async () => {
+      await expect(
+        subject({ token: rewardToken.address, actor: rewardClaimer })
+      )
+        .to.emit(staker, 'RewardClaimed')
+        .withArgs()
+    })
+
+    it('fails if the reward amount is 0', async () => {
+      await expect(subject({ token: rewardToken.address })).to.be.revertedWith(
+        'NO_REWARDS_AVAILABLE'
+      )
+    })
+
+    it('transfers the reward amount to the msg.sender', async () => {
+      await subject({ token: rewardToken.address })
+      expect(await rewardToken.balanceOf(rewardClaimer.address)).to.be.equal(
+        rewardClaimable
+      )
+    })
+
+    it('sets the claimed reward amount to zero', async () => {
+      expect(
+        await staker.rewards(rewardToken.address, rewardClaimer.address)
+      ).to.be.not.equal(BNe18(0))
+
+      await subject({ token: rewardToken.address })
+
+      expect(
+        await staker.rewards(rewardToken.address, rewardClaimer.address)
+      ).to.be.equal(BNe18(0))
+    })
   })
 
   describe('#getPositionDetails', () => {
