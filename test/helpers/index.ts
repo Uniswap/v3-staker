@@ -253,12 +253,12 @@ export class HelperCommands {
 
     await this.nft.connect(params.lp).burn(params.tokenId, maxGas)
 
-    let newBalance = params.createIncentiveResult.rewardToken
+    const balance = await params.createIncentiveResult.rewardToken
       .connect(params.lp)
       .balanceOf(params.lp.address)
 
     return {
-      newBalance,
+      balance,
     }
   }
 
