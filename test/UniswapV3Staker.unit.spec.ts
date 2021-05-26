@@ -966,8 +966,11 @@ describe('UniswapV3Staker.unit', async () => {
         rewardToken.address,
         lpUser0.address
       )
+      const balance = await rewardToken.balanceOf(lpUser0.address)
       await subject({ token: rewardToken.address })
-      expect(await rewardToken.balanceOf(lpUser0.address)).to.equal(claimable)
+      expect(await rewardToken.balanceOf(lpUser0.address)).to.equal(
+        balance.add(claimable)
+      )
     })
 
     it('sets the claimed reward amount to zero', async () => {
