@@ -2,25 +2,26 @@ import { Fixture } from 'ethereum-waffle'
 import { constants } from 'ethers'
 import { ethers, waffle } from 'hardhat'
 
+import UniswapV3Pool from '@uniswap/v3-core/artifacts/contracts/UniswapV3Pool.sol/UniswapV3Pool.json'
 import UniswapV3FactoryJson from '@uniswap/v3-core/artifacts/contracts/UniswapV3Factory.sol/UniswapV3Factory.json'
-import NFTDescriptor from '@uniswap/v3-periphery/artifacts/contracts/libraries/NFTDescriptor.sol/NFTDescriptor.json'
-import MockTimeNonfungiblePositionManager from '@uniswap/v3-periphery/artifacts/contracts/NonfungiblePositionManager.sol/NonfungiblePositionManager.json'
+import NFTDescriptorJson from '@uniswap/v3-periphery/artifacts/contracts/libraries/NFTDescriptor.sol/NFTDescriptor.json'
+import NonfungiblePositionManagerJson from '@uniswap/v3-periphery/artifacts/contracts/NonfungiblePositionManager.sol/NonfungiblePositionManager.json'
 import NonfungibleTokenPositionDescriptor from '@uniswap/v3-periphery/artifacts/contracts/NonfungibleTokenPositionDescriptor.sol/NonfungibleTokenPositionDescriptor.json'
 import SwapRouter from '@uniswap/v3-periphery/artifacts/contracts/SwapRouter.sol/SwapRouter.json'
 import WETH9 from '../contracts/WETH9.json'
 import { linkLibraries } from './linkLibraries'
-
+import { ISwapRouter } from '../../types/ISwapRouter'
+import { IWETH9 } from '../../types/IWETH9'
 import {
   UniswapV3Staker,
   TestERC20,
   INonfungiblePositionManager,
   IUniswapV3Factory,
 } from '../../typechain'
+import { NFTDescriptor } from '../../types/NFTDescriptor'
 import { FeeAmount, BigNumber, encodePriceSqrt, MAX_GAS_LIMIT } from '../shared'
 import { ActorFixture } from './actors'
 
-type IWETH9 = any
-type ISwapRouter = any
 type WETH9Fixture = { weth9: IWETH9 }
 
 export const wethFixture: Fixture<WETH9Fixture> = async (
@@ -61,23 +62,20 @@ export const v3RouterFixture: Fixture<{
   return { factory, weth9, router }
 }
 
-type MockTimeNonfungiblePositionManager = any
-
-type NFTDescriptorLibrary = any
-const nftDescriptorLibraryFixture: Fixture<NFTDescriptorLibrary> = async ([
+const nftDescriptorLibraryFixture: Fixture<NFTDescriptor> = async ([
   wallet,
 ]) => {
-  return await waffle.deployContract(wallet, {
-    bytecode: NFTDescriptor.bytecode,
-    abi: NFTDescriptor.abi,
-  })
+  return (await waffle.deployContract(wallet, {
+    bytecode: NFTDescriptorJson.bytecode,
+    abi: NFTDescriptorJson.abi,
+  })) as NFTDescriptor
 }
 
 type UniswapFactoryFixture = {
   weth9: IWETH9
   factory: IUniswapV3Factory
   router: ISwapRouter
-  nft: MockTimeNonfungiblePositionManager
+  nft: INonfungiblePositionManager
   tokens: [TestERC20, TestERC20, TestERC20]
 }
 
@@ -127,15 +125,15 @@ export const uniswapFactoryFixture: Fixture<UniswapFactoryFixture> = async (
   )
 
   const nftFactory = new ethers.ContractFactory(
-    MockTimeNonfungiblePositionManager.abi,
-    MockTimeNonfungiblePositionManager.bytecode,
+    NonfungiblePositionManagerJson.abi,
+    NonfungiblePositionManagerJson.bytecode,
     wallets[0]
   )
-  const nft = await nftFactory.deploy(
+  const nft = (await nftFactory.deploy(
     factory.address,
     weth9.address,
     positionDescriptor.address
-  )
+  )) as INonfungiblePositionManager
 
   tokens.sort((a, b) =>
     a.address.toLowerCase() < b.address.toLowerCase() ? -1 : 1
@@ -268,3 +266,8 @@ export const uniswapFixture: Fixture<{
 
   return { nft, router, tokens, staker, factory, pool01, pool12, fee }
 }
+
+export const poolFactory = new ethers.ContractFactory(
+  UniswapV3Pool.abi,
+  UniswapV3Pool.bytecode
+)
