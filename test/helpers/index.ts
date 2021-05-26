@@ -1,6 +1,6 @@
-import { ContractFactory } from 'ethers'
+import { ContractFactory, BigNumber } from 'ethers'
 import { MockProvider } from 'ethereum-waffle'
-import { blockTimestamp, FeeAmount, maxGas } from '../shared/index'
+import { blockTimestamp, BNe18, FeeAmount, maxGas } from '../shared/index'
 import _ from 'lodash'
 import {
   TestERC20,
@@ -146,8 +146,11 @@ export class HelperCommands {
       rewardToken: params.createIncentiveResult.rewardToken.address,
     })
 
+    const stakedAt = await blockTimestamp()
+
     return {
       tokenId,
+      stakedAt,
     }
   }
 
@@ -189,7 +192,6 @@ export class HelperCommands {
         slot0: await pool.slot0(),
         time,
       })
-      await this.setTime(time + 100)
     }
 
     return {
@@ -210,6 +212,8 @@ export class HelperCommands {
       },
       maxGas
     )
+
+    const unstakedAt = await blockTimestamp()
 
     await this.staker
       .connect(params.lp)
@@ -259,14 +263,57 @@ export class HelperCommands {
 
     return {
       balance,
+      unstakedAt,
     }
   }
 
-  private setTime = async (blockTimestamp: number) => {
-    return await this.provider.send('evm_setNextBlockTimestamp', [
-      blockTimestamp,
-    ])
+  endIncentiveFlow: HelperTypes.EndIncentive.Command = async (params) => {
+    const incentiveCreator = this.actors.incentiveCreator()
+    const { rewardToken } = params.createIncentiveResult
+
+    const receipt = await (
+      await this.staker.connect(incentiveCreator).endIncentive(
+        _.assign(
+          {},
+          _.pick(params.createIncentiveResult, [
+            'startTime',
+            'endTime',
+            'claimDeadline',
+          ]),
+          {
+            rewardToken: rewardToken.address,
+            pool: params.createIncentiveResult.poolAddress,
+          }
+        )
+      )
+    ).wait()
+
+    const transferFilter = rewardToken.filters.Transfer(
+      this.staker.address,
+      incentiveCreator.address,
+      null
+    )
+    const transferTopic = rewardToken.interface.getEventTopic('Transfer')
+    const log = receipt.logs.find((log) => log.topics.includes(transferTopic))
+    const events = await rewardToken.queryFilter(transferFilter, log?.blockHash)
+    let amountTransferred: BigNumber
+
+    if (events.length === 1) {
+      amountTransferred = events[0].args[2]
+    } else {
+      throw new Error('Could not find transfer event')
+    }
+
+    return {
+      amountReturnedToCreator: amountTransferred,
+    }
   }
+
+  // private setTime = async (blockTimestamp: number) => {
+  //   return await this.provider.send('evm_setNextBlockTimestamp', [
+  //     blockTimestamp,
+  //   ])
+  // }
 }
 
 const _incentiveAdapter: (

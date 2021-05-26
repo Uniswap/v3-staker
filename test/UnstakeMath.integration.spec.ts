@@ -3,6 +3,7 @@ import { TestContext, TimeSetterFunction, LoadFixtureFunction } from './types'
 import { IUniswapV3Pool, TestERC20 } from '../typechain'
 import {
   BigNumber,
+  blockTimestamp,
   BN,
   BNe18,
   encodePath,
@@ -32,14 +33,14 @@ describe.only('UniswapV3Staker.math', async () => {
 
   const Time: { set: TimeSetterFunction; step: TimeSetterFunction } = {
     set: async (timestamp: number) => {
-      console.info(`🕒 setTime(${timestamp})`)
+      console.debug(`🕒 setTime(${timestamp})`)
       // Not sure if I need both of those
       await provider.send('evm_setNextBlockTimestamp', [timestamp])
       await ethers.provider.send('evm_setNextBlockTimestamp', [timestamp])
     },
 
     step: async (interval: number) => {
-      console.info(`🕒 increaseTime(${interval})`)
+      console.debug(`🕒 increaseTime(${interval})`)
       await provider.send('evm_increaseTime', [interval])
       await ethers.provider.send('evm_increaseTime', [interval])
     },
@@ -84,11 +85,11 @@ describe.only('UniswapV3Staker.math', async () => {
 
         // Test parameters:
 
-        const epoch = 10
+        const epoch = await blockTimestamp()
 
         await Time.set(epoch)
 
-        const incentiveStartsAt = epoch + 10
+        const incentiveStartsAt = epoch + 100
         const amountsToStake: [BigNumber, BigNumber] = [
           BNe18(1_000),
           BNe18(1_000),
@@ -115,13 +116,13 @@ describe.only('UniswapV3Staker.math', async () => {
         // Pool should not have any initial liquidity so that our math is easier.
         expect(await poolObj.liquidity()).to.eq(BN(0))
 
+        await Time.step(1)
         const createIncentiveResult = await helpers.createIncentiveFlow({
           startTime: incentiveStartsAt,
           rewardToken,
           poolAddress: pool01,
           totalReward,
         })
-        await Time.set(createIncentiveResult.startTime)
         balances = {
           [lpUser0.address]: await rewardToken.balanceOf(lpUser0.address),
           [lpUser1.address]: await rewardToken.balanceOf(lpUser1.address),
@@ -134,22 +135,36 @@ describe.only('UniswapV3Staker.math', async () => {
           ticks: ticksToStake,
         }
 
+        // console.info('incentiveStartsAt=', incentiveStartsAt)
+        await Time.step(1)
+        await Time.set(incentiveStartsAt)
         // lpUser{0,1} stake from 0 - MAX
-        const { tokenId: lp0token0 } = await helpers.mintDepositStakeFlow({
+        const {
+          tokenId: lp0token0,
+          stakedAt: token0StakedAt,
+        } = await helpers.mintDepositStakeFlow({
           ...mintDepositStakeParams,
           lp: lpUser0,
         })
-        const { tokenId: lp1token0 } = await helpers.mintDepositStakeFlow({
+
+        await Time.step(1)
+        const {
+          tokenId: lp1token0,
+          stakedAt: token1StakedAt,
+        } = await helpers.mintDepositStakeFlow({
           ...mintDepositStakeParams,
           lp: lpUser1,
         })
 
+        // console.info(`token0StakedAt=${token0StakedAt}`)
+        // console.info(`token1StakedAt=${token1StakedAt}`)
         // Time passes, we get to the end of the incentive program
 
         // lpUser0 pulls out their liquidity
-        await Time.set(createIncentiveResult.startTime + 86400)
+        await Time.set(createIncentiveResult.endTime)
         const {
           balance: lp0RewardBalance,
+          unstakedAt: token0UnstakedAt,
         } = await helpers.unstakeCollectBurnFlow({
           lp: actors.lpUser0(),
           tokenId: lp0token0,
@@ -159,33 +174,47 @@ describe.only('UniswapV3Staker.math', async () => {
         await Time.step(1)
 
         // lpUser1 pulls out their liquidity
-        // await freezeTime(createIncentiveResult.startTime + 86400)
         const {
           balance: lp1RewardBalance,
+          unstakedAt: token1UnstakedAt,
         } = await helpers.unstakeCollectBurnFlow({
           lp: actors.lpUser1(),
           tokenId: lp1token0,
           createIncentiveResult,
         })
 
-        const bal0 = await rewardToken.balanceOf(lpUser0.address)
-        console.info(
+        console.debug(`token0UnstakedAt=${token0UnstakedAt}`)
+        console.debug(`token1UnstakedAt=${token1UnstakedAt}`)
+
+        const lp0Reward = await rewardToken.balanceOf(lpUser0.address)
+        console.debug(
           `lpUser0 bal before=${balances[
             lpUser0.address
-          ].toString()} delta=${bal0.sub(balances[lpUser0.address]).toString()}`
+          ].toString()} delta=${lp0Reward
+            .sub(balances[lpUser0.address])
+            .toString()}`
         )
         console.info(lp0RewardBalance.toString())
 
-        const bal1 = await rewardToken.balanceOf(lpUser1.address)
-        console.info(
+        const lp1Reward = await rewardToken.balanceOf(lpUser1.address)
+        console.debug(
           `lpUser1 bal before=${balances[
             lpUser1.address
-          ].toString()} delta=${bal1.sub(balances[lpUser1.address]).toString()}`
+          ].toString()} delta=${lp1Reward
+            .sub(balances[lpUser1.address])
+            .toString()}`
         )
-        console.info(lp1RewardBalance.toString())
+        console.debug(lp1RewardBalance.toString())
 
-        // This will fail until we have the MockTimeStaker in place.
-        // expect(bal0.add(bal1)).to.eq(totalReward)
+        await Time.set(createIncentiveResult.claimDeadline + 1)
+
+        const { amountReturnedToCreator } = await helpers.endIncentiveFlow({
+          createIncentiveResult,
+        })
+
+        expect(amountReturnedToCreator.add(lp0Reward).add(lp1Reward)).to.eq(
+          totalReward
+        )
       })
     })
 

@@ -35,6 +35,7 @@ export module HelperTypes {
 
     type Result = {
       tokenId: string
+      stakedAt: number
     }
 
     export type Command = CommandFunction<Args, Result>
@@ -59,6 +60,19 @@ export module HelperTypes {
     }
     type Result = {
       balance: BigNumber
+      unstakedAt: number
+    }
+
+    export type Command = CommandFunction<Args, Result>
+  }
+
+  export module EndIncentive {
+    type Args = {
+      createIncentiveResult: CreateIncentive.Result
+    }
+
+    type Result = {
+      amountReturnedToCreator: BigNumber
     }
 
     export type Command = CommandFunction<Args, Result>
