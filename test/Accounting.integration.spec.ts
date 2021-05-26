@@ -9,7 +9,7 @@ import {
   IUniswapV3Pool,
 } from '../typechain'
 import { ActorFixture } from '../test/shared/actors'
-import { uniswapFixture, mintPosition } from './shared/fixtures'
+import { uniswapFixture, mintPosition, poolFactory } from './shared/fixtures'
 import { HelperCommands } from './helpers'
 import {
   blockTimestamp,
@@ -28,10 +28,10 @@ import {
 } from './shared'
 import { Fixture } from 'ethereum-waffle'
 
-import MockTimeNonfungiblePositionManager from '@uniswap/v3-periphery/artifacts/contracts/NonfungiblePositionManager.sol/NonfungiblePositionManager.json'
+import { ISwapRouter } from '../types/ISwapRouter'
+import NonfungiblePositionManager from '@uniswap/v3-periphery/artifacts/contracts/NonfungiblePositionManager.sol/NonfungiblePositionManager.json'
 import UniswapV3Pool from '@uniswap/v3-core/artifacts/contracts/UniswapV3Pool.sol/UniswapV3Pool.json'
 
-type ISwapRouter = any
 let loadFixture: ReturnType<typeof createFixtureLoader>
 
 type TestContext = {
@@ -46,11 +46,6 @@ type TestContext = {
   fee: FeeAmount
   tokenIds: Array<string>
 }
-
-const poolFactory = new ethers.ContractFactory(
-  UniswapV3Pool.abi,
-  UniswapV3Pool.bytecode
-)
 
 describe('UniswapV3Staker.integration', async () => {
   const wallets = provider.getWallets()
@@ -566,6 +561,7 @@ describe('UniswapV3Staker.integration', async () => {
       rewardToken,
       poolAddress: ctx.pool01,
       totalReward: BNe18(100),
+      startTime: 0,
     })
 
     // lpUser0 stakes from 0 - MAX
@@ -574,7 +570,6 @@ describe('UniswapV3Staker.integration', async () => {
       tokensToStake: [ctx.tokens[0], ctx.tokens[1]],
       amountsToStake: [BNe18(2), BNe18(2)],
       ticks: [0, getMaxTick(TICK_SPACINGS[FeeAmount.MEDIUM])],
-      timeToStake: 1234,
       createIncentiveResult,
     })
 
@@ -584,7 +579,6 @@ describe('UniswapV3Staker.integration', async () => {
       tokensToStake: [ctx.tokens[0], ctx.tokens[1]],
       amountsToStake: [BNe18(2), BNe18(2)],
       ticks: [getMinTick(TICK_SPACINGS[FeeAmount.MEDIUM]), 0],
-      timeToStake: 1234,
       createIncentiveResult,
     })
 
