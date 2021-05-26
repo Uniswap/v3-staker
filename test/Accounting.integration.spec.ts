@@ -6,6 +6,7 @@ import {
   INonfungiblePositionManager,
   IUniswapV3Factory,
   UniswapV3Staker,
+  MockTimeUniswapV3Staker,
   IUniswapV3Pool,
 } from '../typechain'
 import { ActorFixture } from '../test/shared/actors'
@@ -32,25 +33,24 @@ import MockTimeNonfungiblePositionManager from '@uniswap/v3-periphery/artifacts/
 import UniswapV3Pool from '@uniswap/v3-core/artifacts/contracts/UniswapV3Pool.sol/UniswapV3Pool.json'
 
 type ISwapRouter = any
+type TimeSetterFunction = (timestamp: number) => Promise<any>
 let loadFixture: ReturnType<typeof createFixtureLoader>
 
 const defaultAmountToStake = BNe18(1_000)
 
-const setTime = async (blockTimestamp) => {
-  return await provider.send('evm_setNextBlockTimestamp', [blockTimestamp])
-}
-
 type FixtureWithoutLiquidityContext = {
+  staker: UniswapV3Staker
   tokens: [TestERC20, TestERC20, TestERC20]
   factory: IUniswapV3Factory
   nft: INonfungiblePositionManager
   router: ISwapRouter
-  staker: UniswapV3Staker
   pool01: string
   pool12: string
   subject?: Function
   fee: FeeAmount
 }
+
+type MockStaker = { mockStaker: MockTimeUniswapV3Staker }
 
 const withoutLiquidityFixture: Fixture<FixtureWithoutLiquidityContext> = async (
   wallets,
@@ -81,6 +81,24 @@ const withoutLiquidityFixture: Fixture<FixtureWithoutLiquidityContext> = async (
   )
 
   return context
+}
+
+const mockStakerWithoutLiquidityFixture: Fixture<
+  FixtureWithoutLiquidityContext & MockStaker
+> = async (wallets, provider) => {
+  const actors = new ActorFixture(wallets, provider)
+  const context = await withoutLiquidityFixture(wallets, provider)
+
+  const mockStakerFactory = await ethers.getContractFactory(
+    'MockTimeUniswapV3Staker',
+    actors.stakerDeployer()
+  )
+  const mockStaker = (await mockStakerFactory.deploy(
+    context.factory.address,
+    context.nft.address
+  )) as MockTimeUniswapV3Staker
+
+  return _.assign({}, context, { mockStaker })
 }
 
 type FixtureWithLiquidityContext = FixtureWithoutLiquidityContext & {
@@ -140,6 +158,11 @@ describe.only('UniswapV3Staker.integration', async () => {
 
   describe('simple trading', async () => {
     let context: FixtureWithLiquidityContext
+
+    // We are using the real contract, so we set time in the EVM
+    const setTime: TimeSetterFunction = async (blockTimestamp: number) => {
+      return await provider.send('evm_setNextBlockTimestamp', [blockTimestamp])
+    }
 
     beforeEach('load fixture', async () => {
       context = await loadFixture(withLiquidityFixture)
@@ -520,39 +543,43 @@ describe.only('UniswapV3Staker.integration', async () => {
   })
 
   describe.only('complex situations', () => {
-    let context: FixtureWithoutLiquidityContext
+    let context: FixtureWithoutLiquidityContext & MockStaker
+    // moves to that point in time and stays there
+    let freezeTime: TimeSetterFunction
 
     beforeEach('load fixture', async () => {
-      context = await loadFixture(withoutLiquidityFixture)
+      context = await loadFixture(mockStakerWithoutLiquidityFixture)
       actors = new ActorFixture(wallets, provider)
+      freezeTime = async (timestamp: number) => {
+        console.info(`🕒 freeze at ${timestamp}`)
+        await context.mockStaker.setTime(timestamp)
+      }
     })
 
-    describe('when there are multiple LPs in the same range', async () => {
+    describe.only('when there are multiple LPs in the same range', async () => {
       it('allows them all to withdraw at the end', async () => {
         const {
-          staker,
+          mockStaker,
           nft,
           pool01,
-          tokens: [tok0, tok1, tok2],
+          tokens: [token0, token1, rewardToken],
         } = context
 
         // Test parameters:
-        const rewardToken = context.tokens[2]
         const [lpUser0, lpUser1] = [actors.lpUser0(), actors.lpUser1()]
         const totalReward = BNe18(100)
-        const incentiveStartsAt = (await blockTimestamp()) + 10
+        const epoch = 0
+        await freezeTime(epoch)
+        const incentiveStartsAt = epoch + 10
 
         const amountsToStake: [BigNumber, BigNumber] = [
           BNe18(1_000),
           BNe18(1_000),
         ]
-        const tokensToStake: [TestERC20, TestERC20] = [
-          context.tokens[0],
-          context.tokens[1],
-        ]
+        const tokensToStake: [TestERC20, TestERC20] = [token0, token1]
 
         /* The LPs will always be within bounds since they're providing against
-      the entire liquidity space */
+        the entire liquidity space */
         const ticksToStake: [number, number] = [
           getMinTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
           getMaxTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
@@ -566,7 +593,7 @@ describe.only('UniswapV3Staker.integration', async () => {
 
         const helpers = new HelperCommands(
           provider,
-          staker,
+          mockStaker,
           nft,
           poolObj,
           actors
@@ -581,8 +608,7 @@ describe.only('UniswapV3Staker.integration', async () => {
           poolAddress: pool01,
           totalReward,
         })
-
-        await setTime(createIncentiveResult.startTime)
+        await freezeTime(createIncentiveResult.startTime)
 
         balances = {
           [lpUser0.address]: await rewardToken.balanceOf(lpUser0.address),
@@ -595,7 +621,7 @@ describe.only('UniswapV3Staker.integration', async () => {
           createIncentiveResult,
           ticks: ticksToStake,
         }
-
+        await freezeTime(createIncentiveResult.startTime)
         // lpUser{0,1} stake from 0 - MAX
         const { tokenId: lp0token0 } = await helpers.mintDepositStakeFlow({
           ...mintDepositStakeParams,
@@ -607,7 +633,7 @@ describe.only('UniswapV3Staker.integration', async () => {
         })
 
         // Time passes, we get to the end of the incentive program
-        await setTime(createIncentiveResult.endTime)
+        await freezeTime(createIncentiveResult.endTime)
 
         // lpUser0 pulls out their liquidity
         await helpers.unstakeCollectBurnFlow({
@@ -615,6 +641,8 @@ describe.only('UniswapV3Staker.integration', async () => {
           tokenId: lp0token0,
           createIncentiveResult,
         })
+
+        await freezeTime(createIncentiveResult.endTime)
 
         // lpUser1 pulls out their liquidity
         await helpers.unstakeCollectBurnFlow({

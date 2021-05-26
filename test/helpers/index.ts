@@ -151,52 +151,6 @@ export class HelperCommands {
     }
   }
 
-  /**
-   * Simulates trading in the pool.
-   */
-  simulateTradingFlow: HelperTypes.SimulateTrading.Command = async (params) => {
-    // const {
-    //   router,
-    //   tokens: [tok0, tok1],
-    // } = ctx
-    const timeseries = [] as any
-    const trader0 = this.actors.traderUser0()
-
-    // await tok0.transfer(trader0.address, BNe18(2).mul(params.numberOfTrades))
-    // await tok0
-    //   .connect(trader0)
-    //   .approve(router.address, BNe18(2).mul(params.numberOfTrades))
-
-    for (let i = 0; i < params.numberOfTrades; i++) {
-      // await router.connect(trader0).exactInput(
-      //   {
-      //     recipient: trader0.address,
-      //     deadline: MaxUint256,
-      //     path: encodePath([tok0.address, tok1.address], [FeeAmount.MEDIUM]),
-      //     amountIn: BNe18(2).div(10),
-      //     amountOutMinimum: 0,
-      //   },
-      //   maxGas
-      // )
-      const poolFactory = new ContractFactory(
-        UniswapV3Pool.abi,
-        UniswapV3Pool.bytecode
-      )
-      const pool = poolFactory.attach(this.pool.address) as IUniswapV3Pool
-      const time = await blockTimestamp()
-
-      timeseries.push({
-        slot0: await pool.slot0(),
-        time,
-      })
-      await this.setTime(time + 100)
-    }
-
-    return {
-      timeseries,
-    }
-  }
-
   unstakeCollectBurnFlow: HelperTypes.UnstakeCollectBurn.Command = async (
     params
   ) => {
@@ -253,6 +207,52 @@ export class HelperCommands {
 
     return {
       newBalance,
+    }
+  }
+
+  /**
+   * Simulates trading in the pool (Not yet implemented fully)
+   */
+  simulateTradingFlow: HelperTypes.SimulateTrading.Command = async (params) => {
+    // const {
+    //   router,
+    //   tokens: [tok0, tok1],
+    // } = ctx
+    const timeseries = [] as any
+    const trader0 = this.actors.traderUser0()
+
+    // await tok0.transfer(trader0.address, BNe18(2).mul(params.numberOfTrades))
+    // await tok0
+    //   .connect(trader0)
+    //   .approve(router.address, BNe18(2).mul(params.numberOfTrades))
+
+    for (let i = 0; i < params.numberOfTrades; i++) {
+      // await router.connect(trader0).exactInput(
+      //   {
+      //     recipient: trader0.address,
+      //     deadline: MaxUint256,
+      //     path: encodePath([tok0.address, tok1.address], [FeeAmount.MEDIUM]),
+      //     amountIn: BNe18(2).div(10),
+      //     amountOutMinimum: 0,
+      //   },
+      //   maxGas
+      // )
+      const poolFactory = new ContractFactory(
+        UniswapV3Pool.abi,
+        UniswapV3Pool.bytecode
+      )
+      const pool = poolFactory.attach(this.pool.address) as IUniswapV3Pool
+      const time = await blockTimestamp()
+
+      timeseries.push({
+        slot0: await pool.slot0(),
+        time,
+      })
+      await this.setTime(time + 100)
+    }
+
+    return {
+      timeseries,
     }
   }
 
