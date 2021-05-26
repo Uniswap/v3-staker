@@ -5,7 +5,8 @@ import { ethers, waffle } from 'hardhat'
 import UniswapV3Pool from '@uniswap/v3-core/artifacts/contracts/UniswapV3Pool.sol/UniswapV3Pool.json'
 import UniswapV3FactoryJson from '@uniswap/v3-core/artifacts/contracts/UniswapV3Factory.sol/UniswapV3Factory.json'
 import NFTDescriptor from '@uniswap/v3-periphery/artifacts/contracts/libraries/NFTDescriptor.sol/NFTDescriptor.json'
-import MockTimeNonfungiblePositionManager from '@uniswap/v3-periphery/artifacts/contracts/NonfungiblePositionManager.sol/NonfungiblePositionManager.json'
+import NonfungiblePositionManager from '@uniswap/v3-periphery/artifacts/contracts/NonfungiblePositionManager.sol/NonfungiblePositionManager.json'
+import MockTimeNonfungiblePositionManager from '../contracts/MockTimeNonfungiblePositionManager.sol/MockTimeNonfungiblePositionManager.json'
 import NonfungibleTokenPositionDescriptor from '@uniswap/v3-periphery/artifacts/contracts/NonfungibleTokenPositionDescriptor.sol/NonfungibleTokenPositionDescriptor.json'
 import SwapRouter from '@uniswap/v3-periphery/artifacts/contracts/SwapRouter.sol/SwapRouter.json'
 import WETH9 from '../contracts/WETH9.json'
@@ -16,6 +17,7 @@ import {
   TestERC20,
   INonfungiblePositionManager,
   IUniswapV3Factory,
+  MockTimeUniswapV3Staker,
 } from '../../typechain'
 import { FeeAmount, BigNumber, encodePriceSqrt, MAX_GAS_LIMIT } from '../shared'
 import { ActorFixture } from './actors'
@@ -62,7 +64,7 @@ export const v3RouterFixture: Fixture<{
   return { factory, weth9, router }
 }
 
-type MockTimeNonfungiblePositionManager = any
+type NonfungiblePositionManager = any
 
 type NFTDescriptorLibrary = any
 const nftDescriptorLibraryFixture: Fixture<NFTDescriptorLibrary> = async ([
@@ -78,14 +80,15 @@ type UniswapFactoryFixture = {
   weth9: IWETH9
   factory: IUniswapV3Factory
   router: ISwapRouter
-  nft: MockTimeNonfungiblePositionManager
+  nft: NonfungiblePositionManager
   tokens: [TestERC20, TestERC20, TestERC20]
 }
 
-export const uniswapFactoryFixture: Fixture<UniswapFactoryFixture> = async (
+export const uniswapFactoryFixture = async (
   wallets,
-  provider
-) => {
+  provider,
+  useMockTimeManager = false
+): Promise<UniswapFactoryFixture> => {
   const { weth9, factory, router } = await v3RouterFixture(wallets, provider)
   const tokenFactory = await ethers.getContractFactory('TestERC20')
   const tokens = (await Promise.all([
@@ -93,6 +96,10 @@ export const uniswapFactoryFixture: Fixture<UniswapFactoryFixture> = async (
     tokenFactory.deploy(constants.MaxUint256.div(2)),
     tokenFactory.deploy(constants.MaxUint256.div(2)),
   ])) as [TestERC20, TestERC20, TestERC20]
+
+  const NFTManager = useMockTimeManager
+    ? MockTimeNonfungiblePositionManager
+    : NonfungiblePositionManager
 
   const nftDescriptorLibrary = await nftDescriptorLibraryFixture(
     wallets,
@@ -128,8 +135,8 @@ export const uniswapFactoryFixture: Fixture<UniswapFactoryFixture> = async (
   )
 
   const nftFactory = new ethers.ContractFactory(
-    MockTimeNonfungiblePositionManager.abi,
-    MockTimeNonfungiblePositionManager.bytecode,
+    NFTManager.abi,
+    NFTManager.bytecode,
     wallets[0]
   )
   const nft = await nftFactory.deploy(
@@ -212,7 +219,7 @@ export const mintPosition = async (
   }
 }
 
-export const uniswapFixture: Fixture<{
+type UniswapTestContext = {
   nft: INonfungiblePositionManager
   router: ISwapRouter
   factory: IUniswapV3Factory
@@ -221,10 +228,16 @@ export const uniswapFixture: Fixture<{
   pool01: string
   pool12: string
   fee: FeeAmount
-}> = async (wallets, provider) => {
+}
+
+export const uniswapFixture: Fixture<UniswapTestContext> = async (
+  wallets,
+  provider
+) => {
   const { tokens, nft, factory, router } = await uniswapFactoryFixture(
     wallets,
-    provider
+    provider,
+    false
   )
   const signer = new ActorFixture(wallets, provider).stakerDeployer()
   const stakerFactory = await ethers.getContractFactory(
@@ -235,6 +248,60 @@ export const uniswapFixture: Fixture<{
     factory.address,
     nft.address
   )) as UniswapV3Staker
+
+  for (const token of tokens) {
+    await token.approve(nft.address, constants.MaxUint256)
+  }
+
+  const fee = FeeAmount.MEDIUM
+  await nft.createAndInitializePoolIfNecessary(
+    tokens[0].address,
+    tokens[1].address,
+    fee,
+    encodePriceSqrt(1, 1)
+  )
+
+  await nft.createAndInitializePoolIfNecessary(
+    tokens[1].address,
+    tokens[2].address,
+    fee,
+    encodePriceSqrt(1, 1)
+  )
+
+  const pool01 = await factory.getPool(
+    tokens[0].address,
+    tokens[1].address,
+    fee
+  )
+
+  const pool12 = await factory.getPool(
+    tokens[1].address,
+    tokens[2].address,
+    fee
+  )
+
+  return { nft, router, tokens, staker, factory, pool01, pool12, fee }
+}
+
+/* Similar to the fixture above, but replaces the NFT manager with manual-time control variants */
+export const mockTimeUniswapFixture: Fixture<UniswapTestContext> = async (
+  wallets,
+  provider
+) => {
+  const { tokens, nft, factory, router } = await uniswapFactoryFixture(
+    wallets,
+    provider,
+    true
+  )
+  const signer = new ActorFixture(wallets, provider).stakerDeployer()
+  const stakerFactory = await ethers.getContractFactory(
+    'MockTimeUniswapV3Staker',
+    signer
+  )
+  const staker = (await stakerFactory.deploy(
+    factory.address,
+    nft.address
+  )) as MockTimeUniswapV3Staker
 
   for (const token of tokens) {
     await token.approve(nft.address, constants.MaxUint256)
