@@ -24,6 +24,8 @@ interface IUniswapV3Staker {
     event TokenStaked(uint256 tokenId);
     event TokenUnstaked(uint256 tokenId);
 
+    event RewardClaimed(address indexed user, uint256 reward);
+
     /**
     @param rewardToken The token being distributed as a reward
     @param pool The Uniswap V3 pool
@@ -82,8 +84,9 @@ interface IUniswapV3Staker {
         uint32 startTime;
         uint32 endTime;
         uint32 claimDeadline;
-        address to;
     }
 
     function unstakeToken(UnstakeTokenParams memory params) external;
+
+    function claimReward(address rewardToken, address to) external;
 }

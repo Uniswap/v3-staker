@@ -298,8 +298,12 @@ describe('UniswapV3Staker.integration', async () => {
       ...incentiveParams,
       tokenId: ctx.tokenIds[0],
       creator: incentiveCreator.address,
-      to: lpUser0.address,
     })
+
+    // lpUser0 claims the rewards from the contract
+    await staker
+      .connect(lpUser0)
+      .claimReward(rewardToken.address, lpUser0.address)
 
     const topicUnstakedFilter = staker.filters.TokenUnstaked(null)
     const tokenUnstakedTopic = staker.interface.getEventTopic('TokenUnstaked')
@@ -512,7 +516,6 @@ describe('UniswapV3Staker.integration', async () => {
       ...incentiveParams,
       tokenId: ctx.tokenIds[0],
       creator: incentiveCreator.address,
-      to: lpUser0.address,
     })
 
     await staker
@@ -551,6 +554,7 @@ describe('UniswapV3Staker.integration', async () => {
 
   it('complex scenarios', async () => {
     const { staker, nft, pool01 } = ctx
+    const incentiveCreator = actors.incentiveCreator()
     const rewardToken = ctx.tokens[2]
 
     const helpers = new HelperCommands(

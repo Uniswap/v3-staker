@@ -60,6 +60,9 @@ contract UniswapV3Staker is
     /// @dev stakes[tokenId][incentiveHash] => Stake
     mapping(uint256 => mapping(bytes32 => Stake)) public stakes;
 
+    /// @dev rewards[rewardToken][msg.sender] => uint128
+    mapping(address => mapping(address => uint128)) public rewards;
+
     /// @param _factory the Uniswap V3 factory
     /// @param _nonfungiblePositionManager the NFT position manager contract address
     constructor(address _factory, address _nonfungiblePositionManager) {
@@ -239,22 +242,18 @@ contract UniswapV3Staker is
                 params.claimDeadline
             );
 
-        require(
-            stakes[params.tokenId][incentiveId].exists == true,
-            'Stake does not exist'
-        );
+        Incentive memory incentive = incentives[incentiveId];
+        Stake memory stake = stakes[params.tokenId][incentiveId];
 
-        require(
-            incentives[incentiveId].rewardToken != address(0),
-            'BAD INCENTIVE'
-        );
+        require(stake.exists == true, 'Stake does not exist');
+
+        require(incentive.rewardToken != address(0), 'BAD INCENTIVE');
 
         uint160 secondsInPeriodX128 =
             uint160(
                 SafeMath.mul(
                     secondsPerLiquidityInsideX128 -
-                        stakes[params.tokenId][incentiveId]
-                            .secondsPerLiquidityInitialX128,
+                        stake.secondsPerLiquidityInitialX128,
                     liquidity
                 )
             );
@@ -266,13 +265,13 @@ contract UniswapV3Staker is
                     Math.max(params.endTime, _blockTimestamp()) -
                         params.startTime,
                     FixedPoint128.Q128
-                ) - incentives[incentiveId].totalSecondsClaimedX128
+                ) - incentive.totalSecondsClaimedX128
             );
 
         // TODO: Make sure this truncates and not rounds up
         uint256 rewardRate =
             FullMath.mulDiv(
-                incentives[incentiveId].totalRewardUnclaimed,
+                incentive.totalRewardUnclaimed,
                 FixedPoint128.Q128,
                 totalSecondsUnclaimedX128
             );
@@ -291,23 +290,27 @@ contract UniswapV3Staker is
 
         // TODO: is SafeMath necessary here? Could we do just a subtraction?
         incentives[incentiveId].totalRewardUnclaimed = uint128(
-            SafeMath.sub(incentives[incentiveId].totalRewardUnclaimed, reward)
+            SafeMath.sub(incentive.totalRewardUnclaimed, reward)
         );
 
-        /* TODO: This will be fixed in https://github.com/omarish/uniswap-v3-staker/issues/38
-        so that collecting and unstaking are two separate functions */
-        try
-            IERC20Minimal(incentives[incentiveId].rewardToken).transfer(
-                params.to,
-                reward
-            )
-        returns (bool) {
-            // It didn't fail
-        } catch {
-            // It failed
-        }
+        rewards[incentive.rewardToken][msg.sender] = uint128(
+            SafeMath.add(rewards[incentive.rewardToken][msg.sender], reward)
+        );
 
         emit TokenUnstaked(params.tokenId);
+    }
+
+    /// @inheritdoc IUniswapV3Staker
+    function claimReward(address rewardToken, address to) external override {
+        uint128 reward = rewards[rewardToken][msg.sender];
+        rewards[rewardToken][msg.sender] = 0;
+
+        require(
+            IERC20Minimal(rewardToken).transfer(to, reward),
+            'REWARD_TRANSFER_FAILED'
+        );
+
+        emit RewardClaimed(to, reward);
     }
 
     function _stakeToken(StakeTokenParams memory params) internal {
