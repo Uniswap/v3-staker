@@ -19,6 +19,7 @@ import {
   snapshotGasCost,
   MAX_GAS_LIMIT,
   ActorFixture,
+  setTime
 } from './shared'
 import { createFixtureLoader, provider } from './shared/provider'
 
@@ -440,9 +441,9 @@ describe('UniswapV3Staker.unit', async () => {
 
       rewardToken = tokens[0]
       otherRewardToken = tokens[1]
-      startTime = currentTime
-      endTime = currentTime + 100
-      claimDeadline = currentTime + 1000
+      startTime = currentTime + 1000
+      endTime = currentTime + 2000
+      claimDeadline = currentTime + 3000
 
       tokenId = await mintPosition(nft, {
         token0: tokens[0].address,
@@ -494,13 +495,19 @@ describe('UniswapV3Staker.unit', async () => {
     })
 
     describe('works and', async () => {
+      beforeEach(async () => {
+        await setTime(startTime)
+      })
+
       it('emits the stake event', async () => {
-        expect(await subject())
+        const liquidity = (await nft.positions(tokenId)).liquidity
+        await expect(await subject())
           .to.emit(staker, 'TokenStaked')
-          .withArgs(tokenId)
+          .withArgs(tokenId, liquidity)
       })
 
       it('sets the stake struct properly', async () => {
+        const liquidity = (await nft.positions(tokenId)).liquidity
         const idGetter = await (
           await ethers.getContractFactory('TestIncentiveID')
         ).deploy()
@@ -520,8 +527,10 @@ describe('UniswapV3Staker.unit', async () => {
         const stakeAfter = await staker.stakes(tokenId, incentiveId)
 
         expect(stakeBefore.secondsPerLiquidityInitialX128).to.eq(0)
+        expect(stakeBefore.liquidity).to.eq(0)
         expect(stakeBefore.exists).to.be.false
         expect(stakeAfter.secondsPerLiquidityInitialX128).to.be.gt(0)
+        expect(stakeAfter.liquidity).to.eq(liquidity)
         expect(stakeAfter.exists).to.be.true
         expect((await staker.deposits(tokenId)).numberOfStakes).to.eq(
           nStakesBefore + 1
@@ -532,18 +541,32 @@ describe('UniswapV3Staker.unit', async () => {
         await snapshotGasCost(subject())
       })
     })
+
     describe('fails when', () => {
       it('deposit is already staked in the incentive', async () => {
+        await setTime(startTime)
         await subject()
         await expect(subject()).to.be.revertedWith('already staked')
       })
 
-      it('you are not the owner of the deposit')
-      it('is before the start time')
-      it('is after the end time')
+      it('you are not the owner of the deposit', async () => {
+        const nonOwner = wallets[1]
+        await setTime(startTime)
+        await expect(staker.connect(nonOwner).stakeToken({
+          creator: incentiveCreator.address,
+          rewardToken: rewardToken.address,
+          tokenId,
+          startTime,
+          endTime,
+          claimDeadline,
+        })).to.be.revertedWith('NOT_YOUR_DEPOSIT')
+      })
+
+      it('is before the start time', async () => {
+        await expect(subject()).to.be.revertedWith('incentive not started yet')
+      })
+
       it('is past the claim deadline')
-      it('gets an invalid pool')
-      it('deals with an adversarial nft')
     })
   })
 
