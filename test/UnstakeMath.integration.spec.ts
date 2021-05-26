@@ -1,3 +1,4 @@
+import { ethers, waffle } from 'hardhat'
 import { TestContext, TimeSetterFunction, LoadFixtureFunction } from './types'
 import { IUniswapV3Pool, TestERC20 } from '../typechain'
 import {
@@ -24,10 +25,25 @@ import { Fixture } from 'ethereum-waffle'
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 let loadFixture: LoadFixtureFunction
 
-describe('UniswapV3Staker.math', async () => {
+describe.only('UniswapV3Staker.math', async () => {
   const wallets = provider.getWallets()
   let ctx = {} as TestContext
   let actors: ActorFixture
+
+  const Time: { set: TimeSetterFunction; step: TimeSetterFunction } = {
+    set: async (timestamp: number) => {
+      console.info(`🕒 setTime(${timestamp})`)
+      // Not sure if I need both of those
+      await provider.send('evm_setNextBlockTimestamp', [timestamp])
+      await ethers.provider.send('evm_setNextBlockTimestamp', [timestamp])
+    },
+
+    step: async (interval: number) => {
+      console.info(`🕒 increaseTime(${interval})`)
+      await provider.send('evm_increaseTime', [interval])
+      await ethers.provider.send('evm_increaseTime', [interval])
+    },
+  }
 
   const fixture: Fixture<TestContext> = async (wallets, provider) => {
     return await loadFixture(uniswapFixture)
@@ -44,13 +60,10 @@ describe('UniswapV3Staker.math', async () => {
 
   describe('complex situations', () => {
     let context: TestContext
-    let freezeTime: TimeSetterFunction
 
     beforeEach('load fixture', async () => {
       context = await loadFixture(fixture)
       actors = new ActorFixture(wallets, provider)
-      // await provider.send('evm_increaseTime', [0])
-      /* Has to set the time on both the MockStaker and the MockNFT */
     })
 
     describe('when there are multiple LPs in the same range', async () => {
@@ -69,26 +82,13 @@ describe('UniswapV3Staker.math', async () => {
           .attach(pool01)
           .connect(lpUser0) as IUniswapV3Pool
 
-        freezeTime = async (timestamp: number) => {
-          // throw new Error('not implemented yet')
-          // console.info(`🕒 set time ${timestamp}`)
-          // await staker.setTime(timestamp)
-          // // @ts-ignore
-          // await context.nft.setTime(timestamp)
-          // // @ts-ignore
-          // await context.router.setTime(timestamp)
-          // @ts-ignore
-          // await poolObj.setTime(timestamp)
-          // await provider.send('evm_setNextBlockTimestamp', [timestamp])
-          // await provider.send('evm_increaseTime', [1])
-        }
-
         // Test parameters:
 
         const epoch = 10
-        await freezeTime(epoch)
-        const incentiveStartsAt = epoch + 10
 
+        await Time.set(epoch)
+
+        const incentiveStartsAt = epoch + 10
         const amountsToStake: [BigNumber, BigNumber] = [
           BNe18(1_000),
           BNe18(1_000),
@@ -121,8 +121,7 @@ describe('UniswapV3Staker.math', async () => {
           poolAddress: pool01,
           totalReward,
         })
-        await freezeTime(createIncentiveResult.startTime)
-
+        await Time.set(createIncentiveResult.startTime)
         balances = {
           [lpUser0.address]: await rewardToken.balanceOf(lpUser0.address),
           [lpUser1.address]: await rewardToken.balanceOf(lpUser1.address),
@@ -148,7 +147,7 @@ describe('UniswapV3Staker.math', async () => {
         // Time passes, we get to the end of the incentive program
 
         // lpUser0 pulls out their liquidity
-        await freezeTime(createIncentiveResult.startTime + 86400)
+        await Time.set(createIncentiveResult.startTime + 86400)
         const {
           balance: lp0RewardBalance,
         } = await helpers.unstakeCollectBurnFlow({
@@ -157,8 +156,10 @@ describe('UniswapV3Staker.math', async () => {
           createIncentiveResult,
         })
 
+        await Time.step(1)
+
         // lpUser1 pulls out their liquidity
-        await freezeTime(createIncentiveResult.startTime + 86400)
+        // await freezeTime(createIncentiveResult.startTime + 86400)
         const {
           balance: lp1RewardBalance,
         } = await helpers.unstakeCollectBurnFlow({
