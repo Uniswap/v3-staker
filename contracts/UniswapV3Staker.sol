@@ -227,10 +227,9 @@ contract UniswapV3Staker is
         ) = _getPositionDetails(params.tokenId);
 
         require(poolAddress != address(0), 'INVALID_POSITION');
-        IUniswapV3Pool pool = IUniswapV3Pool(poolAddress);
 
         (, uint160 secondsPerLiquidityInsideX128, ) =
-            pool.snapshotCumulativesInside(tickLower, tickUpper);
+            IUniswapV3Pool(poolAddress).snapshotCumulativesInside(tickLower, tickUpper);
 
         bytes32 incentiveId =
             IncentiveHelper.getIncentiveId(
