@@ -14,40 +14,47 @@ import {
   maxGas,
   MaxUint256,
   poolFactory,
-  setTime,
   TICK_SPACINGS,
   uniswapFixture,
+  log,
 } from './shared'
 import { HelperCommands } from './helpers'
 import { createFixtureLoader, provider } from './shared/provider'
 import { ActorFixture } from './shared/actors'
 import { Fixture } from 'ethereum-waffle'
+import _ from 'lodash'
 
-const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 let loadFixture: LoadFixtureFunction
+
+type ThisTestContext = TestContext & { poolObj: IUniswapV3Pool }
 
 describe.only('UniswapV3Staker.math', async () => {
   const wallets = provider.getWallets()
-  let ctx = {} as TestContext
+  let context = {} as ThisTestContext
   let actors: ActorFixture
 
   const Time: { set: TimeSetterFunction; step: TimeSetterFunction } = {
     set: async (timestamp: number) => {
-      console.debug(`🕒 setTime(${timestamp})`)
+      log.debug(`🕒 setTime(${timestamp})`)
       // Not sure if I need both of those
       await provider.send('evm_setNextBlockTimestamp', [timestamp])
       await ethers.provider.send('evm_setNextBlockTimestamp', [timestamp])
     },
 
     step: async (interval: number) => {
-      console.debug(`🕒 increaseTime(${interval})`)
+      log.debug(`🕒 increaseTime(${interval})`)
       await provider.send('evm_increaseTime', [interval])
       await ethers.provider.send('evm_increaseTime', [interval])
     },
   }
 
-  const fixture: Fixture<TestContext> = async (wallets, provider) => {
-    return await loadFixture(uniswapFixture)
+  const fixture: Fixture<ThisTestContext> = async (wallets, provider) => {
+    const result = await loadFixture(uniswapFixture)
+
+    return {
+      ...result,
+      poolObj: poolFactory.attach(result.pool01) as IUniswapV3Pool,
+    }
   }
 
   before('create fixture loader', async () => {
@@ -55,13 +62,11 @@ describe.only('UniswapV3Staker.math', async () => {
   })
 
   beforeEach('load fixture', async () => {
-    ctx = await loadFixture(fixture)
+    context = await loadFixture(fixture)
     actors = new ActorFixture(wallets, provider)
   })
 
   describe('complex situations', () => {
-    let context: TestContext
-
     beforeEach('load fixture', async () => {
       context = await loadFixture(fixture)
       actors = new ActorFixture(wallets, provider)
@@ -73,23 +78,24 @@ describe.only('UniswapV3Staker.math', async () => {
           staker,
           nft,
           pool01,
+          poolObj,
+
           tokens: [token0, token1, rewardToken],
         } = context
 
-        const [lpUser0, lpUser1] = [actors.lpUser0(), actors.lpUser1()]
         const totalReward = BNe18(100)
 
-        const poolObj = poolFactory
-          .attach(pool01)
-          .connect(lpUser0) as IUniswapV3Pool
+        const [lpUser0, lpUser1] = [actors.lpUser0(), actors.lpUser1()]
 
-        // Test parameters:
+        // const poolObj = poolFactory
+        //   .attach(pool01)
+        //   .connect(lpUser0) as IUniswapV3Pool
 
         const epoch = await blockTimestamp()
+        await Time.set(epoch + 1)
 
-        await Time.set(epoch)
-
-        const incentiveStartsAt = epoch + 100
+        // Test parameters:
+        const incentiveStartsAt = epoch + 1000
         const amountsToStake: [BigNumber, BigNumber] = [
           BNe18(1_000),
           BNe18(1_000),
@@ -114,7 +120,7 @@ describe.only('UniswapV3Staker.math', async () => {
         )
 
         // Pool should not have any initial liquidity so that our math is easier.
-        expect(await poolObj.liquidity()).to.eq(BN(0))
+        expect(await poolObj.connect(lpUser0).liquidity()).to.eq(BN(0))
 
         await Time.step(1)
         const createIncentiveResult = await helpers.createIncentiveFlow({
@@ -135,7 +141,7 @@ describe.only('UniswapV3Staker.math', async () => {
           ticks: ticksToStake,
         }
 
-        // console.info('incentiveStartsAt=', incentiveStartsAt)
+        // log.info('incentiveStartsAt=', incentiveStartsAt)
         await Time.step(1)
         await Time.set(incentiveStartsAt)
         // lpUser{0,1} stake from 0 - MAX
@@ -156,8 +162,8 @@ describe.only('UniswapV3Staker.math', async () => {
           lp: lpUser1,
         })
 
-        // console.info(`token0StakedAt=${token0StakedAt}`)
-        // console.info(`token1StakedAt=${token1StakedAt}`)
+        log.debug(`token0StakedAt=${token0StakedAt}`)
+        log.debug(`token1StakedAt=${token1StakedAt}`)
         // Time passes, we get to the end of the incentive program
 
         // lpUser0 pulls out their liquidity
@@ -183,28 +189,28 @@ describe.only('UniswapV3Staker.math', async () => {
           createIncentiveResult,
         })
 
-        console.debug(`token0UnstakedAt=${token0UnstakedAt}`)
-        console.debug(`token1UnstakedAt=${token1UnstakedAt}`)
+        log.debug(`token0UnstakedAt=${token0UnstakedAt}`)
+        log.debug(`token1UnstakedAt=${token1UnstakedAt}`)
 
         const lp0Reward = await rewardToken.balanceOf(lpUser0.address)
-        console.debug(
+        log.debug(
           `lpUser0 bal before=${balances[
             lpUser0.address
           ].toString()} delta=${lp0Reward
             .sub(balances[lpUser0.address])
             .toString()}`
         )
-        console.info(lp0RewardBalance.toString())
+        log.debug(lp0RewardBalance.toString())
 
         const lp1Reward = await rewardToken.balanceOf(lpUser1.address)
-        console.debug(
+        log.debug(
           `lpUser1 bal before=${balances[
             lpUser1.address
           ].toString()} delta=${lp1Reward
             .sub(balances[lpUser1.address])
             .toString()}`
         )
-        console.debug(lp1RewardBalance.toString())
+        log.debug(lp1RewardBalance.toString())
 
         await Time.set(createIncentiveResult.claimDeadline + 1)
 
