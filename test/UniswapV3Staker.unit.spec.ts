@@ -626,7 +626,10 @@ describe('UniswapV3Staker.unit', async () => {
 
     describe('works and', async () => {
       it('decrements numberOfStakes by 1', async () => {
+        const { numberOfStakes: stakesPre } = await staker.deposits(tokenId)
         await subject()
+        const { numberOfStakes: stakesPost } = await staker.deposits(tokenId)
+        expect(stakesPre).to.not.equal(stakesPost - 1)
       })
 
       it('emits an unstaked event', async () => {
@@ -638,6 +641,7 @@ describe('UniswapV3Staker.unit', async () => {
       it('has gas cost', async () => {
         await snapshotGasCost(subject())
       })
+
       it('updates the reward available for the staker', async () => {
         const rewardsAccured = await staker.rewards(
           rewardToken.address,
@@ -648,6 +652,7 @@ describe('UniswapV3Staker.unit', async () => {
           await staker.rewards(rewardToken.address, lpUser0.address)
         ).to.be.gt(rewardsAccured)
       })
+
       it('calculates the right secondsPerLiquidity')
       it('does not overflow totalSecondsUnclaimed')
     })
@@ -962,21 +967,23 @@ describe('UniswapV3Staker.unit', async () => {
         lpUser0.address
       )
       await subject({ token: rewardToken.address })
-      expect(await rewardToken.balanceOf(lpUser0.address)).to.be.equal(
-        claimable
-      )
+      expect(await rewardToken.balanceOf(lpUser0.address)).to.equal(claimable)
     })
 
     it('sets the claimed reward amount to zero', async () => {
       expect(
         await staker.rewards(rewardToken.address, lpUser0.address)
-      ).to.be.not.equal(0)
+      ).to.not.equal(0)
 
       await subject({ token: rewardToken.address, actor: lpUser0 })
 
       expect(
         await staker.rewards(rewardToken.address, lpUser0.address)
-      ).to.be.equal(0)
+      ).to.equal(0)
+    })
+
+    it('has gas cost', async () => {
+      await snapshotGasCost(subject({ token: rewardToken.address }))
     })
   })
 

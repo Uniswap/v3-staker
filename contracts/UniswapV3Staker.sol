@@ -243,18 +243,11 @@ contract UniswapV3Staker is
             );
 
         Incentive memory incentive = incentives[incentiveId];
-
         Stake memory stake = stakes[params.tokenId][incentiveId];
 
-        require(
-            stake.exists == true,
-            'Stake does not exist'
-        );
+        require(stake.exists == true, 'Stake does not exist');
 
-        require(
-            incentive.rewardToken != address(0),
-            'BAD INCENTIVE'
-        );
+        require(incentive.rewardToken != address(0), 'BAD INCENTIVE');
 
         uint160 secondsInPeriodX128 =
             uint160(
@@ -310,17 +303,13 @@ contract UniswapV3Staker is
     /// @inheritdoc IUniswapV3Staker
     function claimReward(address rewardToken, address to) external override {
         uint128 reward = rewards[rewardToken][msg.sender];
+        rewards[rewardToken][msg.sender] = 0;
 
         require(
-            IERC20Minimal(rewardToken).transfer(
-                to,
-                reward
-            ),
+            IERC20Minimal(rewardToken).transfer(to, reward),
             'REWARD_TRANSFER_FAILED'
         );
 
-        rewards[rewardToken][msg.sender] = 0;
-        
         emit RewardClaimed(to, reward);
     }
 

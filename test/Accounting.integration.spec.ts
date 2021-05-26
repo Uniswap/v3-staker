@@ -301,10 +301,9 @@ describe('UniswapV3Staker.integration', async () => {
     })
 
     // lpUser0 claims the rewards from the contract
-    await staker.connect(lpUser0).claimReward(
-      rewardToken.address,
-      lpUser0.address
-    )
+    await staker
+      .connect(lpUser0)
+      .claimReward(rewardToken.address, lpUser0.address)
 
     const topicUnstakedFilter = staker.filters.TokenUnstaked(null)
     const tokenUnstakedTopic = staker.interface.getEventTopic('TokenUnstaked')
