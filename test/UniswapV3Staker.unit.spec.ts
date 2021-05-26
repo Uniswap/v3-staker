@@ -402,23 +402,24 @@ describe('UniswapV3Staker.unit', async () => {
       })
 
       it('number of stakes is not 0', async () => {
+        const currentTime = await blockTimestamp()
         await tokens[0].approve(staker.address, totalReward)
         await staker.connect(wallets[0]).createIncentive({
           pool: pool01,
           rewardToken: tokens[0].address,
           totalReward,
-          startTime: 10,
-          endTime: 20,
-          claimDeadline: 30,
+          startTime: currentTime,
+          endTime: currentTime + 100,
+          claimDeadline: currentTime + 200,
         })
 
         await staker.connect(wallets[0]).stakeToken({
           creator: wallet.address,
           rewardToken: tokens[0].address,
           tokenId,
-          startTime: 10,
-          endTime: 20,
-          claimDeadline: 30,
+          startTime: currentTime,
+          endTime: currentTime + 100,
+          claimDeadline: currentTime + 200,
         })
         await expect(subject({ tokenId, recipient })).to.revertedWith(
           'NUMBER_OF_STAKES_NOT_ZERO'
@@ -566,7 +567,10 @@ describe('UniswapV3Staker.unit', async () => {
         await expect(subject()).to.be.revertedWith('incentive not started yet')
       })
 
-      it('is past the claim deadline')
+      it('is past the end time', async () => {
+        await setTime(endTime)
+        await expect(subject()).to.be.revertedWith('incentive ended')
+      })
     })
   })
 

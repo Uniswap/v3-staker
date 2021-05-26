@@ -335,6 +335,10 @@ contract UniswapV3Staker is
             'incentive not started yet'
         );
         require(
+            params.endTime > block.timestamp,
+            'incentive ended'
+        );
+        require(
             stakes[params.tokenId][incentiveId].exists != true,
             'already staked'
         );
