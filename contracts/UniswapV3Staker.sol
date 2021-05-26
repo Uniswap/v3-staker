@@ -21,6 +21,7 @@ import '@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol';
 import '@openzeppelin/contracts/math/Math.sol';
 import '@openzeppelin/contracts/math/SafeMath.sol';
 import '@openzeppelin/contracts/utils/ReentrancyGuard.sol';
+import 'hardhat/console.sol';
 
 /**
 @title Uniswap V3 canonical staking interface
@@ -259,6 +260,9 @@ contract UniswapV3Staker is
                 )
             );
 
+        console.log('secondsInPeriodX128');
+        console.logUint(secondsInPeriodX128);
+
         // TODO: double-check for overflow risk here
         uint160 totalSecondsUnclaimedX128 =
             uint160(
@@ -269,6 +273,9 @@ contract UniswapV3Staker is
                 ) - incentives[incentiveId].totalSecondsClaimedX128
             );
 
+        console.log('totalSecondsUnclaimedX128');
+        console.logUint(totalSecondsUnclaimedX128);
+
         // TODO: Make sure this truncates and not rounds up
         uint256 rewardRate =
             FullMath.mulDiv(
@@ -276,6 +283,9 @@ contract UniswapV3Staker is
                 FixedPoint128.Q128,
                 totalSecondsUnclaimedX128
             );
+
+        console.log('rewardRate');
+        console.logUint(rewardRate);
 
         // TODO: make sure casting is ok here
         uint128 reward =
@@ -286,6 +296,9 @@ contract UniswapV3Staker is
                     FixedPoint128.Q128
                 )
             );
+
+        console.log('reward');
+        console.log(reward);
 
         incentives[incentiveId].totalSecondsClaimedX128 += secondsInPeriodX128;
 

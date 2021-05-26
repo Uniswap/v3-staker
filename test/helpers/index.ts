@@ -51,8 +51,8 @@ export class HelperCommands {
     const incentiveCreator = this.actors.incentiveCreator()
     const times = {
       startTime,
-      endTime: startTime + 2000,
-      claimDeadline: startTime + 3000,
+      endTime: startTime + 86_400,
+      claimDeadline: startTime + 172_800,
     }
     const bal = await params.rewardToken.balanceOf(incentiveCreator.address)
 
@@ -174,6 +174,8 @@ export class HelperCommands {
       .connect(params.lp)
       .positions(params.tokenId)
 
+    console.info('Liquidity: ', liquidity.toString())
+
     await this.nft.connect(params.lp).decreaseLiquidity(
       {
         tokenId: params.tokenId,
@@ -201,12 +203,12 @@ export class HelperCommands {
 
     await this.nft.connect(params.lp).burn(params.tokenId, maxGas)
 
-    let newBalance = params.createIncentiveResult.rewardToken
+    const balance = await params.createIncentiveResult.rewardToken
       .connect(params.lp)
       .balanceOf(params.lp.address)
 
     return {
-      newBalance,
+      balance,
     }
   }
 

@@ -36,8 +36,7 @@ let loadFixture: ReturnType<typeof createFixtureLoader>
 
 const defaultAmountToStake = BNe18(1_000)
 
-type FixtureWithoutLiquidityContext = {
-  staker: UniswapV3Staker
+type TestContext = {
   tokens: [TestERC20, TestERC20, TestERC20]
   factory: IUniswapV3Factory
   nft: INonfungiblePositionManager
@@ -48,16 +47,64 @@ type FixtureWithoutLiquidityContext = {
   fee: FeeAmount
 }
 
+type Staker = { staker: UniswapV3Staker }
 type MockStaker = { mockStaker: MockTimeUniswapV3Staker }
 
-const withoutLiquidityFixture: Fixture<FixtureWithoutLiquidityContext> = async (
+const mockTimeFixture: Fixture<TestContext & MockStaker> = async (
   wallets,
   provider
 ) => {
   const actors = new ActorFixture(wallets, provider)
-  let uniswap = await uniswapFixture(wallets, provider)
+  const context: TestContext = _.assign(
+    {},
+    await mockTimeUniswapFixture(wallets, provider),
+    {
+      tokenIds: [],
+    }
+  )
 
-  const context: FixtureWithoutLiquidityContext = _.assign({}, uniswap, {
+  const token_holders = [
+    actors.lpUser0(),
+    actors.lpUser1(),
+    actors.traderUser0(),
+    actors.traderUser1(),
+  ]
+  await Promise.all(
+    _.range(2).map((tokenIndex) => {
+      token_holders.map((user) => {
+        return context.tokens[tokenIndex].transfer(
+          user.address,
+          defaultAmountToStake
+        )
+      })
+    })
+  )
+
+  const mockStakerFactory = await ethers.getContractFactory(
+    'MockTimeUniswapV3Staker',
+    actors.stakerDeployer()
+  )
+  const mockStaker = (await mockStakerFactory.deploy(
+    context.factory.address,
+    context.nft.address
+  )) as MockTimeUniswapV3Staker
+
+  return _.assign({}, context, { mockStaker })
+}
+
+type TestContextWithLiquidity = TestContext & {
+  tokenId: string
+  staker: UniswapV3Staker
+}
+const fixture: Fixture<TestContextWithLiquidity> = async (
+  wallets,
+  provider
+) => {
+  /* Regular fixture: uses the regular contracts so time progresses automatically.
+
+  It also adds some liquidity to the pool by default. */
+  const actors = new ActorFixture(wallets, provider)
+  const context = _.assign({}, await uniswapFixture(wallets, provider), {
     tokenIds: [],
   })
 
@@ -77,39 +124,6 @@ const withoutLiquidityFixture: Fixture<FixtureWithoutLiquidityContext> = async (
       })
     })
   )
-
-  return context
-}
-
-const mockStakerWithoutLiquidityFixture: Fixture<
-  FixtureWithoutLiquidityContext & MockStaker
-> = async (wallets, provider) => {
-  const actors = new ActorFixture(wallets, provider)
-  const context = await withoutLiquidityFixture(wallets, provider)
-
-  const mockStakerFactory = await ethers.getContractFactory(
-    'MockTimeUniswapV3Staker',
-    actors.stakerDeployer()
-  )
-  const mockStaker = (await mockStakerFactory.deploy(
-    context.factory.address,
-    context.nft.address
-  )) as MockTimeUniswapV3Staker
-
-  return _.assign({}, context, { mockStaker })
-}
-
-type FixtureWithLiquidityContext = FixtureWithoutLiquidityContext & {
-  tokenId: string
-}
-
-const withLiquidityFixture: Fixture<FixtureWithLiquidityContext> = async (
-  wallets,
-  provider
-) => {
-  /* This takes the previous fixture and adds liquidity to the pool */
-  const context = await withoutLiquidityFixture(wallets, provider)
-  const actors = new ActorFixture(wallets, provider)
 
   const lpUser0 = actors.lpUser0()
 
@@ -155,7 +169,7 @@ describe('UniswapV3Staker.integration', async () => {
   })
 
   describe('simple trading', async () => {
-    let context: FixtureWithLiquidityContext
+    let context: TestContextWithLiquidity
 
     // We are using the real contract, so we set time in the EVM
     const setTime: TimeSetterFunction = async (blockTimestamp: number) => {
@@ -163,7 +177,7 @@ describe('UniswapV3Staker.integration', async () => {
     }
 
     beforeEach('load fixture', async () => {
-      context = await loadFixture(withLiquidityFixture)
+      context = await loadFixture(fixture)
       actors = new ActorFixture(wallets, provider)
     })
 
@@ -332,13 +346,13 @@ describe('UniswapV3Staker.integration', async () => {
       await tok0.connect(trader1).approve(router.address, BNe18(100))
       await tok1.connect(trader1).approve(router.address, BNe18(100))
 
-      await router.connect(trader0).exactInput({
-        recipient: trader0.address,
-        deadline: MaxUint256,
-        path: encodePath([tok0.address, tok1.address], [FeeAmount.MEDIUM]),
-        amountIn: BNe18(1),
-        amountOutMinimum: 0,
-      })
+      // await router.connect(trader0).exactInput({
+      //   recipient: trader0.address,
+      //   deadline: MaxUint256,
+      //   path: encodePath([tok0.address, tok1.address], [FeeAmount.MEDIUM]),
+      //   amountIn: BNe18(1),
+      //   amountOutMinimum: 0,
+      // })
 
       /* Now someone creates an incentive program */
       const rewardToken = context.tokens[2]
@@ -541,32 +555,51 @@ describe('UniswapV3Staker.integration', async () => {
   })
 
   describe('complex situations', () => {
-    let context: FixtureWithoutLiquidityContext & MockStaker
-    // moves to that point in time and stays there
+    let context: TestContext & MockStaker
     let freezeTime: TimeSetterFunction
 
     beforeEach('load fixture', async () => {
-      context = await loadFixture(mockStakerWithoutLiquidityFixture)
+      context = await loadFixture(mockTimeFixture)
       actors = new ActorFixture(wallets, provider)
-      freezeTime = async (timestamp: number) => {
-        console.info(`🕒 freeze at ${timestamp}`)
-        await context.mockStaker.setTime(timestamp)
-      }
+      // await provider.send('evm_increaseTime', [0])
+
+      /* Has to set the time on both the MockStaker and the MockNFT */
     })
 
-    describe('when there are multiple LPs in the same range', async () => {
+    describe.only('when there are multiple LPs in the same range', async () => {
       it('allows them all to withdraw at the end', async () => {
         const {
-          mockStaker,
+          mockStaker: staker,
           nft,
           pool01,
           tokens: [token0, token1, rewardToken],
         } = context
 
-        // Test parameters:
         const [lpUser0, lpUser1] = [actors.lpUser0(), actors.lpUser1()]
         const totalReward = BNe18(100)
-        const epoch = 0
+
+        const poolObj = poolFactory
+          .attach(pool01)
+          .connect(lpUser0) as IUniswapV3Pool
+
+        freezeTime = async (timestamp: number) => {
+          throw new Error('not implemented yet')
+          console.info(`🕒 set time ${timestamp}`)
+          // await staker.setTime(timestamp)
+          // // @ts-ignore
+          // await context.nft.setTime(timestamp)
+          // // @ts-ignore
+          // await context.router.setTime(timestamp)
+          // @ts-ignore
+          // await poolObj.setTime(timestamp)
+
+          // await provider.send('evm_setNextBlockTimestamp', [timestamp])
+          // await provider.send('evm_increaseTime', [1])
+        }
+
+        // Test parameters:
+
+        const epoch = 10
         await freezeTime(epoch)
         const incentiveStartsAt = epoch + 10
 
@@ -583,15 +616,11 @@ describe('UniswapV3Staker.integration', async () => {
           getMaxTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
         ]
 
-        const poolObj = poolFactory
-          .attach(pool01)
-          .connect(lpUser0) as IUniswapV3Pool
-
         let balances = {}
 
         const helpers = new HelperCommands(
           provider,
-          mockStaker,
+          staker,
           nft,
           poolObj,
           actors
@@ -619,7 +648,7 @@ describe('UniswapV3Staker.integration', async () => {
           createIncentiveResult,
           ticks: ticksToStake,
         }
-        await freezeTime(createIncentiveResult.startTime)
+
         // lpUser{0,1} stake from 0 - MAX
         const { tokenId: lp0token0 } = await helpers.mintDepositStakeFlow({
           ...mintDepositStakeParams,
@@ -631,19 +660,22 @@ describe('UniswapV3Staker.integration', async () => {
         })
 
         // Time passes, we get to the end of the incentive program
-        await freezeTime(createIncentiveResult.endTime)
 
         // lpUser0 pulls out their liquidity
-        await helpers.unstakeCollectBurnFlow({
+        await freezeTime(createIncentiveResult.startTime + 86400)
+        const {
+          balance: lp0RewardBalance,
+        } = await helpers.unstakeCollectBurnFlow({
           lp: actors.lpUser0(),
           tokenId: lp0token0,
           createIncentiveResult,
         })
 
-        await freezeTime(createIncentiveResult.endTime)
-
         // lpUser1 pulls out their liquidity
-        await helpers.unstakeCollectBurnFlow({
+        await freezeTime(createIncentiveResult.startTime + 86400)
+        const {
+          balance: lp1RewardBalance,
+        } = await helpers.unstakeCollectBurnFlow({
           lp: actors.lpUser1(),
           tokenId: lp1token0,
           createIncentiveResult,
@@ -655,12 +687,15 @@ describe('UniswapV3Staker.integration', async () => {
             lpUser0.address
           ].toString()} delta=${bal0.sub(balances[lpUser0.address]).toString()}`
         )
+        console.info(lp0RewardBalance.toString())
+
         const bal1 = await rewardToken.balanceOf(lpUser1.address)
         console.info(
           `lpUser1 bal before=${balances[
             lpUser1.address
           ].toString()} delta=${bal1.sub(balances[lpUser1.address]).toString()}`
         )
+        console.info(lp1RewardBalance.toString())
 
         // This will fail until we have the MockTimeStaker in place.
         // expect(bal0.add(bal1)).to.eq(totalReward)

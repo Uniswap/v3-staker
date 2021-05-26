@@ -57,7 +57,9 @@ export module HelperTypes {
       tokenId: string
       createIncentiveResult: CreateIncentive.Result
     }
-    type Result = {}
+    type Result = {
+      balance: BigNumber
+    }
 
     export type Command = CommandFunction<Args, Result>
   }
