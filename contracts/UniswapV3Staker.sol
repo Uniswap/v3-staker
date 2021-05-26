@@ -45,6 +45,7 @@ contract UniswapV3Staker is
 
     struct Stake {
         uint160 secondsPerLiquidityInitialX128;
+        uint128 liquidity;
         bool exists;
     }
 
@@ -223,14 +224,12 @@ contract UniswapV3Staker is
             address poolAddress,
             int24 tickLower,
             int24 tickUpper,
-            uint128 liquidity
         ) = _getPositionDetails(params.tokenId);
 
         require(poolAddress != address(0), 'INVALID_POSITION');
-        IUniswapV3Pool pool = IUniswapV3Pool(poolAddress);
 
         (, uint160 secondsPerLiquidityInsideX128, ) =
-            pool.snapshotCumulativesInside(tickLower, tickUpper);
+            IUniswapV3Pool(poolAddress).snapshotCumulativesInside(tickLower, tickUpper);
 
         bytes32 incentiveId =
             IncentiveHelper.getIncentiveId(
@@ -246,7 +245,6 @@ contract UniswapV3Staker is
         Stake memory stake = stakes[params.tokenId][incentiveId];
 
         require(stake.exists == true, 'Stake does not exist');
-
         require(incentive.rewardToken != address(0), 'BAD INCENTIVE');
 
         uint160 secondsInPeriodX128 =
@@ -254,7 +252,7 @@ contract UniswapV3Staker is
                 SafeMath.mul(
                     secondsPerLiquidityInsideX128 -
                         stake.secondsPerLiquidityInitialX128,
-                    liquidity
+                    stake.liquidity
                 )
             );
 
@@ -316,7 +314,6 @@ contract UniswapV3Staker is
     function _stakeToken(StakeTokenParams memory params) internal {
         (address poolAddress, int24 tickLower, int24 tickUpper, ) =
             _getPositionDetails(params.tokenId);
-        IUniswapV3Pool pool = IUniswapV3Pool(poolAddress);
 
         bytes32 incentiveId =
             IncentiveHelper.getIncentiveId(
@@ -333,19 +330,29 @@ contract UniswapV3Staker is
             'non-existent incentive'
         );
         require(
+            params.startTime <= block.timestamp,
+            'incentive not started yet'
+        );
+        require(
+            params.endTime > block.timestamp,
+            'incentive ended'
+        );
+        require(
             stakes[params.tokenId][incentiveId].exists != true,
             'already staked'
         );
 
         (, uint160 secondsPerLiquidityInsideX128, ) =
-            pool.snapshotCumulativesInside(tickLower, tickUpper);
+            IUniswapV3Pool(poolAddress).snapshotCumulativesInside(tickLower, tickUpper);
+        (, , , uint128 liquidity) = _getPositionDetails(params.tokenId);
         stakes[params.tokenId][incentiveId] = Stake(
             secondsPerLiquidityInsideX128,
+            liquidity,
             true
         );
 
         deposits[params.tokenId].numberOfStakes += 1;
-        emit TokenStaked(params.tokenId);
+        emit TokenStaked(params.tokenId, liquidity);
     }
 
     function _getPositionDetails(uint256 tokenId)

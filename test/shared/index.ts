@@ -16,12 +16,17 @@ import { constants } from 'ethers'
 export const { MaxUint256 } = constants
 
 import { ethers } from 'hardhat'
+
 export const blockTimestamp = async () => {
   const block = await provider.getBlock('latest')
   if (!block) {
     throw new Error('null block returned from provider')
   }
   return block.timestamp
+}
+
+export const setTime = async (blockTimestamp) => {
+  return await provider.send('evm_setNextBlockTimestamp', [blockTimestamp])
 }
 
 import bn from 'bignumber.js'

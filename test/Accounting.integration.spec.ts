@@ -24,6 +24,7 @@ import {
   MAX_GAS_LIMIT,
   maxGas,
   BN,
+  setTime,
 } from './shared'
 import { Fixture } from 'ethereum-waffle'
 
@@ -32,10 +33,6 @@ import UniswapV3Pool from '@uniswap/v3-core/artifacts/contracts/UniswapV3Pool.so
 
 type ISwapRouter = any
 let loadFixture: ReturnType<typeof createFixtureLoader>
-
-const setTime = async (blockTimestamp) => {
-  return await provider.send('evm_setNextBlockTimestamp', [blockTimestamp])
-}
 
 type TestContext = {
   tokens: [TestERC20, TestERC20, TestERC20]
