@@ -40,6 +40,7 @@ contract UniswapV3Staker is
 
     struct Deposit {
         address owner;
+        uint128 liquidity;
         uint32 numberOfStakes;
     }
 
@@ -176,7 +177,8 @@ contract UniswapV3Staker is
             'uniswap v3 nft only'
         );
 
-        deposits[tokenId] = Deposit(from, 0);
+        (, , , uint128 liquidity) = _getPositionDetails(tokenId);
+        deposits[tokenId] = Deposit(from, liquidity, 0);
         emit TokenDeposited(tokenId, from);
 
         if (data.length > 0) {
