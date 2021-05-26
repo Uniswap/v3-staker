@@ -1,13 +1,7 @@
 import { ethers } from 'hardhat'
 import _ from 'lodash'
 import { provider, createFixtureLoader } from './shared/provider'
-import {
-  TestERC20,
-  INonfungiblePositionManager,
-  IUniswapV3Factory,
-  UniswapV3Staker,
-  IUniswapV3Pool,
-} from '../typechain'
+import { IUniswapV3Pool } from '../typechain'
 import { ActorFixture } from '../test/shared/actors'
 import { uniswapFixture, mintPosition, poolFactory } from './shared/fixtures'
 import { HelperCommands } from './helpers'
@@ -27,32 +21,20 @@ import {
   setTime,
 } from './shared'
 import { Fixture } from 'ethereum-waffle'
-
-import { ISwapRouter } from '../types/ISwapRouter'
-import NonfungiblePositionManager from '@uniswap/v3-periphery/artifacts/contracts/NonfungiblePositionManager.sol/NonfungiblePositionManager.json'
 import UniswapV3Pool from '@uniswap/v3-core/artifacts/contracts/UniswapV3Pool.sol/UniswapV3Pool.json'
+import { LoadFixtureFunction, TestContext, TokenIDs } from './types'
 
-let loadFixture: ReturnType<typeof createFixtureLoader>
-
-type TestContext = {
-  tokens: [TestERC20, TestERC20, TestERC20]
-  factory: IUniswapV3Factory
-  nft: INonfungiblePositionManager
-  router: ISwapRouter
-  staker: UniswapV3Staker
-  pool01: string
-  pool12: string
-  subject?: Function
-  fee: FeeAmount
-  tokenIds: Array<string>
-}
+let loadFixture: LoadFixtureFunction
 
 describe('UniswapV3Staker.integration', async () => {
   const wallets = provider.getWallets()
-  let ctx = {} as TestContext
+  let ctx = {} as TestContext & TokenIDs
   let actors: ActorFixture
 
-  const fixture: Fixture<TestContext> = async (wallets, provider) => {
+  const fixture: Fixture<TestContext & TokenIDs> = async (
+    wallets,
+    provider
+  ) => {
     /* This is the top-level fixture that gets run before the integration tests.
 
     It's pretty long and also calls other fixtures. Do note that when calling a fixture
@@ -66,9 +48,9 @@ describe('UniswapV3Staker.integration', async () => {
     actors = new ActorFixture(wallets, provider)
     let uniswap = await uniswapFixture(wallets, provider)
 
-    const context: TestContext = {
+    const context = {
       ...uniswap,
-      tokenIds: [],
+      tokenIds: [] as Array<string>,
     }
 
     const amount = BNe18(10_000)
@@ -598,5 +580,7 @@ describe('UniswapV3Staker.integration', async () => {
       tokenId: lp1token0,
       createIncentiveResult,
     })
+
+    // TODO: an assertion
   })
 })
