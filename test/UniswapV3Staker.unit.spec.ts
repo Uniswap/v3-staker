@@ -41,10 +41,8 @@ describe.only('UniswapV3Staker.unit', async () => {
   const actors = new ActorFixture(wallets, provider)
   let context: UniswapFixtureType
 
+  // TODO: remove wallet,other
   const [wallet, other] = wallets
-  let tokens: [TestERC20, TestERC20, TestERC20]
-  let nft: INonfungiblePositionManager
-
   const incentiveCreator = actors.incentiveCreator()
   const lpUser0 = actors.lpUser0()
   const totalReward = BNe18(100)
@@ -213,7 +211,6 @@ describe.only('UniswapV3Staker.unit', async () => {
   describe('#endIncentive', async () => {
     let subject: (params: Partial<ContractParams.EndIncentive>) => Promise<any>
     let timestamps: ContractParams.Timestamps
-    let helpers: HelperCommands
 
     beforeEach('setup', async () => {
       timestamps = makeTimestamps(await blockTimestamp())
@@ -309,47 +306,62 @@ describe.only('UniswapV3Staker.unit', async () => {
   })
 
   describe('#depositToken', () => {
+    /**
+     * In these tests, lpUser0 is the one depositing the token.
+     */
+
     let tokenId
     let subject
+    const amountDesired = BNe18(10)
 
     beforeEach(async () => {
-      tokenId = await mintPosition(nft, {
-        token0: tokens[1].address,
-        token1: tokens[2].address,
+      await e20h.ensureBalancesAndApprovals(
+        lpUser0,
+        [context.token0, context.token1],
+        amountDesired,
+        context.nft.address
+      )
+
+      tokenId = await mintPosition(context.nft.connect(lpUser0), {
+        token0: context.token0.address,
+        token1: context.token1.address,
         fee: FeeAmount.MEDIUM,
         tickLower: getMinTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
         tickUpper: getMaxTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
-        recipient: wallet.address,
-        amount0Desired: BN(10).mul(BN(10).pow(18)),
-        amount1Desired: BN(10).mul(BN(10).pow(18)),
+        recipient: lpUser0.address,
+        amount0Desired: amountDesired,
+        amount1Desired: amountDesired,
         amount0Min: 0,
         amount1Min: 0,
         deadline: (await blockTimestamp()) + 1000,
       })
 
-      await nft.approve(context.staker.address, tokenId, {
-        gasLimit: MAX_GAS_LIMIT,
-      })
+      await context.nft
+        .connect(lpUser0)
+        .approve(context.staker.address, tokenId, {
+          gasLimit: MAX_GAS_LIMIT,
+        })
+
       subject = async () =>
-        await context.staker.connect(wallet).depositToken(tokenId)
+        await context.staker.connect(lpUser0).depositToken(tokenId)
     })
 
     describe('works and', async () => {
       it('emits a Deposited event', async () => {
         await expect(subject())
           .to.emit(context.staker, 'TokenDeposited')
-          .withArgs(tokenId, wallet.address)
+          .withArgs(tokenId, lpUser0.address)
       })
 
       it('transfers ownership of the NFT', async () => {
         await subject()
-        expect(await nft.ownerOf(tokenId)).to.eq(context.staker.address)
+        expect(await context.nft.ownerOf(tokenId)).to.eq(context.staker.address)
       })
 
       it('sets owner and maintains numberOfStakes at 0', async () => {
         await subject()
         const deposit = await context.staker.deposits(tokenId)
-        expect(deposit.owner).to.eq(wallet.address)
+        expect(deposit.owner).to.eq(lpUser0.address)
         expect(deposit.numberOfStakes).to.eq(0)
       })
 
@@ -374,9 +386,9 @@ describe.only('UniswapV3Staker.unit', async () => {
     const recipient = wallet.address
 
     beforeEach(async () => {
-      tokenId = await mintPosition(nft, {
-        token0: tokens[0].address,
-        token1: tokens[1].address,
+      tokenId = await mintPosition(context.nft, {
+        token0: context.tokens[0].address,
+        token1: context.tokens[1].address,
         fee: FeeAmount.MEDIUM,
         tickLower: getMinTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
         tickUpper: getMaxTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
@@ -388,7 +400,7 @@ describe.only('UniswapV3Staker.unit', async () => {
         deadline: (await blockTimestamp()) + 1000,
       })
 
-      await nft
+      await context.nft
         .connect(wallets[0])
         .approve(context.staker.address, tokenId, { gasLimit: MAX_GAS_LIMIT })
 
@@ -406,12 +418,12 @@ describe.only('UniswapV3Staker.unit', async () => {
 
       it('transfers nft ownership', async () => {
         await subject({ tokenId, recipient })
-        expect(await nft.ownerOf(tokenId)).to.eq(recipient)
+        expect(await context.nft.ownerOf(tokenId)).to.eq(recipient)
       })
 
       it('prevents you from withdrawing twice', async () => {
         await subject({ tokenId, recipient })
-        expect(await nft.ownerOf(tokenId)).to.eq(recipient)
+        expect(await context.nft.ownerOf(tokenId)).to.eq(recipient)
         await expect(subject({ tokenId, recipient })).to.be.reverted
       })
 
@@ -429,10 +441,10 @@ describe.only('UniswapV3Staker.unit', async () => {
 
       it('number of stakes is not 0', async () => {
         const currentTime = await blockTimestamp()
-        await tokens[0].approve(context.staker.address, totalReward)
+        await context.tokens[0].approve(context.staker.address, totalReward)
         await context.staker.connect(wallets[0]).createIncentive({
           pool: context.pool01,
-          rewardToken: tokens[0].address,
+          rewardToken: context.tokens[0].address,
           totalReward,
           startTime: currentTime,
           endTime: currentTime + 100,
@@ -441,7 +453,7 @@ describe.only('UniswapV3Staker.unit', async () => {
 
         await context.staker.connect(wallets[0]).stakeToken({
           creator: wallet.address,
-          rewardToken: tokens[0].address,
+          rewardToken: context.tokens[0].address,
           tokenId,
           startTime: currentTime,
           endTime: currentTime + 100,
@@ -466,15 +478,15 @@ describe.only('UniswapV3Staker.unit', async () => {
     beforeEach(async () => {
       const currentTime = await blockTimestamp()
 
-      rewardToken = tokens[0]
-      otherRewardToken = tokens[1]
+      rewardToken = context.tokens[0]
+      otherRewardToken = context.tokens[1]
       startTime = currentTime + 1000
       endTime = currentTime + 2000
       claimDeadline = currentTime + 3000
 
-      tokenId = await mintPosition(nft, {
-        token0: tokens[0].address,
-        token1: tokens[1].address,
+      tokenId = await mintPosition(context.nft, {
+        token0: context.tokens[0].address,
+        token1: context.tokens[1].address,
         fee: FeeAmount.MEDIUM,
         tickLower: getMinTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
         tickUpper: getMaxTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
@@ -486,14 +498,14 @@ describe.only('UniswapV3Staker.unit', async () => {
         deadline: claimDeadline,
       })
 
-      await nft
+      await context.nft
         .connect(wallets[0])
         .approve(context.staker.address, tokenId, { gasLimit: MAX_GAS_LIMIT })
 
       await context.staker.connect(wallets[0]).depositToken(tokenId)
 
-      await tokens[0].transfer(incentiveCreator.address, totalReward)
-      await tokens[0]
+      await context.tokens[0].transfer(incentiveCreator.address, totalReward)
+      await context.tokens[0]
         .connect(incentiveCreator)
         .approve(context.staker.address, totalReward)
 
@@ -527,14 +539,14 @@ describe.only('UniswapV3Staker.unit', async () => {
       })
 
       it('emits the stake event', async () => {
-        const liquidity = (await nft.positions(tokenId)).liquidity
+        const liquidity = (await context.nft.positions(tokenId)).liquidity
         await expect(await subject())
           .to.emit(context.staker, 'TokenStaked')
           .withArgs(tokenId, liquidity)
       })
 
       it('sets the stake struct properly', async () => {
-        const liquidity = (await nft.positions(tokenId)).liquidity
+        const liquidity = (await context.nft.positions(tokenId)).liquidity
         const idGetter = await (
           await ethers.getContractFactory('TestIncentiveID')
         ).deploy()
@@ -613,7 +625,7 @@ describe.only('UniswapV3Staker.unit', async () => {
 
     beforeEach(async () => {
       const currentTime = await blockTimestamp()
-      rewardToken = tokens[2]
+      rewardToken = context.tokens[2]
       startTime = currentTime
       endTime = currentTime + 100
       claimDeadline = currentTime + 200
@@ -626,11 +638,19 @@ describe.only('UniswapV3Staker.unit', async () => {
         .connect(incentiveCreator)
         .approve(context.staker.address, totalReward)
 
-      await tokens[0].connect(wallets[0]).transfer(lpUser0.address, BNe18(10))
-      await tokens[1].connect(wallets[0]).transfer(lpUser0.address, BNe18(10))
+      await context.tokens[0]
+        .connect(wallets[0])
+        .transfer(lpUser0.address, BNe18(10))
+      await context.tokens[1]
+        .connect(wallets[0])
+        .transfer(lpUser0.address, BNe18(10))
 
-      await tokens[0].connect(lpUser0).approve(nft.address, BNe18(10))
-      await tokens[1].connect(lpUser0).approve(nft.address, BNe18(10))
+      await context.tokens[0]
+        .connect(lpUser0)
+        .approve(context.nft.address, BNe18(10))
+      await context.tokens[1]
+        .connect(lpUser0)
+        .approve(context.nft.address, BNe18(10))
 
       await context.staker.connect(incentiveCreator).createIncentive({
         pool: context.pool01,
@@ -641,9 +661,9 @@ describe.only('UniswapV3Staker.unit', async () => {
         claimDeadline,
       })
 
-      tokenId = await mintPosition(nft.connect(lpUser0), {
-        token0: tokens[0].address,
-        token1: tokens[1].address,
+      tokenId = await mintPosition(context.nft.connect(lpUser0), {
+        token0: context.tokens[0].address,
+        token1: context.tokens[1].address,
         fee: FeeAmount.MEDIUM,
         tickLower: getMinTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
         tickUpper: getMaxTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
@@ -655,7 +675,7 @@ describe.only('UniswapV3Staker.unit', async () => {
         deadline: claimDeadline,
       })
 
-      await nft
+      await context.nft
         .connect(lpUser0)
         .approve(context.staker.address, tokenId, { gasLimit: MAX_GAS_LIMIT })
       await context.staker.connect(lpUser0).depositToken(tokenId)
@@ -735,14 +755,14 @@ describe.only('UniswapV3Staker.unit', async () => {
     beforeEach(async () => {
       const currentTime = await blockTimestamp()
 
-      rewardToken = tokens[1]
+      rewardToken = context.tokens[1]
       startTime = currentTime
       endTime = currentTime + 100
       claimDeadline = currentTime + 1000
 
-      tokenId = await mintPosition(nft.connect(wallets[0]), {
-        token0: tokens[0].address,
-        token1: tokens[1].address,
+      tokenId = await mintPosition(context.nft.connect(wallets[0]), {
+        token0: context.tokens[0].address,
+        token1: context.tokens[1].address,
         fee: FeeAmount.MEDIUM,
         tickLower: getMinTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
         tickUpper: getMaxTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
@@ -788,7 +808,7 @@ describe.only('UniswapV3Staker.unit', async () => {
         expect((await context.staker.deposits(1)).owner).to.equal(
           constants.AddressZero
         )
-        await nft['safeTransferFrom(address,address,uint256)'](
+        await context.nft['safeTransferFrom(address,address,uint256)'](
           wallets[0].address,
           context.staker.address,
           tokenId,
@@ -818,7 +838,7 @@ describe.only('UniswapV3Staker.unit', async () => {
 
         const stakeBefore = await context.staker.stakes(tokenId, incentiveId)
         const depositBefore = await context.staker.deposits(tokenId)
-        await nft['safeTransferFrom(address,address,uint256,bytes)'](
+        await context.nft['safeTransferFrom(address,address,uint256,bytes)'](
           wallets[0].address,
           context.staker.address,
           tokenId,
@@ -842,7 +862,7 @@ describe.only('UniswapV3Staker.unit', async () => {
 
       it('has gas cost', async () => {
         await snapshotGasCost(
-          nft['safeTransferFrom(address,address,uint256,bytes)'](
+          context.nft['safeTransferFrom(address,address,uint256,bytes)'](
             wallets[0].address,
             context.staker.address,
             tokenId,
@@ -883,7 +903,7 @@ describe.only('UniswapV3Staker.unit', async () => {
           [invalidStakeParams]
         )
         await expect(
-          nft['safeTransferFrom(address,address,uint256,bytes)'](
+          context.nft['safeTransferFrom(address,address,uint256,bytes)'](
             wallet.address,
             context.staker.address,
             tokenId,
@@ -896,12 +916,12 @@ describe.only('UniswapV3Staker.unit', async () => {
 
   describe('#multicall', () => {
     it('is implemented', async () => {
-      const rewardToken = tokens[2]
+      const rewardToken = context.tokens[2]
       const currentTime = await blockTimestamp()
 
-      const tokenId = await mintPosition(nft, {
-        token0: tokens[0].address,
-        token1: tokens[1].address,
+      const tokenId = await mintPosition(context.nft, {
+        token0: context.tokens[0].address,
+        token1: context.tokens[1].address,
         fee: FeeAmount.MEDIUM,
         tickLower: getMinTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
         tickUpper: getMaxTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
@@ -913,7 +933,7 @@ describe.only('UniswapV3Staker.unit', async () => {
         deadline: currentTime + 10_000,
       })
       await rewardToken.transfer(wallet.address, BNe18(5))
-      await nft.connect(wallet).approve(context.staker.address, tokenId)
+      await context.nft.connect(wallet).approve(context.staker.address, tokenId)
       await rewardToken
         .connect(wallet)
         .approve(context.staker.address, BNe18(5))
@@ -955,16 +975,16 @@ describe.only('UniswapV3Staker.unit', async () => {
 
     beforeEach('setup', async () => {
       const currentTime = await blockTimestamp()
-      rewardToken = tokens[2]
+      rewardToken = context.tokens[2]
       startTime = currentTime
       endTime = currentTime + 100
       claimDeadline = currentTime + 200
 
-      await tokens[0].connect(wallets[0]).transfer(lpUser0.address, 100)
-      await tokens[1].connect(wallets[0]).transfer(lpUser0.address, 100)
+      await context.tokens[0].connect(wallets[0]).transfer(lpUser0.address, 100)
+      await context.tokens[1].connect(wallets[0]).transfer(lpUser0.address, 100)
 
-      await tokens[0].connect(lpUser0).approve(nft.address, 100)
-      await tokens[1].connect(lpUser0).approve(nft.address, 100)
+      await context.tokens[0].connect(lpUser0).approve(context.nft.address, 100)
+      await context.tokens[1].connect(lpUser0).approve(context.nft.address, 100)
 
       await rewardToken
         .connect(wallets[0])
@@ -983,9 +1003,9 @@ describe.only('UniswapV3Staker.unit', async () => {
         claimDeadline,
       })
 
-      tokenId = await mintPosition(nft.connect(lpUser0), {
-        token0: tokens[0].address,
-        token1: tokens[1].address,
+      tokenId = await mintPosition(context.nft.connect(lpUser0), {
+        token0: context.tokens[0].address,
+        token1: context.tokens[1].address,
         fee: FeeAmount.MEDIUM,
         tickLower: getMinTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
         tickUpper: getMaxTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
@@ -997,7 +1017,7 @@ describe.only('UniswapV3Staker.unit', async () => {
         deadline: claimDeadline,
       })
 
-      await nft
+      await context.nft
         .connect(lpUser0)
         .approve(context.staker.address, tokenId, { gasLimit: MAX_GAS_LIMIT })
       await context.staker.connect(lpUser0).depositToken(tokenId)
