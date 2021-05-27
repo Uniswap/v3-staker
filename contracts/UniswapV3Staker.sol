@@ -179,7 +179,7 @@ contract UniswapV3Staker is
         emit TokenDeposited(tokenId, from);
 
         if (data.length > 0) {
-            _stakeToken(abi.decode(data, (StakeTokenParams)));
+            _stakeToken(abi.decode(data, (UpdateStakeParams)));
         }
         return this.onERC721Received.selector;
     }
@@ -196,7 +196,7 @@ contract UniswapV3Staker is
     }
 
     /// @inheritdoc IUniswapV3Staker
-    function stakeToken(StakeTokenParams memory params) external override {
+    function stakeToken(UpdateStakeParams memory params) external override {
         require(
             deposits[params.tokenId].owner == msg.sender,
             'NOT_YOUR_DEPOSIT'
@@ -206,7 +206,7 @@ contract UniswapV3Staker is
     }
 
     /// @inheritdoc IUniswapV3Staker
-    function unstakeToken(UnstakeTokenParams memory params)
+    function unstakeToken(UpdateStakeParams memory params)
         external
         override
         nonReentrant
@@ -216,31 +216,48 @@ contract UniswapV3Staker is
             'NOT_YOUR_DEPOSIT'
         );
 
-        deposits[params.tokenId].numberOfStakes -= 1;
+        (bytes32 incentiveId, Incentive memory incentive, Stake memory stake) =
+            _getUpdateStakeParams(params);
+        (uint128 reward, ) =
+            _updateStakeAndIncentive(incentiveId, incentive, stake, params);
 
+        delete stakes[params.tokenId][incentiveId];
+        deposits[params.tokenId].numberOfStakes -= 1;
+        rewards[incentive.rewardToken][msg.sender] = uint128(
+            SafeMath.add(rewards[incentive.rewardToken][msg.sender], reward)
+        );
+        emit TokenUnstaked(params.tokenId);
+    }
+
+    function claimRewardsFromStake(UpdateStakeParams memory params, address to)
+        external
+    {
+        require(
+            deposits[params.tokenId].owner == msg.sender,
+            'NOT_YOUR_DEPOSIT'
+        );
+        (bytes32 incentiveId, Incentive memory incentive, Stake memory stake) =
+            _getUpdateStakeParams(params);
+        (uint128 reward, uint160 secondsPerLiquidityInsideX128) =
+            _updateStakeAndIncentive(incentiveId, incentive, stake, params);
+
+        stakes[params.tokenId][incentiveId].secondsPerLiquidityInitialX128 =
+            secondsPerLiquidityInsideX128 +
+            1;
+        TransferHelper.safeTransfer(incentive.rewardToken, to, reward);
+    }
+
+    function _updateStakeAndIncentive(
+        bytes32 incentiveId,
+        Incentive memory incentive,
+        Stake memory stake,
+        UpdateStakeParams memory params
+    ) internal returns (uint128 reward, uint160 secondsPerLiquidityInsideX128) {
         (address poolAddress, int24 tickLower, int24 tickUpper, ) =
             _getPositionDetails(params.tokenId);
 
-        require(poolAddress != address(0), 'INVALID_POSITION');
-
-        (, uint160 secondsPerLiquidityInsideX128, ) =
-            IUniswapV3Pool(poolAddress).snapshotCumulativesInside(
-                tickLower,
-                tickUpper
-            );
-
-        bytes32 incentiveId =
-            IncentiveHelper.getIncentiveId(
-                params.creator,
-                params.rewardToken,
-                poolAddress,
-                params.startTime,
-                params.endTime,
-                params.claimDeadline
-            );
-
-        Incentive memory incentive = incentives[incentiveId];
-        Stake memory stake = stakes[params.tokenId][incentiveId];
+        (, secondsPerLiquidityInsideX128, ) = IUniswapV3Pool(poolAddress)
+            .snapshotCumulativesInside(tickLower, tickUpper);
 
         require(stake.exists == true, 'Stake does not exist');
         require(incentive.rewardToken != address(0), 'BAD INCENTIVE');
@@ -273,27 +290,39 @@ contract UniswapV3Staker is
             );
 
         // TODO: make sure casting is ok here
-        uint128 reward =
-            uint128(
-                FullMath.mulDiv(
-                    secondsInPeriodX128,
-                    rewardRate,
-                    FixedPoint128.Q128
-                )
-            );
+        reward = uint128(
+            FullMath.mulDiv(secondsInPeriodX128, rewardRate, FixedPoint128.Q128)
+        );
 
         incentives[incentiveId].totalSecondsClaimedX128 += secondsInPeriodX128;
-
         // TODO: is SafeMath necessary here? Could we do just a subtraction?
         incentives[incentiveId].totalRewardUnclaimed = uint128(
             SafeMath.sub(incentive.totalRewardUnclaimed, reward)
         );
+    }
 
-        rewards[incentive.rewardToken][msg.sender] = uint128(
-            SafeMath.add(rewards[incentive.rewardToken][msg.sender], reward)
-        );
+    function _getUpdateStakeParams(UpdateStakeParams memory params)
+        internal
+        returns (
+            bytes32,
+            Incentive memory,
+            Stake memory
+        )
+    {
+        (address poolAddress, , , ) = _getPositionDetails(params.tokenId);
+        bytes32 incentiveId =
+            IncentiveHelper.getIncentiveId(
+                params.creator,
+                params.rewardToken,
+                poolAddress,
+                params.startTime,
+                params.endTime,
+                params.claimDeadline
+            );
 
-        emit TokenUnstaked(params.tokenId);
+        Incentive memory incentive = incentives[incentiveId];
+        Stake memory stake = stakes[params.tokenId][incentiveId];
+        return (incentiveId, incentive, stake);
     }
 
     /// @inheritdoc IUniswapV3Staker
@@ -301,16 +330,12 @@ contract UniswapV3Staker is
         uint128 reward = rewards[rewardToken][msg.sender];
         rewards[rewardToken][msg.sender] = 0;
 
-        TransferHelper.safeTransfer(
-            rewardToken,
-            to,
-            reward
-        );
+        TransferHelper.safeTransfer(rewardToken, to, reward);
 
         emit RewardClaimed(to, reward);
     }
 
-    function _stakeToken(StakeTokenParams memory params) internal {
+    function _stakeToken(UpdateStakeParams memory params) internal {
         (address poolAddress, int24 tickLower, int24 tickUpper, ) =
             _getPositionDetails(params.tokenId);
 

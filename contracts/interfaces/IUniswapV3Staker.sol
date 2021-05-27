@@ -66,7 +66,7 @@ interface IUniswapV3Staker {
     */
     function endIncentive(EndIncentiveParams memory params) external;
 
-    struct StakeTokenParams {
+    struct UpdateStakeParams {
         address creator;
         address rewardToken;
         uint256 tokenId;
@@ -75,18 +75,9 @@ interface IUniswapV3Staker {
         uint32 claimDeadline;
     }
 
-    function stakeToken(StakeTokenParams memory params) external;
+    function stakeToken(UpdateStakeParams memory params) external;
 
-    struct UnstakeTokenParams {
-        address creator;
-        address rewardToken;
-        uint256 tokenId;
-        uint32 startTime;
-        uint32 endTime;
-        uint32 claimDeadline;
-    }
-
-    function unstakeToken(UnstakeTokenParams memory params) external;
+    function unstakeToken(UpdateStakeParams memory params) external;
 
     function claimReward(address rewardToken, address to) external;
 }
