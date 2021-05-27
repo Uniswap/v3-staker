@@ -32,7 +32,7 @@ import { HelperTypes } from './helpers/types'
 
 let loadFixture: LoadFixtureFunction
 
-describe.only('UniswapV3Staker.math', async () => {
+describe('UniswapV3Staker.math', async () => {
   const wallets = provider.getWallets()
   const Time = createTimeMachine(provider)
 
@@ -199,7 +199,7 @@ describe.only('UniswapV3Staker.math', async () => {
     })
 
     describe('when another LP starts staking halfway through', async () => {
-      describe('and provides less liquidity', async () => {
+      describe('and provides half the liquidity', async () => {
         it('gives them a smaller share of the reward', async () => {
           const { helpers, createIncentiveResult, stakes, context } = subject
           const { startTime, endTime, claimDeadline } = createIncentiveResult
@@ -259,15 +259,14 @@ describe.only('UniswapV3Staker.math', async () => {
   describe('when there are different ranges staked', async () => {
     it('rewards based on how long they are in range', async () => {})
   })
+
   describe('the liquidity moves outside of range', () => {
     it('only rewards those who are within range')
   })
-  describe('when everyone waits until claimDeadline', () => {
-    it('gives them the right amount of reward')
-  })
+
   describe('when someone stakes, unstakes, then restakes', () => {})
 
-  describe('the liquidity in the pool changes (from a non-staker?)', () => {
+  describe('the liquidity in the pool changes (from an unstaked LP)', () => {
     it('increases and rewards work')
     it('decreases and rewards work')
   })
