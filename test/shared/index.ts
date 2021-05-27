@@ -117,3 +117,12 @@ export const maxGas = {
   gasLimit: MAX_GAS_LIMIT,
 }
 export const days = (n: number) => 86_400 * n
+
+export const divE18 = (n: BigNumber) => n.div(BNe18('1')).toNumber()
+export const ratioE18 = (a: BigNumber, b: BigNumber) =>
+  (divE18(a) / divE18(b)).toFixed(2)
+
+const bigNumberSum = (arr: Array<BigNumber>) =>
+  arr.reduce((acc, item) => acc.add(item), BN('0'))
+
+export const bnSum = bigNumberSum
