@@ -11,7 +11,6 @@ import '@uniswap/v3-core/contracts/libraries/FixedPoint128.sol';
 import '@uniswap/v3-core/contracts/libraries/FullMath.sol';
 import '@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol';
 import '@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol';
-import '@uniswap/v3-core/contracts/interfaces/IERC20Minimal.sol';
 
 import '@uniswap/v3-periphery/contracts/libraries/PoolAddress.sol';
 import '@uniswap/v3-periphery/contracts/interfaces/INonfungiblePositionManager.sol';
@@ -140,7 +139,6 @@ contract UniswapV3Staker is
 
         Incentive memory incentive = incentives[key];
         require(incentive.rewardToken != address(0), 'INVALID_INCENTIVE');
-
         delete incentives[key];
 
         TransferHelper.safeTransfer(
@@ -303,9 +301,10 @@ contract UniswapV3Staker is
         uint128 reward = rewards[rewardToken][msg.sender];
         rewards[rewardToken][msg.sender] = 0;
 
-        require(
-            IERC20Minimal(rewardToken).transfer(to, reward),
-            'REWARD_TRANSFER_FAILED'
+        TransferHelper.safeTransfer(
+            rewardToken,
+            to,
+            reward
         );
 
         emit RewardClaimed(to, reward);
