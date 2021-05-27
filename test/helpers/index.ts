@@ -1,7 +1,17 @@
-import { ContractFactory, BigNumber } from 'ethers'
+import { ContractFactory, BigNumber, Wallet } from 'ethers'
 import { MockProvider } from 'ethereum-waffle'
-import { blockTimestamp, BNe18, FeeAmount, maxGas } from '../shared/index'
-import _ from 'lodash'
+import {
+  blockTimestamp,
+  BNe18,
+  FeeAmount,
+  getCurrentTick,
+  maxGas,
+  MaxUint256,
+  encodePath,
+  arrayWrap,
+  log,
+} from '../shared/index'
+import _, { isArray } from 'lodash'
 import {
   TestERC20,
   INonfungiblePositionManager,
@@ -12,6 +22,8 @@ import { HelperTypes } from './types'
 import { ActorFixture } from '../shared/actors'
 import { mintPosition } from '../shared/fixtures'
 import UniswapV3Pool from '@uniswap/v3-core/artifacts/contracts/UniswapV3Pool.sol/UniswapV3Pool.json'
+import { ISwapRouter } from '../../types/ISwapRouter'
+import { ethers } from 'hardhat'
 
 /**
  * HelperCommands is a utility that abstracts away lower-level ethereum details
@@ -24,6 +36,7 @@ export class HelperCommands {
   provider: MockProvider
   staker: UniswapV3Staker
   nft: INonfungiblePositionManager
+  router: ISwapRouter
   pool: IUniswapV3Pool
 
   DEFAULT_INCENTIVE_DURATION = 2_000
@@ -33,12 +46,14 @@ export class HelperCommands {
     provider,
     staker,
     nft,
+    router,
     pool,
     actors,
   }: {
     provider: MockProvider
     staker: UniswapV3Staker
     nft: INonfungiblePositionManager
+    router: ISwapRouter
     pool: IUniswapV3Pool
     actors: ActorFixture
   }) {
@@ -46,6 +61,7 @@ export class HelperCommands {
     this.provider = provider
     this.staker = staker
     this.nft = nft
+    this.router = router
     this.pool = pool
   }
 
@@ -169,51 +185,6 @@ export class HelperCommands {
     }
   }
 
-  // /**
-  //  * Simulates trading in the pool.
-  //  */
-  // simulateTradingFlow: HelperTypes.SimulateTrading.Command = async (params) => {
-  //   // const {
-  //   //   router,
-  //   //   tokens: [tok0, tok1],
-  //   // } = ctx
-  //   const timeseries = [] as any
-  //   const trader0 = this.actors.traderUser0()
-
-  //   // await tok0.transfer(trader0.address, BNe18(2).mul(params.numberOfTrades))
-  //   // await tok0
-  //   //   .connect(trader0)
-  //   //   .approve(router.address, BNe18(2).mul(params.numberOfTrades))
-
-  //   for (let i = 0; i < params.numberOfTrades; i++) {
-  //     // await router.connect(trader0).exactInput(
-  //     //   {
-  //     //     recipient: trader0.address,
-  //     //     deadline: MaxUint256,
-  //     //     path: encodePath([tok0.address, tok1.address], [FeeAmount.MEDIUM]),
-  //     //     amountIn: BNe18(2).div(10),
-  //     //     amountOutMinimum: 0,
-  //     //   },
-  //     //   maxGas
-  //     // )
-  //     const poolFactory = new ContractFactory(
-  //       UniswapV3Pool.abi,
-  //       UniswapV3Pool.bytecode
-  //     )
-  //     const pool = poolFactory.attach(this.pool.address) as IUniswapV3Pool
-  //     const time = await blockTimestamp()
-
-  //     timeseries.push({
-  //       slot0: await pool.slot0(),
-  //       time,
-  //     })
-  //   }
-
-  //   return {
-  //     timeseries,
-  //   }
-  // }
-
   unstakeCollectBurnFlow: HelperTypes.UnstakeCollectBurn.Command = async (
     params
   ) => {
@@ -324,11 +295,123 @@ export class HelperCommands {
     }
   }
 
-  // private setTime = async (blockTimestamp: number) => {
-  //   return await this.provider.send('evm_setNextBlockTimestamp', [
-  //     blockTimestamp,
-  //   ])
-  // }
+  makeTickGoFlow: HelperTypes.MakeTickGo.Command = async (params) => {
+    // await tok0.transfer(trader0.address, BNe18(2).mul(params.numberOfTrades))
+    // await tok0
+    //   .connect(trader0)
+    //   .approve(router.address, BNe18(2).mul(params.numberOfTrades))
+
+    const MAKE_TICK_GO_UP = params.direction === 'up'
+    const actor = params.trader || this.actors.traderUser0()
+
+    const isDone = (tick: number | undefined) => {
+      if (!params.desiredValue) {
+        return true
+      } else if (!tick) {
+        return false
+      } else if (MAKE_TICK_GO_UP) {
+        return tick > params.desiredValue
+      } else {
+        return tick < params.desiredValue
+      }
+    }
+
+    const [tok0Address, tok1Address] = await Promise.all([
+      this.pool.connect(actor).token0(),
+      this.pool.connect(actor).token1(),
+    ])
+    const erc20 = await ethers.getContractFactory('TestERC20')
+
+    const tok0 = erc20.attach(tok0Address) as TestERC20
+    const tok1 = erc20.attach(tok1Address) as TestERC20
+
+    const doTrade = async () => {
+      /* If we want to push price down, we need to increase tok0.
+         If we want to push price up, we need to increase tok1 */
+
+      const amountIn = BNe18(1)
+
+      await this.ensureBalancesAndApprovals(
+        actor,
+        [tok0, tok1],
+        amountIn,
+        this.router.address
+      )
+
+      const path = encodePath(
+        MAKE_TICK_GO_UP
+          ? [tok1Address, tok0Address]
+          : [tok0Address, tok1Address],
+        [FeeAmount.MEDIUM]
+      )
+
+      await this.router.connect(actor).exactInput(
+        {
+          recipient: actor.address,
+          deadline: MaxUint256,
+          path,
+          amountIn: amountIn.div(10),
+          amountOutMinimum: 0,
+        },
+        maxGas
+      )
+
+      return await getCurrentTick(this.pool.connect(actor))
+    }
+
+    let currentTick = await doTrade()
+
+    while (!isDone(currentTick)) {
+      currentTick = await doTrade()
+    }
+
+    return { currentTick }
+  }
+
+  ensureBalancesAndApprovals = async (
+    actor: Wallet,
+    tokens: TestERC20 | Array<TestERC20>,
+    balance: BigNumber,
+    spender?: string
+  ) => {
+    for (let token of arrayWrap(tokens)) {
+      await this.ensureBalance(actor, token, balance)
+      if (spender) {
+        await this.ensureApproval(actor, token, balance, spender)
+      }
+    }
+  }
+
+  ensureBalance = async (
+    actor: Wallet,
+    token: TestERC20,
+    balance: BigNumber
+  ) => {
+    const currentBalance = await token.balanceOf(actor.address)
+    if (currentBalance.lt(balance)) {
+      await token
+        // .connect(this.actors.tokensOwner())
+        .transfer(actor.address, balance.sub(currentBalance))
+    }
+
+    // if (spender) {
+    //   await this.ensureApproval(actor, token, balance, spender)
+    // }
+
+    return await token.balanceOf(actor.address)
+  }
+
+  ensureApproval = async (
+    actor: Wallet,
+    token: TestERC20,
+    balance: BigNumber,
+    spender: string
+  ) => {
+    const currentAllowance = await token.allowance(actor.address, actor.address)
+    if (currentAllowance.lt(balance)) {
+      await token.connect(actor).approve(spender, balance)
+    }
+  }
 }
 
 const _incentiveAdapter: (

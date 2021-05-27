@@ -69,4 +69,16 @@ export module HelperTypes {
 
     export type Command = CommandFunction<Args, Result>
   }
+
+  export module MakeTickGo {
+    type Args = {
+      direction: 'up' | 'down'
+      desiredValue?: number
+      trader?: Wallet
+    }
+
+    type Result = { currentTick: number }
+
+    export type Command = CommandFunction<Args, Result>
+  }
 }

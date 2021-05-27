@@ -126,3 +126,24 @@ const bigNumberSum = (arr: Array<BigNumber>) =>
   arr.reduce((acc, item) => acc.add(item), BN('0'))
 
 export const bnSum = bigNumberSum
+
+import { IUniswapV3Pool } from '../../typechain'
+import { isArray } from 'lodash'
+
+export const getSlot0 = async (pool: IUniswapV3Pool) => {
+  if (!pool.signer) {
+    throw new Error('Cannot getSlot0 without a signer')
+  }
+  return await pool.slot0()
+}
+
+// This is currently lpUser0 but can be called from anybody.
+export const getCurrentTick = async (pool: IUniswapV3Pool): Promise<number> =>
+  (await getSlot0(pool)).tick
+
+export const arrayWrap = (x: any) => {
+  if (!isArray(x)) {
+    return [x]
+  }
+  return x
+}
