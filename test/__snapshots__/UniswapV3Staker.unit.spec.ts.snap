@@ -1,12 +1,12 @@
 // Jest Snapshot v1, https://goo.gl/fbAQLP
 
-exports[`UniswapV3Staker.unit #claimReward has gas cost 1`] = `46599`;
+exports[`UniswapV3Staker.unit #claimReward has gas cost 1`] = `46949`;
 
-exports[`UniswapV3Staker.unit #createIncentive works and has gas cost 1`] = `82006`;
+exports[`UniswapV3Staker.unit #createIncentive works and has gas cost 1`] = `82437`;
 
 exports[`UniswapV3Staker.unit #depositToken works and has gas cost 1`] = `96861`;
 
-exports[`UniswapV3Staker.unit #endIncentive works and has gas cost 1`] = `38224`;
+exports[`UniswapV3Staker.unit #endIncentive works and has gas cost 1`] = `38411`;
 
 exports[`UniswapV3Staker.unit #onERC721Received on successful transfer with staking data has gas cost 1`] = `201730`;
 
