@@ -1,6 +1,6 @@
-import { ContractFactory } from 'ethers'
+import { ContractFactory, BigNumber } from 'ethers'
 import { MockProvider } from 'ethereum-waffle'
-import { blockTimestamp, FeeAmount, maxGas } from '../shared/index'
+import { blockTimestamp, BNe18, FeeAmount, maxGas } from '../shared/index'
 import _ from 'lodash'
 import {
   TestERC20,
@@ -26,13 +26,22 @@ export class HelperCommands {
   nft: INonfungiblePositionManager
   pool: IUniswapV3Pool
 
-  constructor(
-    provider: MockProvider,
-    staker: UniswapV3Staker,
-    nft: INonfungiblePositionManager,
-    pool: IUniswapV3Pool,
+  DEFAULT_INCENTIVE_DURATION = 2_000
+  DEFAULT_CLAIM_DURATION = 1_000
+
+  constructor({
+    provider,
+    staker,
+    nft,
+    pool,
+    actors,
+  }: {
+    provider: MockProvider
+    staker: UniswapV3Staker
+    nft: INonfungiblePositionManager
+    pool: IUniswapV3Pool
     actors: ActorFixture
-  ) {
+  }) {
     this.actors = actors
     this.provider = provider
     this.staker = staker
@@ -47,12 +56,17 @@ export class HelperCommands {
    *  Transfers `rewardToken` to `incentiveCreator` if they do not have sufficient blaance.
    */
   createIncentiveFlow: HelperTypes.CreateIncentive.Command = async (params) => {
-    const startTime = await blockTimestamp()
+    const { startTime } = params
+    const endTime =
+      params.endTime || startTime + this.DEFAULT_INCENTIVE_DURATION
+    const claimDeadline =
+      params.claimDeadline || endTime + this.DEFAULT_CLAIM_DURATION
+
     const incentiveCreator = this.actors.incentiveCreator()
     const times = {
       startTime,
-      endTime: startTime + 2000,
-      claimDeadline: startTime + 3000,
+      endTime,
+      claimDeadline,
     }
     const bal = await params.rewardToken.balanceOf(incentiveCreator.address)
 
@@ -146,56 +160,59 @@ export class HelperCommands {
       rewardToken: params.createIncentiveResult.rewardToken.address,
     })
 
+    const stakedAt = await blockTimestamp()
+
     return {
       tokenId,
+      stakedAt,
+      lp: params.lp,
     }
   }
 
-  /**
-   * Simulates trading in the pool.
-   */
-  simulateTradingFlow: HelperTypes.SimulateTrading.Command = async (params) => {
-    // const {
-    //   router,
-    //   tokens: [tok0, tok1],
-    // } = ctx
-    const timeseries = [] as any
-    const trader0 = this.actors.traderUser0()
+  // /**
+  //  * Simulates trading in the pool.
+  //  */
+  // simulateTradingFlow: HelperTypes.SimulateTrading.Command = async (params) => {
+  //   // const {
+  //   //   router,
+  //   //   tokens: [tok0, tok1],
+  //   // } = ctx
+  //   const timeseries = [] as any
+  //   const trader0 = this.actors.traderUser0()
 
-    // await tok0.transfer(trader0.address, BNe18(2).mul(params.numberOfTrades))
-    // await tok0
-    //   .connect(trader0)
-    //   .approve(router.address, BNe18(2).mul(params.numberOfTrades))
+  //   // await tok0.transfer(trader0.address, BNe18(2).mul(params.numberOfTrades))
+  //   // await tok0
+  //   //   .connect(trader0)
+  //   //   .approve(router.address, BNe18(2).mul(params.numberOfTrades))
 
-    for (let i = 0; i < params.numberOfTrades; i++) {
-      // await router.connect(trader0).exactInput(
-      //   {
-      //     recipient: trader0.address,
-      //     deadline: MaxUint256,
-      //     path: encodePath([tok0.address, tok1.address], [FeeAmount.MEDIUM]),
-      //     amountIn: BNe18(2).div(10),
-      //     amountOutMinimum: 0,
-      //   },
-      //   maxGas
-      // )
-      const poolFactory = new ContractFactory(
-        UniswapV3Pool.abi,
-        UniswapV3Pool.bytecode
-      )
-      const pool = poolFactory.attach(this.pool.address) as IUniswapV3Pool
-      const time = await blockTimestamp()
+  //   for (let i = 0; i < params.numberOfTrades; i++) {
+  //     // await router.connect(trader0).exactInput(
+  //     //   {
+  //     //     recipient: trader0.address,
+  //     //     deadline: MaxUint256,
+  //     //     path: encodePath([tok0.address, tok1.address], [FeeAmount.MEDIUM]),
+  //     //     amountIn: BNe18(2).div(10),
+  //     //     amountOutMinimum: 0,
+  //     //   },
+  //     //   maxGas
+  //     // )
+  //     const poolFactory = new ContractFactory(
+  //       UniswapV3Pool.abi,
+  //       UniswapV3Pool.bytecode
+  //     )
+  //     const pool = poolFactory.attach(this.pool.address) as IUniswapV3Pool
+  //     const time = await blockTimestamp()
 
-      timeseries.push({
-        slot0: await pool.slot0(),
-        time,
-      })
-      await this.setTime(time + 100)
-    }
+  //     timeseries.push({
+  //       slot0: await pool.slot0(),
+  //       time,
+  //     })
+  //   }
 
-    return {
-      timeseries,
-    }
-  }
+  //   return {
+  //     timeseries,
+  //   }
+  // }
 
   unstakeCollectBurnFlow: HelperTypes.UnstakeCollectBurn.Command = async (
     params
@@ -210,6 +227,8 @@ export class HelperCommands {
       },
       maxGas
     )
+
+    const unstakedAt = await blockTimestamp()
 
     await this.staker
       .connect(params.lp)
@@ -259,14 +278,57 @@ export class HelperCommands {
 
     return {
       balance,
+      unstakedAt,
     }
   }
 
-  private setTime = async (blockTimestamp: number) => {
-    return await this.provider.send('evm_setNextBlockTimestamp', [
-      blockTimestamp,
-    ])
+  endIncentiveFlow: HelperTypes.EndIncentive.Command = async (params) => {
+    const incentiveCreator = this.actors.incentiveCreator()
+    const { rewardToken } = params.createIncentiveResult
+
+    const receipt = await (
+      await this.staker.connect(incentiveCreator).endIncentive(
+        _.assign(
+          {},
+          _.pick(params.createIncentiveResult, [
+            'startTime',
+            'endTime',
+            'claimDeadline',
+          ]),
+          {
+            rewardToken: rewardToken.address,
+            pool: params.createIncentiveResult.poolAddress,
+          }
+        )
+      )
+    ).wait()
+
+    const transferFilter = rewardToken.filters.Transfer(
+      this.staker.address,
+      incentiveCreator.address,
+      null
+    )
+    const transferTopic = rewardToken.interface.getEventTopic('Transfer')
+    const log = receipt.logs.find((log) => log.topics.includes(transferTopic))
+    const events = await rewardToken.queryFilter(transferFilter, log?.blockHash)
+    let amountTransferred: BigNumber
+
+    if (events.length === 1) {
+      amountTransferred = events[0].args[2]
+    } else {
+      throw new Error('Could not find transfer event')
+    }
+
+    return {
+      amountReturnedToCreator: amountTransferred,
+    }
   }
+
+  // private setTime = async (blockTimestamp: number) => {
+  //   return await this.provider.send('evm_setNextBlockTimestamp', [
+  //     blockTimestamp,
+  //   ])
+  // }
 }
 
 const _incentiveAdapter: (

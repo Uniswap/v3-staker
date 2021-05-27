@@ -57,6 +57,10 @@ export class ActorFixture {
     return this._getActor(WALLET_USER_INDEXES.LP_USER_2)
   }
 
+  lpUsers() {
+    return [this.lpUser0(), this.lpUser1(), this.lpUser2()]
+  }
+
   /* These EOAs trade in the uniswap pools and incur fees */
   traderUser0() {
     return this._getActor(WALLET_USER_INDEXES.TRADER_USER_0)

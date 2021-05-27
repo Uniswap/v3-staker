@@ -3,6 +3,7 @@ export * from './external/v3-periphery/ticks'
 export * from './external/v3-periphery/tokenSort'
 export * from './fixtures'
 export * from './actors'
+export * from './logging'
 
 import { FeeAmount } from './external/v3-periphery/constants'
 import { provider } from './provider'
@@ -115,3 +116,13 @@ export const MAX_GAS_LIMIT = 12_450_000
 export const maxGas = {
   gasLimit: MAX_GAS_LIMIT,
 }
+export const days = (n: number) => 86_400 * n
+
+export const divE18 = (n: BigNumber) => n.div(BNe18('1')).toNumber()
+export const ratioE18 = (a: BigNumber, b: BigNumber) =>
+  (divE18(a) / divE18(b)).toFixed(2)
+
+const bigNumberSum = (arr: Array<BigNumber>) =>
+  arr.reduce((acc, item) => acc.add(item), BN('0'))
+
+export const bnSum = bigNumberSum

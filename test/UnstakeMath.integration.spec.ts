@@ -1,7 +1,9 @@
-import { TestContext, TimeSetterFunction, LoadFixtureFunction } from './types'
+import { ethers, waffle } from 'hardhat'
+import { TestContext, LoadFixtureFunction } from './types'
 import { IUniswapV3Pool, TestERC20 } from '../typechain'
 import {
   BigNumber,
+  blockTimestamp,
   BN,
   BNe18,
   encodePath,
@@ -12,205 +14,261 @@ import {
   maxGas,
   MaxUint256,
   poolFactory,
-  setTime,
   TICK_SPACINGS,
   uniswapFixture,
+  log,
+  days,
+  divE18,
+  ratioE18,
+  bnSum,
 } from './shared'
+import { createTimeMachine } from './shared/time'
 import { HelperCommands } from './helpers'
 import { createFixtureLoader, provider } from './shared/provider'
 import { ActorFixture } from './shared/actors'
 import { Fixture } from 'ethereum-waffle'
+import _ from 'lodash'
+import { HelperTypes } from './helpers/types'
 
-const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 let loadFixture: LoadFixtureFunction
 
-describe('UniswapV3Staker.math', async () => {
+describe.only('UniswapV3Staker.math', async () => {
   const wallets = provider.getWallets()
-  let ctx = {} as TestContext
-  let actors: ActorFixture
+  const Time = createTimeMachine(provider)
 
-  const fixture: Fixture<TestContext> = async (wallets, provider) => {
-    return await loadFixture(uniswapFixture)
+  type TestSubject = {
+    stakes: Array<HelperTypes.MintStake.Result>
+    createIncentiveResult: HelperTypes.CreateIncentive.Result
+    helpers: HelperCommands
+    context: TestContext
   }
+  let subject: TestSubject
+  const actors = new ActorFixture(wallets, provider)
 
   before('create fixture loader', async () => {
     loadFixture = createFixtureLoader(wallets, provider)
   })
 
-  beforeEach('load fixture', async () => {
-    ctx = await loadFixture(fixture)
-    actors = new ActorFixture(wallets, provider)
-  })
+  describe('there are three LPs in the same range', async () => {
+    const totalReward = BNe18(3_000)
+    const duration = days(30)
+    const ticksToStake: [number, number] = [
+      getMinTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
+      getMaxTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
+    ]
+    const amountsToStake: [BigNumber, BigNumber] = [BNe18(1_000), BNe18(1_000)]
 
-  describe('complex situations', () => {
-    let context: TestContext
-    let freezeTime: TimeSetterFunction
+    const scenario: Fixture<TestSubject> = async (wallets, provider) => {
+      const context = await uniswapFixture(wallets, provider)
+      const epoch = await blockTimestamp()
+
+      const {
+        tokens: [token0, token1, rewardToken],
+      } = context
+      const helpers = new HelperCommands({
+        provider,
+        staker: context.staker,
+        nft: context.nft,
+        pool: context.poolObj,
+        actors,
+      })
+      const tokensToStake: [TestERC20, TestERC20] = [token0, token1]
+
+      const startTime = epoch + 1_000
+      const endTime = startTime + duration
+
+      const createIncentiveResult = await helpers.createIncentiveFlow({
+        startTime,
+        endTime,
+        rewardToken,
+        poolAddress: context.pool01,
+        totalReward,
+      })
+
+      const params = {
+        tokensToStake,
+        amountsToStake,
+        createIncentiveResult,
+        ticks: ticksToStake,
+      }
+
+      await Time.set(startTime + 1)
+
+      const stakes = await Promise.all(
+        actors.lpUsers().map((lp) =>
+          helpers.mintDepositStakeFlow({
+            ...params,
+            lp,
+          })
+        )
+      )
+
+      return {
+        context,
+        stakes,
+        helpers,
+        createIncentiveResult,
+      }
+    }
 
     beforeEach('load fixture', async () => {
-      context = await loadFixture(fixture)
-      actors = new ActorFixture(wallets, provider)
-      // await provider.send('evm_increaseTime', [0])
-      /* Has to set the time on both the MockStaker and the MockNFT */
+      // context = await loadFixture(fixture)
+      subject = await loadFixture(scenario)
     })
 
-    describe('when there are multiple LPs in the same range', async () => {
+    describe('who all stake the entire time ', async () => {
       it('allows them all to withdraw at the end', async () => {
-        const {
-          staker,
-          nft,
-          pool01,
-          tokens: [token0, token1, rewardToken],
-        } = context
+        const { helpers, createIncentiveResult } = subject
+        await Time.set(createIncentiveResult.endTime + 1)
 
-        const [lpUser0, lpUser1] = [actors.lpUser0(), actors.lpUser1()]
-        const totalReward = BNe18(100)
-
-        const poolObj = poolFactory
-          .attach(pool01)
-          .connect(lpUser0) as IUniswapV3Pool
-
-        freezeTime = async (timestamp: number) => {
-          // throw new Error('not implemented yet')
-          // console.info(`🕒 set time ${timestamp}`)
-          // await staker.setTime(timestamp)
-          // // @ts-ignore
-          // await context.nft.setTime(timestamp)
-          // // @ts-ignore
-          // await context.router.setTime(timestamp)
-          // @ts-ignore
-          // await poolObj.setTime(timestamp)
-          // await provider.send('evm_setNextBlockTimestamp', [timestamp])
-          // await provider.send('evm_increaseTime', [1])
-        }
-
-        // Test parameters:
-
-        const epoch = 10
-        await freezeTime(epoch)
-        const incentiveStartsAt = epoch + 10
-
-        const amountsToStake: [BigNumber, BigNumber] = [
-          BNe18(1_000),
-          BNe18(1_000),
-        ]
-        const tokensToStake: [TestERC20, TestERC20] = [token0, token1]
-
-        /* The LPs will always be within bounds since they're providing against
-        the entire liquidity space */
-        const ticksToStake: [number, number] = [
-          getMinTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
-          getMaxTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
-        ]
-
-        let balances = {}
-
-        const helpers = new HelperCommands(
-          provider,
-          staker,
-          nft,
-          poolObj,
-          actors
+        // Everyone pulls their liquidity at the same time
+        const unstakes = await Promise.all(
+          subject.stakes.map(({ lp, tokenId }) =>
+            helpers.unstakeCollectBurnFlow({
+              lp,
+              tokenId,
+              createIncentiveResult,
+            })
+          )
         )
+        const rewardsEarned = bnSum(unstakes.map((o) => o.balance))
+        log.debug('Total rewards ', rewardsEarned.toString())
 
-        // Pool should not have any initial liquidity so that our math is easier.
-        expect(await poolObj.liquidity()).to.eq(BN(0))
-
-        const createIncentiveResult = await helpers.createIncentiveFlow({
-          startTime: incentiveStartsAt,
-          rewardToken,
-          poolAddress: pool01,
-          totalReward,
-        })
-        await freezeTime(createIncentiveResult.startTime)
-
-        balances = {
-          [lpUser0.address]: await rewardToken.balanceOf(lpUser0.address),
-          [lpUser1.address]: await rewardToken.balanceOf(lpUser1.address),
-        }
-
-        const mintDepositStakeParams = {
-          tokensToStake,
-          amountsToStake,
-          createIncentiveResult,
-          ticks: ticksToStake,
-        }
-
-        // lpUser{0,1} stake from 0 - MAX
-        const { tokenId: lp0token0 } = await helpers.mintDepositStakeFlow({
-          ...mintDepositStakeParams,
-          lp: lpUser0,
-        })
-        const { tokenId: lp1token0 } = await helpers.mintDepositStakeFlow({
-          ...mintDepositStakeParams,
-          lp: lpUser1,
-        })
-
-        // Time passes, we get to the end of the incentive program
-
-        // lpUser0 pulls out their liquidity
-        await freezeTime(createIncentiveResult.startTime + 86400)
-        const {
-          balance: lp0RewardBalance,
-        } = await helpers.unstakeCollectBurnFlow({
-          lp: actors.lpUser0(),
-          tokenId: lp0token0,
+        // Fast-forward until after the program ends
+        await Time.set(createIncentiveResult.claimDeadline + 1)
+        const { amountReturnedToCreator } = await helpers.endIncentiveFlow({
           createIncentiveResult,
         })
-
-        // lpUser1 pulls out their liquidity
-        await freezeTime(createIncentiveResult.startTime + 86400)
-        const {
-          balance: lp1RewardBalance,
-        } = await helpers.unstakeCollectBurnFlow({
-          lp: actors.lpUser1(),
-          tokenId: lp1token0,
-          createIncentiveResult,
-        })
-
-        const bal0 = await rewardToken.balanceOf(lpUser0.address)
-        console.info(
-          `lpUser0 bal before=${balances[
-            lpUser0.address
-          ].toString()} delta=${bal0.sub(balances[lpUser0.address]).toString()}`
-        )
-        console.info(lp0RewardBalance.toString())
-
-        const bal1 = await rewardToken.balanceOf(lpUser1.address)
-        console.info(
-          `lpUser1 bal before=${balances[
-            lpUser1.address
-          ].toString()} delta=${bal1.sub(balances[lpUser1.address]).toString()}`
-        )
-        console.info(lp1RewardBalance.toString())
-
-        // This will fail until we have the MockTimeStaker in place.
-        // expect(bal0.add(bal1)).to.eq(totalReward)
+        expect(rewardsEarned.add(amountReturnedToCreator)).to.eq(totalReward)
       })
     })
 
-    describe('when someone unstakes halfway through', () => {
-      it('only gives them half because they were there half the time')
-      it(
-        'make sure the other people are getting their amount plus the leftover from the account that unstaked'
-      )
-    })
-    describe('when someone starts staking halfway through', () => {})
+    describe('when one LP unstakes halfway through', async () => {
+      it('only gives them one sixth the total reward', async () => {
+        const { helpers, createIncentiveResult, stakes } = subject
+        const { startTime, endTime } = createIncentiveResult
 
-    describe('when there are different ranges staked', () => {
-      it('respects the proportions in which they are in range')
-    })
-    describe('when everyone waits until claimDeadline', () => {
-      it('gives them the right amount of reward')
-    })
-    describe('when someone stakes, unstakes, then restakes', () => {})
+        // Halfway through, lp0 decides they want out. Pauvre lp0.
+        await Time.set(startTime + duration / 2)
 
-    describe('the liquidity in the pool changes (from a non-staker?)', () => {
-      it('increases and rewards work')
-      it('decreases and rewards work')
+        const [lpUser0, lpUser1, lpUser2] = actors.lpUsers()
+        let unstakes: Array<HelperTypes.UnstakeCollectBurn.Result> = []
+
+        unstakes.push(
+          await helpers.unstakeCollectBurnFlow({
+            lp: lpUser0,
+            tokenId: stakes[0].tokenId,
+            createIncentiveResult: subject.createIncentiveResult,
+          })
+        )
+
+        /* Should be roughly 1/6 of the totalReward since they staked
+          1/3 of total liquidity, for 1/2 the time. */
+        expect(unstakes[0].balance).to.eq(BN('499989197530864021534'))
+
+        // Now the other two LPs hold off till the end and unstake
+        await Time.set(endTime + 1)
+        const otherUnstakes = await Promise.all(
+          stakes.slice(1).map(({ lp, tokenId }) =>
+            helpers.unstakeCollectBurnFlow({
+              lp,
+              tokenId,
+              createIncentiveResult,
+            })
+          )
+        )
+        unstakes.push(...otherUnstakes)
+
+        await Time.set(createIncentiveResult.claimDeadline + 1)
+        const { amountReturnedToCreator } = await helpers.endIncentiveFlow({
+          createIncentiveResult,
+        })
+
+        /* lpUser{1,2} should each have 5/12 of the total rewards.
+          (1/3 * 1/2) from before lpUser0 withdrew
+          (1/2 * 1/2) from after lpUser0. */
+
+        expect(ratioE18(unstakes[1].balance, unstakes[0].balance)).to.eq('2.50')
+        expect(ratioE18(unstakes[2].balance, unstakes[1].balance)).to.eq('1.00')
+
+        // All should add up to totalReward
+        expect(
+          bnSum(unstakes.map((u) => u.balance)).add(amountReturnedToCreator)
+        ).to.eq(totalReward)
+      })
     })
 
-    describe('the liquidity moves outside of one persons bounds', () => {
-      it('only rewards those who are within range')
+    describe('when another LP starts staking halfway through', async () => {
+      describe('and provides less liquidity', async () => {
+        it('gives them a smaller share of the reward', async () => {
+          const { helpers, createIncentiveResult, stakes, context } = subject
+          const { startTime, endTime, claimDeadline } = createIncentiveResult
+
+          // Halfway through, lp3 decides they want in. Good for them.
+          await Time.set(startTime + duration / 2)
+
+          const lpUser3 = actors.traderUser2()
+          const tokensToStake: [TestERC20, TestERC20] = [
+            context.tokens[0],
+            context.tokens[1],
+          ]
+
+          stakes.push(
+            await helpers.mintDepositStakeFlow({
+              tokensToStake,
+              amountsToStake: amountsToStake.map((a) => a.div(2)) as [
+                BigNumber,
+                BigNumber
+              ],
+              createIncentiveResult,
+              ticks: ticksToStake,
+              lp: lpUser3,
+            })
+          )
+
+          // Now, go to the end and get rewards
+          await Time.set(endTime + 1)
+
+          const unstakes = await Promise.all(
+            stakes.map(({ lp, tokenId }) =>
+              helpers.unstakeCollectBurnFlow({
+                lp,
+                tokenId,
+                createIncentiveResult,
+              })
+            )
+          )
+
+          expect(ratioE18(unstakes[2].balance, unstakes[3].balance)).to.eq(
+            '4.34'
+          )
+
+          await Time.set(claimDeadline + 1)
+          const { amountReturnedToCreator } = await helpers.endIncentiveFlow({
+            createIncentiveResult,
+          })
+
+          expect(
+            bnSum(unstakes.map((u) => u.balance)).add(amountReturnedToCreator)
+          ).to.eq(totalReward)
+        })
+      })
     })
+  })
+
+  describe('when there are different ranges staked', async () => {
+    it('rewards based on how long they are in range', async () => {})
+  })
+  describe('the liquidity moves outside of range', () => {
+    it('only rewards those who are within range')
+  })
+  describe('when everyone waits until claimDeadline', () => {
+    it('gives them the right amount of reward')
+  })
+  describe('when someone stakes, unstakes, then restakes', () => {})
+
+  describe('the liquidity in the pool changes (from a non-staker?)', () => {
+    it('increases and rewards work')
+    it('decreases and rewards work')
   })
 })

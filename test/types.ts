@@ -10,8 +10,6 @@ import {
 
 export type LoadFixtureFunction = ReturnType<typeof createFixtureLoader>
 
-export type TimeSetterFunction = (timestamp: number) => Promise<any>
-
 export type TestContext = {
   tokens: [TestERC20, TestERC20, TestERC20]
   factory: IUniswapV3Factory

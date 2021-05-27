@@ -10,6 +10,8 @@ export module HelperTypes {
       totalReward: BigNumber
       poolAddress: string
       startTime: number
+      endTime?: number
+      claimDeadline?: number
     }
     export type Result = {
       poolAddress: string
@@ -33,19 +35,10 @@ export module HelperTypes {
       createIncentiveResult: CreateIncentive.Result
     }
 
-    type Result = {
+    export type Result = {
+      lp: Wallet
       tokenId: string
-    }
-
-    export type Command = CommandFunction<Args, Result>
-  }
-
-  export module SimulateTrading {
-    type Args = {
-      numberOfTrades: number
-    }
-    type Result = {
-      timeseries: Array<{ slot0: any; time: number }>
+      stakedAt: number
     }
 
     export type Command = CommandFunction<Args, Result>
@@ -57,8 +50,21 @@ export module HelperTypes {
       tokenId: string
       createIncentiveResult: CreateIncentive.Result
     }
-    type Result = {
+    export type Result = {
       balance: BigNumber
+      unstakedAt: number
+    }
+
+    export type Command = CommandFunction<Args, Result>
+  }
+
+  export module EndIncentive {
+    type Args = {
+      createIncentiveResult: CreateIncentive.Result
+    }
+
+    type Result = {
+      amountReturnedToCreator: BigNumber
     }
 
     export type Command = CommandFunction<Args, Result>
