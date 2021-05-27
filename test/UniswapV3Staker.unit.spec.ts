@@ -32,23 +32,24 @@ import { createFixtureLoader, provider } from './shared/provider'
 import { HelperCommands, ERC20Helper } from './helpers'
 
 import { ContractParams } from '../types/contractParams'
+import { createTimeMachine } from './shared/time'
 
 let loadFixture: LoadFixtureFunction
 
-describe('UniswapV3Staker.unit', async () => {
+describe.only('UniswapV3Staker.unit', async () => {
   const wallets = provider.getWallets()
   const actors = new ActorFixture(wallets, provider)
   let context: UniswapFixtureType
 
   const [wallet, other] = wallets
   let tokens: [TestERC20, TestERC20, TestERC20]
-  let factory: IUniswapV3Factory
   let nft: INonfungiblePositionManager
 
   const incentiveCreator = actors.incentiveCreator()
   const lpUser0 = actors.lpUser0()
   const totalReward = BNe18(100)
   const e20h = new ERC20Helper()
+  const Time = createTimeMachine(provider)
 
   let subject: Function
 
@@ -64,8 +65,8 @@ describe('UniswapV3Staker.unit', async () => {
     it('deploys and has an address', async () => {
       const stakerFactory = await ethers.getContractFactory('UniswapV3Staker')
       const staker = (await stakerFactory.deploy(
-        factory.address,
-        nft.address
+        context.factory.address,
+        context.nft.address
       )) as UniswapV3Staker
       expect(staker.address).to.be.a.string
     })
@@ -210,104 +211,99 @@ describe('UniswapV3Staker.unit', async () => {
   })
 
   describe('#endIncentive', async () => {
-    let rewardToken: string
-    let blockTime: number
-    let startTime: number
-    let endTime: number
-    let claimDeadline: number
-    let subject: Function
-    let createIncentive: Function
+    let subject: (params: Partial<ContractParams.EndIncentive>) => Promise<any>
+    let timestamps: ContractParams.Timestamps
+    let helpers: HelperCommands
 
     beforeEach('setup', async () => {
-      // rewardToken = tokens[0].address
-      // blockTime = await blockTimestamp()
-      // startTime = blockTime
-      // endTime = blockTime + 1000
-      // claimDeadline = blockTime + 2000
-      // await tokens[0].transfer(incentiveCreator.address, totalReward)
-      // await tokens[0]
-      //   .connect(incentiveCreator)
-      //   .approve(context.staker.address, totalReward)
-      // createIncentive = async () =>
-      //   context.staker.connect(incentiveCreator).createIncentive({
-      //     rewardToken,
-      //     pool: context.pool01,
-      //     startTime,
-      //     endTime,
-      //     claimDeadline,
-      //     totalReward,
-      //   })
-      // subject = async ({ ...args } = {}) =>
-      //   await context.staker.connect(incentiveCreator).endIncentive({
-      //     rewardToken,
-      //     pool: context.pool01,
-      //     startTime,
-      //     endTime,
-      //     claimDeadline,
-      //     ...args,
-      //   })
+      timestamps = makeTimestamps(await blockTimestamp())
+
+      const helpers = new HelperCommands({
+        nft: context.nft,
+        router: context.router,
+        actors,
+        provider,
+        staker: context.staker,
+        pool: context.poolObj,
+      })
+      await helpers.createIncentiveFlow({
+        ...timestamps,
+        rewardToken: context.rewardToken,
+        poolAddress: context.poolObj.address,
+        totalReward,
+      })
+
+      subject = async (params: Partial<ContractParams.EndIncentive> = {}) => {
+        return await context.staker.connect(incentiveCreator).endIncentive({
+          rewardToken: params.rewardToken || context.rewardToken.address,
+          pool: context.pool01,
+          startTime: params.startTime || timestamps.startTime,
+          endTime: params.endTime || timestamps.endTime,
+          claimDeadline: params.claimDeadline || timestamps.claimDeadline,
+        })
+      }
     })
 
     describe('works and', () => {
       it('emits IncentiveEnded event', async () => {
-        await createIncentive()
-        // Adjust the block.timestamp so it is after the claim deadline
-        await provider.send('evm_setNextBlockTimestamp', [claimDeadline + 1])
+        await Time.set(timestamps.claimDeadline + 10)
 
-        await expect(subject())
+        await expect(subject({}))
           .to.emit(context.staker, 'IncentiveEnded')
-          .withArgs(rewardToken, context.pool01, startTime, endTime)
+          .withArgs(
+            context.rewardToken.address,
+            context.pool01,
+            timestamps.startTime,
+            timestamps.endTime
+          )
       })
 
       it('deletes incentives[key]', async () => {
-        await createIncentive()
         const idGetter = await (
           await ethers.getContractFactory('TestIncentiveID')
         ).deploy()
 
         const incentiveId = idGetter.getIncentiveId(
           incentiveCreator.address,
-          rewardToken,
+          context.rewardToken.address,
           context.pool01,
-          startTime,
-          endTime,
-          claimDeadline
+          timestamps.startTime,
+          timestamps.endTime,
+          timestamps.claimDeadline
         )
         expect(
           (await context.staker.incentives(incentiveId)).rewardToken
-        ).to.eq(tokens[0].address)
-        await provider.send('evm_setNextBlockTimestamp', [claimDeadline + 1])
+        ).to.eq(context.rewardToken.address)
 
-        await subject()
+        await Time.set(timestamps.claimDeadline + 1)
+        await subject({})
         expect(
           (await context.staker.incentives(incentiveId)).rewardToken
         ).to.eq(constants.AddressZero)
       })
 
       it('has gas cost', async () => {
-        await createIncentive()
-        await provider.send('evm_setNextBlockTimestamp', [claimDeadline + 1])
-        await snapshotGasCost(subject())
+        await Time.set(timestamps.claimDeadline + 1)
+        await snapshotGasCost(subject({}))
       })
     })
 
-    describe('fails when ', () => {
+    describe('fails when', async () => {
       it('block.timestamp <= claim deadline', async () => {
-        await createIncentive()
-
-        // Adjust the block.timestamp so it is before the claim deadline
-        await provider.send('evm_setNextBlockTimestamp', [claimDeadline - 1])
-
-        await expect(subject()).to.be.revertedWith(
+        await Time.set(timestamps.claimDeadline - 10)
+        await expect(subject({})).to.be.revertedWith(
           'TIMESTAMP_LTE_CLAIMDEADLINE'
         )
       })
 
       it('incentive does not exist', async () => {
         // Adjust the block.timestamp so it is after the claim deadline
-        await provider.send('evm_setNextBlockTimestamp', [claimDeadline + 1])
-
-        await expect(subject()).to.be.revertedWith('INVALID_INCENTIVE')
+        Time.set(timestamps.claimDeadline + 1)
+        await expect(
+          subject({
+            startTime: (await blockTimestamp()) + 1000,
+          })
+        ).to.be.revertedWith('INVALID_INCENTIVE')
       })
     })
   })

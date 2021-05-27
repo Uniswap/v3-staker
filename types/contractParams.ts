@@ -1,7 +1,7 @@
 import { BigNumber, BigNumberish } from 'ethers'
 
 export module ContractParams {
-  type Timestamps = {
+  export type Timestamps = {
     startTime: number
     endTime: number
     claimDeadline: number
