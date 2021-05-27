@@ -15,6 +15,7 @@ import '@uniswap/v3-core/contracts/interfaces/IERC20Minimal.sol';
 
 import '@uniswap/v3-periphery/contracts/libraries/PoolAddress.sol';
 import '@uniswap/v3-periphery/contracts/interfaces/INonfungiblePositionManager.sol';
+import '@uniswap/v3-periphery/contracts/libraries/TransferHelper.sol';
 import '@uniswap/v3-periphery/contracts/base/Multicall.sol';
 
 import '@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol';
@@ -98,13 +99,11 @@ contract UniswapV3Staker is
         require(params.rewardToken != address(0), 'INVALID_REWARD_ADDRESS');
         require(params.totalReward > 0, 'INVALID_REWARD_AMOUNT');
 
-        require(
-            IERC20Minimal(params.rewardToken).transferFrom(
-                msg.sender,
-                address(this),
-                params.totalReward
-            ),
-            'REWARD_TRANSFER_FAILED'
+        TransferHelper.safeTransferFrom(
+            params.rewardToken,
+            msg.sender,
+            address(this),
+            params.totalReward
         );
 
         incentives[key] = Incentive(params.totalReward, 0, params.rewardToken);
@@ -141,10 +140,11 @@ contract UniswapV3Staker is
 
         Incentive memory incentive = incentives[key];
         require(incentive.rewardToken != address(0), 'INVALID_INCENTIVE');
+
         delete incentives[key];
 
-        // TODO: check for possible failures
-        IERC20Minimal(params.rewardToken).transfer(
+        TransferHelper.safeTransfer(
+            params.rewardToken,
             msg.sender,
             incentive.totalRewardUnclaimed
         );
