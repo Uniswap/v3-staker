@@ -16,8 +16,6 @@ import { constants } from 'ethers'
 
 export const { MaxUint256 } = constants
 
-import { ethers } from 'hardhat'
-
 export const blockTimestamp = async () => {
   const block = await provider.getBlock('latest')
   if (!block) {
