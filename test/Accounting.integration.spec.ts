@@ -526,61 +526,61 @@ describe('UniswapV3Staker.integration', async () => {
     console.info('✅ Token0 burn complete')
   })
 
-  it('complex scenarios', async () => {
-    const { staker, nft, pool01 } = ctx
-    const incentiveCreator = actors.incentiveCreator()
-    const rewardToken = ctx.tokens[2]
+  // it('complex scenarios', async () => {
+  //   const { staker, nft, pool01 } = ctx
+  //   const incentiveCreator = actors.incentiveCreator()
+  //   const rewardToken = ctx.tokens[2]
 
-    const helpers = new HelperCommands(
-      provider,
-      staker,
-      nft,
-      poolFactory.attach(pool01) as IUniswapV3Pool,
-      actors
-    )
+  //   const helpers = new HelperCommands({
+  //     provider,
+  //     staker,
+  //     nft,
+  //     pool: poolFactory.attach(pool01) as IUniswapV3Pool,
+  //     actors,
+  //   })
 
-    const createIncentiveResult = await helpers.createIncentiveFlow({
-      rewardToken,
-      poolAddress: ctx.pool01,
-      totalReward: BNe18(100),
-      startTime: 0,
-    })
+  //   const createIncentiveResult = await helpers.createIncentiveFlow({
+  //     rewardToken,
+  //     poolAddress: ctx.pool01,
+  //     totalReward: BNe18(100),
+  //     startTime: 0,
+  //   })
 
-    // lpUser0 stakes from 0 - MAX
-    const { tokenId: lp0token0 } = await helpers.mintDepositStakeFlow({
-      lp: actors.lpUser0(),
-      tokensToStake: [ctx.tokens[0], ctx.tokens[1]],
-      amountsToStake: [BNe18(2), BNe18(2)],
-      ticks: [0, getMaxTick(TICK_SPACINGS[FeeAmount.MEDIUM])],
-      createIncentiveResult,
-    })
+  //   // lpUser0 stakes from 0 - MAX
+  //   const { tokenId: lp0token0 } = await helpers.mintDepositStakeFlow({
+  //     lp: actors.lpUser0(),
+  //     tokensToStake: [ctx.tokens[0], ctx.tokens[1]],
+  //     amountsToStake: [BNe18(2), BNe18(2)],
+  //     ticks: [0, getMaxTick(TICK_SPACINGS[FeeAmount.MEDIUM])],
+  //     createIncentiveResult,
+  //   })
 
-    // lpUser1 stakes from MIN - 0
-    const { tokenId: lp1token0 } = await helpers.mintDepositStakeFlow({
-      lp: actors.lpUser1(),
-      tokensToStake: [ctx.tokens[0], ctx.tokens[1]],
-      amountsToStake: [BNe18(2), BNe18(2)],
-      ticks: [getMinTick(TICK_SPACINGS[FeeAmount.MEDIUM]), 0],
-      createIncentiveResult,
-    })
+  //   // lpUser1 stakes from MIN - 0
+  //   const { tokenId: lp1token0 } = await helpers.mintDepositStakeFlow({
+  //     lp: actors.lpUser1(),
+  //     tokensToStake: [ctx.tokens[0], ctx.tokens[1]],
+  //     amountsToStake: [BNe18(2), BNe18(2)],
+  //     ticks: [getMinTick(TICK_SPACINGS[FeeAmount.MEDIUM]), 0],
+  //     createIncentiveResult,
+  //   })
 
-    // Now just simulate trades
-    // const { timeseries } = await simulateTradingFlow({ numberOfTrades: 2 })
+  //   // Now just simulate trades
+  //   // const { timeseries } = await simulateTradingFlow({ numberOfTrades: 2 })
 
-    // lpUser0 pulls out their liquidity
-    await helpers.unstakeCollectBurnFlow({
-      lp: actors.lpUser0(),
-      tokenId: lp0token0,
-      createIncentiveResult,
-    })
+  //   // lpUser0 pulls out their liquidity
+  //   await helpers.unstakeCollectBurnFlow({
+  //     lp: actors.lpUser0(),
+  //     tokenId: lp0token0,
+  //     createIncentiveResult,
+  //   })
 
-    // lpUser1 pulls out their liquidity
-    await helpers.unstakeCollectBurnFlow({
-      lp: actors.lpUser1(),
-      tokenId: lp1token0,
-      createIncentiveResult,
-    })
+  //   // lpUser1 pulls out their liquidity
+  //   await helpers.unstakeCollectBurnFlow({
+  //     lp: actors.lpUser1(),
+  //     tokenId: lp1token0,
+  //     createIncentiveResult,
+  //   })
 
-    // TODO: an assertion
-  })
+  //   // TODO: an assertion
+  // })
 })

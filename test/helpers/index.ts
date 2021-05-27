@@ -26,13 +26,22 @@ export class HelperCommands {
   nft: INonfungiblePositionManager
   pool: IUniswapV3Pool
 
-  constructor(
-    provider: MockProvider,
-    staker: UniswapV3Staker,
-    nft: INonfungiblePositionManager,
-    pool: IUniswapV3Pool,
+  DEFAULT_INCENTIVE_DURATION = 2_000
+  DEFAULT_CLAIM_DURATION = 1_000
+
+  constructor({
+    provider,
+    staker,
+    nft,
+    pool,
+    actors,
+  }: {
+    provider: MockProvider
+    staker: UniswapV3Staker
+    nft: INonfungiblePositionManager
+    pool: IUniswapV3Pool
     actors: ActorFixture
-  ) {
+  }) {
     this.actors = actors
     this.provider = provider
     this.staker = staker
@@ -47,12 +56,17 @@ export class HelperCommands {
    *  Transfers `rewardToken` to `incentiveCreator` if they do not have sufficient blaance.
    */
   createIncentiveFlow: HelperTypes.CreateIncentive.Command = async (params) => {
-    const startTime = await blockTimestamp()
+    const { startTime } = params
+    const endTime =
+      params.endTime || startTime + this.DEFAULT_INCENTIVE_DURATION
+    const claimDeadline =
+      params.claimDeadline || endTime + this.DEFAULT_CLAIM_DURATION
+
     const incentiveCreator = this.actors.incentiveCreator()
     const times = {
       startTime,
-      endTime: startTime + 2000,
-      claimDeadline: startTime + 3000,
+      endTime,
+      claimDeadline,
     }
     const bal = await params.rewardToken.balanceOf(incentiveCreator.address)
 

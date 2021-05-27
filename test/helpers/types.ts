@@ -10,6 +10,8 @@ export module HelperTypes {
       totalReward: BigNumber
       poolAddress: string
       startTime: number
+      endTime?: number
+      claimDeadline?: number
     }
     export type Result = {
       poolAddress: string
