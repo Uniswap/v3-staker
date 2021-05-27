@@ -331,7 +331,8 @@ export class HelperCommands {
 
       const amountIn = BNe18(1)
 
-      await this.ensureBalancesAndApprovals(
+      const erc20Helper = new ERC20Helper()
+      await erc20Helper.ensureBalancesAndApprovals(
         actor,
         [tok0, tok1],
         amountIn,
@@ -367,7 +368,9 @@ export class HelperCommands {
 
     return { currentTick }
   }
+}
 
+export class ERC20Helper {
   ensureBalancesAndApprovals = async (
     actor: Wallet,
     tokens: TestERC20 | Array<TestERC20>,
