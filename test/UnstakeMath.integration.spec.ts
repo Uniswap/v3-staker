@@ -22,6 +22,7 @@ import {
   ratioE18,
   bnSum,
   getCurrentTick,
+  BNe,
 } from './shared'
 import { createTimeMachine } from './shared/time'
 import { HelperCommands } from './helpers'
@@ -265,7 +266,7 @@ describe('UniswapV3Staker.math', async () => {
     })
   })
 
-  describe.only('when there are different ranges staked', async () => {
+  describe('when there are different ranges staked', async () => {
     type TestSubject = {
       createIncentiveResult: HelperTypes.CreateIncentive.Result
       helpers: HelperCommands
@@ -324,7 +325,7 @@ describe('UniswapV3Staker.math', async () => {
         ticks: [number, number]
       }
 
-      let currentTick = await getCurrentTick(
+      let midpoint = await getCurrentTick(
         context.poolObj.connect(actors.lpUser0())
       )
 
@@ -333,19 +334,19 @@ describe('UniswapV3Staker.math', async () => {
         {
           lp: actors.lpUser0(),
           amounts: [baseAmount, baseAmount],
-          ticks: [getMinTick(TICK_SPACINGS[FeeAmount.MEDIUM]), currentTick],
+          ticks: [getMinTick(TICK_SPACINGS[FeeAmount.MEDIUM]), midpoint],
         },
         // lpUser1 stakes 4e18 from 0-max
         {
           lp: actors.lpUser1(),
           amounts: [baseAmount.mul(2), baseAmount.mul(2)],
-          ticks: [currentTick, getMaxTick(TICK_SPACINGS[FeeAmount.MEDIUM])],
+          ticks: [midpoint, getMaxTick(TICK_SPACINGS[FeeAmount.MEDIUM])],
         },
         // lpUser2 stakes 8e18 from 0-max
         {
           lp: actors.lpUser2(),
           amounts: [baseAmount.mul(4), baseAmount.mul(4)],
-          ticks: [currentTick, getMaxTick(TICK_SPACINGS[FeeAmount.MEDIUM])],
+          ticks: [midpoint, getMaxTick(TICK_SPACINGS[FeeAmount.MEDIUM])],
         },
       ]
 
@@ -369,16 +370,57 @@ describe('UniswapV3Staker.math', async () => {
 
       const trader = actors.traderUser0()
 
-      const { currentTick: t } = await helpers.makeTickGoFlow({
+      await helpers.makeTickGoFlow({
         trader,
         direction: 'up',
-        desiredValue: 2,
+        desiredValue: midpoint + 10,
       })
-    })
-  })
 
-  describe('the liquidity moves outside of range', () => {
-    it('only rewards those who are within range')
+      // Go halfway through
+      await Time.set(createIncentiveResult.startTime + duration / 2)
+
+      await helpers.makeTickGoFlow({
+        trader,
+        direction: 'down',
+        desiredValue: midpoint - 10,
+      })
+
+      await Time.set(createIncentiveResult.endTime + 1)
+
+      /* lp0 provided all the liquidity for the second half of the duration. */
+      const { balance: lp0Balance } = await helpers.unstakeCollectBurnFlow({
+        lp: stakes[0].lp,
+        tokenId: stakes[0].tokenId,
+        createIncentiveResult,
+      })
+
+      expect(lp0Balance.div(BNe(10, 10))).to.eq(BN('14999991319'))
+
+      /* lp{1,2} provided liquidity for the first half of the duration.
+      lp2 provided twice as much liquidity as lp1. */
+      const { balance: lp1Balance } = await helpers.unstakeCollectBurnFlow({
+        lp: stakes[1].lp,
+        tokenId: stakes[1].tokenId,
+        createIncentiveResult,
+      })
+
+      const { balance: lp2Balance } = await helpers.unstakeCollectBurnFlow({
+        lp: stakes[2].lp,
+        tokenId: stakes[2].tokenId,
+        createIncentiveResult,
+      })
+
+      expect(lp2Balance).to.eq(BN('999990162082783982753'))
+      expect(lp1Balance).to.eq(BN('499996238431987912152'))
+
+      await expect(
+        helpers.unstakeCollectBurnFlow({
+          lp: stakes[2].lp,
+          tokenId: stakes[2].tokenId,
+          createIncentiveResult,
+        })
+      ).to.be.reverted
+    })
   })
 
   describe('when someone stakes, unstakes, then restakes', () => {})

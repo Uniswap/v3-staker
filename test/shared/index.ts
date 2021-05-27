@@ -7,7 +7,7 @@ export * from './logging'
 
 import { FeeAmount } from './external/v3-periphery/constants'
 import { provider } from './provider'
-import { Contract, ContractTransaction } from 'ethers'
+import { BigNumber, BigNumberish, Contract, ContractTransaction } from 'ethers'
 import {
   TransactionReceipt,
   TransactionResponse,
@@ -31,8 +31,6 @@ export const setTime = async (blockTimestamp) => {
 }
 
 import bn from 'bignumber.js'
-
-import { BigNumber, BigNumberish } from 'ethers'
 
 bn.config({ EXPONENTIAL_AT: 999999, DECIMAL_PLACES: 40 })
 
@@ -60,8 +58,19 @@ export const encodePriceSqrt = (
   )
 }
 
-export const BN = ethers.BigNumber.from
-export const BNe18 = (n) => ethers.BigNumber.from(n).mul(BN(10).pow(18))
+export const BN = BigNumber.from
+export const BNe = (n: BigNumberish, exponent: BigNumberish) =>
+  BN(n).mul(BN(10).pow(exponent))
+export const BNe18 = (n: BigNumberish) => BNe(n, 18)
+
+export const divE18 = (n: BigNumber) => n.div(BNe18('1')).toNumber()
+export const ratioE18 = (a: BigNumber, b: BigNumber) =>
+  (divE18(a) / divE18(b)).toFixed(2)
+
+const bigNumberSum = (arr: Array<BigNumber>) =>
+  arr.reduce((acc, item) => acc.add(item), BN('0'))
+
+export const bnSum = bigNumberSum
 
 export { BigNumber, BigNumberish } from 'ethers'
 
@@ -117,15 +126,6 @@ export const maxGas = {
   gasLimit: MAX_GAS_LIMIT,
 }
 export const days = (n: number) => 86_400 * n
-
-export const divE18 = (n: BigNumber) => n.div(BNe18('1')).toNumber()
-export const ratioE18 = (a: BigNumber, b: BigNumber) =>
-  (divE18(a) / divE18(b)).toFixed(2)
-
-const bigNumberSum = (arr: Array<BigNumber>) =>
-  arr.reduce((acc, item) => acc.add(item), BN('0'))
-
-export const bnSum = bigNumberSum
 
 import { IUniswapV3Pool } from '../../typechain'
 import { isArray } from 'lodash'
