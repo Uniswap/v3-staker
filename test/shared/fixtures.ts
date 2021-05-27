@@ -17,6 +17,7 @@ import {
   TestERC20,
   INonfungiblePositionManager,
   IUniswapV3Factory,
+  IUniswapV3Pool,
 } from '../../typechain'
 import { NFTDescriptor } from '../../types/NFTDescriptor'
 import { FeeAmount, BigNumber, encodePriceSqrt, MAX_GAS_LIMIT } from '../shared'
@@ -216,6 +217,7 @@ export const uniswapFixture: Fixture<{
   staker: UniswapV3Staker
   tokens: [TestERC20, TestERC20, TestERC20]
   pool01: string
+  poolObj: IUniswapV3Pool
   pool12: string
   fee: FeeAmount
 }> = async (wallets, provider) => {
@@ -264,7 +266,19 @@ export const uniswapFixture: Fixture<{
     fee
   )
 
-  return { nft, router, tokens, staker, factory, pool01, pool12, fee }
+  const poolObj = poolFactory.attach(pool01) as IUniswapV3Pool
+
+  return {
+    nft,
+    router,
+    tokens,
+    staker,
+    factory,
+    pool01,
+    pool12,
+    fee,
+    poolObj,
+  }
 }
 
 export const poolFactory = new ethers.ContractFactory(

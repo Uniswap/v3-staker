@@ -32,36 +32,34 @@ import { HelperTypes } from './helpers/types'
 
 let loadFixture: LoadFixtureFunction
 
-type ThisTestContext = TestContext & { poolObj: IUniswapV3Pool }
-
-describe('UniswapV3Staker.math', async () => {
+describe.only('UniswapV3Staker.math', async () => {
   const wallets = provider.getWallets()
   const Time = createTimeMachine(provider)
-  let context = {} as ThisTestContext
+
+  type TestSubject = {
+    stakes: Array<HelperTypes.MintStake.Result>
+    createIncentiveResult: HelperTypes.CreateIncentive.Result
+    helpers: HelperCommands
+    context: TestContext
+  }
+  let subject: TestSubject
+  const actors = new ActorFixture(wallets, provider)
 
   before('create fixture loader', async () => {
     loadFixture = createFixtureLoader(wallets, provider)
   })
 
-  describe('there are multiple LPs in the same range', async () => {
-    // const fixture: Fixture<ThisTestContext> = async (wallets, provider) => {}
-    type TestSubject = {
-      stakes: Array<HelperTypes.MintStake.Result>
-      createIncentiveResult: HelperTypes.CreateIncentive.Result
-      helpers: HelperCommands
-    }
-    let subject: TestSubject
+  describe('there are three LPs in the same range', async () => {
     const totalReward = BNe18(3_000)
-    const actors = new ActorFixture(wallets, provider)
     const duration = days(30)
+    const ticksToStake: [number, number] = [
+      getMinTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
+      getMaxTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
+    ]
+    const amountsToStake: [BigNumber, BigNumber] = [BNe18(1_000), BNe18(1_000)]
 
     const scenario: Fixture<TestSubject> = async (wallets, provider) => {
-      const result = await uniswapFixture(wallets, provider)
-      context = {
-        ...result,
-        poolObj: poolFactory.attach(result.pool01) as IUniswapV3Pool,
-      }
-
+      const context = await uniswapFixture(wallets, provider)
       const epoch = await blockTimestamp()
 
       const {
@@ -75,14 +73,6 @@ describe('UniswapV3Staker.math', async () => {
         actors,
       })
       const tokensToStake: [TestERC20, TestERC20] = [token0, token1]
-      const amountsToStake: [BigNumber, BigNumber] = [
-        BNe18(1_000),
-        BNe18(1_000),
-      ]
-      const ticksToStake: [number, number] = [
-        getMinTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
-        getMaxTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
-      ]
 
       const startTime = epoch + 1_000
       const endTime = startTime + duration
@@ -114,6 +104,7 @@ describe('UniswapV3Staker.math', async () => {
       )
 
       return {
+        context,
         stakes,
         helpers,
         createIncentiveResult,
@@ -131,17 +122,16 @@ describe('UniswapV3Staker.math', async () => {
         await Time.set(createIncentiveResult.endTime + 1)
 
         // Everyone pulls their liquidity at the same time
-        const outcomes = await Promise.all(
-          subject.stakes.map((result) =>
+        const unstakes = await Promise.all(
+          subject.stakes.map(({ lp, tokenId }) =>
             helpers.unstakeCollectBurnFlow({
-              lp: result.lp,
-              tokenId: result.tokenId,
+              lp,
+              tokenId,
               createIncentiveResult,
             })
           )
         )
-
-        const rewardsEarned = bnSum(outcomes.map((o) => o.balance))
+        const rewardsEarned = bnSum(unstakes.map((o) => o.balance))
         log.debug('Total rewards ', rewardsEarned.toString())
 
         // Fast-forward until after the program ends
@@ -149,7 +139,6 @@ describe('UniswapV3Staker.math', async () => {
         const { amountReturnedToCreator } = await helpers.endIncentiveFlow({
           createIncentiveResult,
         })
-
         expect(rewardsEarned.add(amountReturnedToCreator)).to.eq(totalReward)
       })
     })
@@ -210,12 +199,68 @@ describe('UniswapV3Staker.math', async () => {
     })
 
     describe('when another LP starts staking halfway through', async () => {
-      it('gives them a smaller share of the reward', async () => {})
+      describe('and provides less liquidity', async () => {
+        it('gives them a smaller share of the reward', async () => {
+          const { helpers, createIncentiveResult, stakes, context } = subject
+          const { startTime, endTime, claimDeadline } = createIncentiveResult
+
+          // Halfway through, lp3 decides they want in. Good for them.
+          await Time.set(startTime + duration / 2)
+
+          const lpUser3 = actors.traderUser2()
+          const tokensToStake: [TestERC20, TestERC20] = [
+            context.tokens[0],
+            context.tokens[1],
+          ]
+
+          stakes.push(
+            await helpers.mintDepositStakeFlow({
+              tokensToStake,
+              amountsToStake: amountsToStake.map((a) => a.div(2)) as [
+                BigNumber,
+                BigNumber
+              ],
+              createIncentiveResult,
+              ticks: ticksToStake,
+              lp: lpUser3,
+            })
+          )
+
+          // Now, go to the end and get rewards
+          await Time.set(endTime + 1)
+
+          const unstakes = await Promise.all(
+            stakes.map(({ lp, tokenId }) =>
+              helpers.unstakeCollectBurnFlow({
+                lp,
+                tokenId,
+                createIncentiveResult,
+              })
+            )
+          )
+
+          expect(ratioE18(unstakes[2].balance, unstakes[3].balance)).to.eq(
+            '4.34'
+          )
+
+          await Time.set(claimDeadline + 1)
+          const { amountReturnedToCreator } = await helpers.endIncentiveFlow({
+            createIncentiveResult,
+          })
+
+          expect(
+            bnSum(unstakes.map((u) => u.balance)).add(amountReturnedToCreator)
+          ).to.eq(totalReward)
+        })
+      })
     })
   })
 
-  describe('when there are different ranges staked', () => {
-    it('respects the proportions in which they are in range')
+  describe('when there are different ranges staked', async () => {
+    it('rewards based on how long they are in range', async () => {})
+  })
+  describe('the liquidity moves outside of range', () => {
+    it('only rewards those who are within range')
   })
   describe('when everyone waits until claimDeadline', () => {
     it('gives them the right amount of reward')
@@ -225,9 +270,5 @@ describe('UniswapV3Staker.math', async () => {
   describe('the liquidity in the pool changes (from a non-staker?)', () => {
     it('increases and rewards work')
     it('decreases and rewards work')
-  })
-
-  describe('the liquidity moves outside of one persons bounds', () => {
-    it('only rewards those who are within range')
   })
 })
