@@ -29,20 +29,13 @@ import { ActorFixture } from './shared/actors'
 import { Fixture } from 'ethereum-waffle'
 import _ from 'lodash'
 import { HelperTypes } from './helpers/types'
+import { Wallet } from '@ethersproject/wallet'
 
 let loadFixture: LoadFixtureFunction
 
 describe('UniswapV3Staker.math', async () => {
   const wallets = provider.getWallets()
   const Time = createTimeMachine(provider)
-
-  type TestSubject = {
-    stakes: Array<HelperTypes.MintStake.Result>
-    createIncentiveResult: HelperTypes.CreateIncentive.Result
-    helpers: HelperCommands
-    context: TestContext
-  }
-  let subject: TestSubject
   const actors = new ActorFixture(wallets, provider)
 
   before('create fixture loader', async () => {
@@ -50,6 +43,14 @@ describe('UniswapV3Staker.math', async () => {
   })
 
   describe('there are three LPs in the same range', async () => {
+    type TestSubject = {
+      stakes: Array<HelperTypes.MintStake.Result>
+      createIncentiveResult: HelperTypes.CreateIncentive.Result
+      helpers: HelperCommands
+      context: TestContext
+    }
+    let subject: TestSubject
+
     const totalReward = BNe18(3_000)
     const duration = days(30)
     const ticksToStake: [number, number] = [
@@ -162,9 +163,16 @@ describe('UniswapV3Staker.math', async () => {
           })
         )
 
-        /* Should be roughly 1/6 of the totalReward since they staked
-          1/3 of total liquidity, for 1/2 the time. */
+        /*
+         * totalReward is 3000e18
+         *
+         * This user contributed 1/3 of the total liquidity (amountsToStake = 1000e18)
+         * for the first half of the duration, then unstaked.
+         *
+         * So that's (1/3)*(1/2)*3000e18 = ~50e18
+         */
         expect(unstakes[0].balance).to.eq(BN('499989197530864021534'))
+        // expect(unstakes[0].balance / 1e18).to.eq(499.989)
 
         // Now the other two LPs hold off till the end and unstake
         await Time.set(endTime + 1)
@@ -247,7 +255,6 @@ describe('UniswapV3Staker.math', async () => {
           const { amountReturnedToCreator } = await helpers.endIncentiveFlow({
             createIncentiveResult,
           })
-
           expect(
             bnSum(unstakes.map((u) => u.balance)).add(amountReturnedToCreator)
           ).to.eq(totalReward)
@@ -257,7 +264,111 @@ describe('UniswapV3Staker.math', async () => {
   })
 
   describe('when there are different ranges staked', async () => {
-    it('rewards based on how long they are in range', async () => {})
+    type TestSubject = {
+      createIncentiveResult: HelperTypes.CreateIncentive.Result
+      helpers: HelperCommands
+      context: TestContext
+    }
+    let subject: TestSubject
+
+    const totalReward = BNe18(3_000)
+    const duration = days(100)
+    const baseAmount = BNe18(2)
+
+    const scenario: Fixture<TestSubject> = async (wallets, provider) => {
+      const context = await uniswapFixture(wallets, provider)
+      const actors = new ActorFixture(wallets, provider)
+
+      const {
+        tokens: [token0, token1, rewardToken],
+      } = context
+      const helpers = new HelperCommands({
+        provider,
+        staker: context.staker,
+        nft: context.nft,
+        pool: context.poolObj,
+        actors,
+      })
+
+      const epoch = await blockTimestamp()
+      const startTime = epoch + 1_000
+      const endTime = startTime + duration
+
+      const createIncentiveResult = await helpers.createIncentiveFlow({
+        startTime,
+        endTime,
+        rewardToken,
+        poolAddress: context.pool01,
+        totalReward,
+      })
+
+      return {
+        context,
+        helpers,
+        createIncentiveResult,
+      }
+    }
+
+    const getCurrentTick = async (pool: IUniswapV3Pool): Promise<number> => {
+      // This is currently lpUser0 but can be called from anybody.
+      const slot0 = await pool.connect(actors.lpUser0()).slot0()
+      return slot0.tick
+    }
+
+    beforeEach('load fixture', async () => {
+      subject = await loadFixture(scenario)
+    })
+
+    it('rewards based on how long they are in range', async () => {
+      const { helpers, context, createIncentiveResult } = subject
+      type Position = {
+        lp: Wallet
+        amounts: [BigNumber, BigNumber]
+        ticks: [number, number]
+      }
+
+      let tick = await getCurrentTick(context.poolObj)
+      console.info('current tick is ', tick)
+
+      const positions: Array<Position> = [
+        // lpUser0 stakes 2e18 from min-0
+        {
+          lp: actors.lpUser0(),
+          amounts: [baseAmount, baseAmount],
+          ticks: [getMinTick(TICK_SPACINGS[FeeAmount.MEDIUM]), tick],
+        },
+        // lpUser1 stakes 4e18 from 0-max
+        {
+          lp: actors.lpUser1(),
+          amounts: [baseAmount.mul(2), baseAmount.mul(2)],
+          ticks: [tick, getMaxTick(TICK_SPACINGS[FeeAmount.MEDIUM])],
+        },
+        // lpUser2 stakes 8e18 from 0-max
+        {
+          lp: actors.lpUser2(),
+          amounts: [baseAmount.mul(4), baseAmount.mul(4)],
+          ticks: [tick, getMaxTick(TICK_SPACINGS[FeeAmount.MEDIUM])],
+        },
+      ]
+
+      const tokensToStake: [TestERC20, TestERC20] = [
+        context.tokens[0],
+        context.tokens[1],
+      ]
+
+      Time.set(createIncentiveResult.startTime + 1)
+      const stakes = await Promise.all(
+        positions.map((p) =>
+          helpers.mintDepositStakeFlow({
+            lp: p.lp,
+            tokensToStake,
+            ticks: p.ticks,
+            amountsToStake: p.amounts,
+            createIncentiveResult,
+          })
+        )
+      )
+    })
   })
 
   describe('the liquidity moves outside of range', () => {

@@ -210,17 +210,21 @@ export const mintPosition = async (
   }
 }
 
-export const uniswapFixture: Fixture<{
-  nft: INonfungiblePositionManager
-  router: ISwapRouter
+export type UniswapFixtureType = {
   factory: IUniswapV3Factory
+  fee: FeeAmount
+  nft: INonfungiblePositionManager
+  pool01: string
+  pool12: string
+  poolObj: IUniswapV3Pool
+  router: ISwapRouter
   staker: UniswapV3Staker
   tokens: [TestERC20, TestERC20, TestERC20]
-  pool01: string
-  poolObj: IUniswapV3Pool
-  pool12: string
-  fee: FeeAmount
-}> = async (wallets, provider) => {
+}
+export const uniswapFixture: Fixture<UniswapFixtureType> = async (
+  wallets,
+  provider
+) => {
   const { tokens, nft, factory, router } = await uniswapFactoryFixture(
     wallets,
     provider
