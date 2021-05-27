@@ -116,7 +116,6 @@ describe('UniswapV3Staker.math', async () => {
     }
 
     beforeEach('load fixture', async () => {
-      // context = await loadFixture(fixture)
       subject = await loadFixture(scenario)
     })
 
@@ -206,6 +205,64 @@ describe('UniswapV3Staker.math', async () => {
         expect(
           bnSum(unstakes.map((u) => u.balance)).add(amountReturnedToCreator)
         ).to.eq(totalReward)
+      })
+
+      describe('and then restakes at the 3/4 mark', async () => {
+        it('rewards based on their staked time', async () => {
+          const {
+            helpers,
+            createIncentiveResult,
+            stakes,
+            context: {
+              tokens: [token0, token1],
+            },
+          } = subject
+          const { startTime, endTime } = createIncentiveResult
+
+          // Halfway through, lp0 decides they want out. Pauvre lp0.
+          const [lpUser0, lpUser1, lpUser2] = actors.lpUsers()
+
+          // lpUser0 unstakes at the halfway mark
+          await Time.set(startTime + duration / 2)
+
+          await helpers.unstakeCollectBurnFlow({
+            lp: lpUser0,
+            tokenId: stakes[0].tokenId,
+            createIncentiveResult: subject.createIncentiveResult,
+          })
+
+          // lpUser0 then restakes at the 3/4 mark
+          await Time.set(startTime + (3 / 4) * duration)
+          const tokensToStake: [TestERC20, TestERC20] = [token0, token1]
+
+          await helpers.ensureBalancesAndApprovals(
+            lpUser0,
+            [token0, token1],
+            amountsToStake[0],
+            subject.context.router.address
+          )
+
+          const restake = await helpers.mintDepositStakeFlow({
+            lp: lpUser0,
+            createIncentiveResult,
+            tokensToStake,
+            amountsToStake,
+            ticks: ticksToStake,
+          })
+
+          await Time.set(endTime + 1)
+
+          const {
+            balance: lpUser0Balance,
+          } = await helpers.unstakeCollectBurnFlow({
+            lp: lpUser0,
+            tokenId: restake.tokenId,
+            createIncentiveResult,
+          })
+
+          // TODO: explanation about how we got this number
+          expect(lpUser0Balance).to.eq(BN('749985223767771705507'))
+        })
       })
     })
 
@@ -423,10 +480,7 @@ describe('UniswapV3Staker.math', async () => {
     })
   })
 
-  describe('when someone stakes, unstakes, then restakes', () => {})
-
-  describe('the liquidity in the pool changes (from an unstaked LP)', () => {
-    it('increases and rewards work')
-    it('decreases and rewards work')
+  describe('an unstaked LP adds liquidity', () => {
+    it('decreases rewards based on that increase', async () => {})
   })
 })
