@@ -217,9 +217,9 @@ contract UniswapV3Staker is
         );
 
         (bytes32 incentiveId, Incentive memory incentive, Stake memory stake) =
-            _getUpdateStakeParams(params);
+            _getUpdateIncentiveParams(params);
         (uint128 reward, ) =
-            _updateStakeAndIncentive(incentiveId, incentive, stake, params);
+            _updateIncentive(incentiveId, incentive, stake, params);
 
         delete stakes[params.tokenId][incentiveId];
         deposits[params.tokenId].numberOfStakes -= 1;
@@ -237,9 +237,9 @@ contract UniswapV3Staker is
             'NOT_YOUR_DEPOSIT'
         );
         (bytes32 incentiveId, Incentive memory incentive, Stake memory stake) =
-            _getUpdateStakeParams(params);
+            _getUpdateIncentiveParams(params);
         (uint128 reward, uint160 secondsPerLiquidityInsideX128) =
-            _updateStakeAndIncentive(incentiveId, incentive, stake, params);
+            _updateIncentive(incentiveId, incentive, stake, params);
 
         stakes[params.tokenId][incentiveId].secondsPerLiquidityInitialX128 =
             secondsPerLiquidityInsideX128 +
@@ -247,7 +247,7 @@ contract UniswapV3Staker is
         TransferHelper.safeTransfer(incentive.rewardToken, to, reward);
     }
 
-    function _updateStakeAndIncentive(
+    function _updateIncentive(
         bytes32 incentiveId,
         Incentive memory incentive,
         Stake memory stake,
@@ -301,7 +301,7 @@ contract UniswapV3Staker is
         );
     }
 
-    function _getUpdateStakeParams(UpdateStakeParams memory params)
+    function _getUpdateIncentiveParams(UpdateStakeParams memory params)
         internal
         returns (
             bytes32,
