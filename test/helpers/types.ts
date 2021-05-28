@@ -5,7 +5,7 @@ export module HelperTypes {
   type CommandFunction<Input, Output> = (input: Input) => Promise<Output>
 
   export module CreateIncentive {
-    type Args = {
+    export type Args = {
       rewardToken: TestERC20
       totalReward: BigNumber
       poolAddress: string
