@@ -7,7 +7,7 @@ interface IUniswapV3Staker {
     /// @param rewardToken The address of the token being distributed as a reward
     /// @param pool The address of the Uniswap V3 pool
     /// @param endTime The time when rewards stop accruing
-    /// @param claimDeadline -
+    /// @param claimDeadline Time after which LPs can no longer claim rewards (and incentiveCreator can end the incentive and receive unclaimed rewards)
     /// @param totalReward The total amount of reward tokens to be distributed
     event IncentiveCreated(
         address indexed rewardToken,
@@ -58,7 +58,7 @@ interface IUniswapV3Staker {
     /// @param pool The address of the Uniswap V3 pool
     /// @param startTime The time when the incentive program begins
     /// @param endTime The time when rewards stop accruing
-    /// @param claimDeadline -
+    /// @param claimDeadline Time after which LPs can no longer claim rewards (and incentiveCreator can end the incentive and receive unclaimed rewards)
     /// @param totalReward The total amount of reward tokens to be distributed
     struct CreateIncentiveParams {
         address pool;
@@ -102,7 +102,7 @@ interface IUniswapV3Staker {
     /// @param tokenId The address of the Uniswap V3 pool
     /// @param startTime The time when the incentive program begins
     /// @param endTime The time when rewards stop accruing
-    /// @param claimDeadline
+    /// @param claimDeadline Time after which LPs can no longer claim rewards (and incentiveCreator can end the incentive and receive unclaimed rewards)
     struct StakeTokenParams {
         address creator;
         address rewardToken;
@@ -120,7 +120,7 @@ interface IUniswapV3Staker {
     /// @param tokenId The address of the Uniswap V3 pool
     /// @param startTime The time when the incentive program begins
     /// @param endTime The time when rewards stop accruing
-    /// @param claimDeadline The time when the incentive program should expire
+    /// @param claimDeadline Time after which LPs can no longer claim rewards (and incentiveCreator can end the incentive and receive unclaimed rewards)
     struct UnstakeTokenParams {
         address creator;
         address rewardToken;

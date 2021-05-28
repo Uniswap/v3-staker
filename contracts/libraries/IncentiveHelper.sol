@@ -9,8 +9,8 @@ library IncentiveHelper {
     /// @param pool The address of the Uniswap V3 pool
     /// @param startTime The time when the incentive begins
     /// @param endTime The time when rewards stop accruing
-    /// @param claimDeadline -
-    /// @return key Returns the identifier for the incentive
+    /// @param claimDeadline Time after which LPs can no longer claim rewards (and incentiveCreator can end the incentive and receive unclaimed rewards)
+    /// @return The identifier for the incentive
     function getIncentiveId(
         address creator,
         address rewardToken,
@@ -18,7 +18,7 @@ library IncentiveHelper {
         uint32 startTime,
         uint32 endTime,
         uint32 claimDeadline
-    ) internal pure returns (bytes32 key) {
+    ) internal pure returns (bytes32) {
         return
             keccak256(
                 abi.encode(
