@@ -173,11 +173,7 @@ describe('UniswapV3Staker.unit', async () => {
       it('creates an incentive with the correct parameters', async () => {
         const timestamps = makeTimestamps(await blockTimestamp())
         await subject(timestamps)
-        const idGetter = await (
-          await ethers.getContractFactory('TestIncentiveID')
-        ).deploy()
-
-        const incentiveId = idGetter.getIncentiveId(
+        const incentiveId = await context.incentiveHelper.getIncentiveId(
           incentiveCreator.address,
           context.rewardToken.address,
           context.pool01,
@@ -283,10 +279,7 @@ describe('UniswapV3Staker.unit', async () => {
       })
 
       it('deletes incentives[key]', async () => {
-        const idGetter = await (
-          await ethers.getContractFactory('TestIncentiveID')
-        ).deploy()
-        const incentiveId = idGetter.getIncentiveId(
+        const incentiveId = await context.incentiveHelper.getIncentiveId(
           incentiveCreator.address,
           context.rewardToken.address,
           context.pool01,
@@ -544,10 +537,7 @@ describe('UniswapV3Staker.unit', async () => {
 
         it('sets the stake struct properly', async () => {
           const liquidity = (await context.nft.positions(tokenId)).liquidity
-          const idGetter = await (
-            await ethers.getContractFactory('TestIncentiveID')
-          ).deploy()
-          const incentiveId = await idGetter.getIncentiveId(
+          const incentiveId = await context.incentiveHelper.getIncentiveId(
             incentiveCreator.address,
             context.rewardToken.address,
             context.pool01,
@@ -700,7 +690,7 @@ describe('UniswapV3Staker.unit', async () => {
             )
           ).to.be.gt(rewardsAccured)
         })
-
+  
         it('calculates the right secondsPerLiquidity')
         it('does not overflow totalSecondsUnclaimed')
       })
@@ -788,10 +778,7 @@ describe('UniswapV3Staker.unit', async () => {
       })
 
       it('properly stakes the deposit in the select incentive', async () => {
-        const idGetter = await (
-          await ethers.getContractFactory('TestIncentiveID')
-        ).deploy()
-        const incentiveId = await idGetter.getIncentiveId(
+        const incentiveId = await context.incentiveHelper.getIncentiveId(
           incentiveCreator.address,
           context.rewardToken.address,
           context.pool01,
