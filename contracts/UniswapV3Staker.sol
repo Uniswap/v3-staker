@@ -293,6 +293,8 @@ contract UniswapV3Staker is
             SafeMath.add(rewards[incentive.rewardToken][msg.sender], reward)
         );
 
+        stakes[params.tokenId][incentiveId].exists = false;
+
         emit TokenUnstaked(params.tokenId);
     }
 
