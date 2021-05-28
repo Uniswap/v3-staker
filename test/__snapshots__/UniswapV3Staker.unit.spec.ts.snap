@@ -2,7 +2,7 @@
 
 exports[`UniswapV3Staker.unit #claimReward has gas cost 1`] = `46949`;
 
-exports[`UniswapV3Staker.unit #createIncentive works and has gas cost 1`] = `82557`;
+exports[`UniswapV3Staker.unit #createIncentive works and has gas cost 1`] = `82545`;
 
 exports[`UniswapV3Staker.unit #endIncentive works and has gas cost 1`] = `38417`;
 
