@@ -4,7 +4,6 @@ pragma abicoder v2;
 
 import './interfaces/IUniswapV3Staker.sol';
 import './libraries/IncentiveHelper.sol';
-import './base/BlockTimestamp.sol';
 
 import '@uniswap/v3-core/contracts/libraries/FixedPoint96.sol';
 import '@uniswap/v3-core/contracts/libraries/FixedPoint128.sol';
@@ -26,7 +25,6 @@ import '@openzeppelin/contracts/utils/ReentrancyGuard.sol';
 @title Uniswap V3 canonical staking interface
 */
 contract UniswapV3Staker is
-    BlockTimestamp,
     IUniswapV3Staker,
     IERC721Receiver,
     ReentrancyGuard,
@@ -127,7 +125,7 @@ contract UniswapV3Staker is
         nonReentrant
     {
         require(
-            _blockTimestamp() > params.claimDeadline,
+            block.timestamp > params.claimDeadline,
             'before claim deadline'
         );
         bytes32 key =
@@ -262,7 +260,7 @@ contract UniswapV3Staker is
         uint160 totalSecondsUnclaimedX128 =
             uint160(
                 SafeMath.mul(
-                    Math.max(params.endTime, _blockTimestamp()) -
+                    Math.max(params.endTime, block.timestamp) -
                         params.startTime,
                     FixedPoint128.Q128
                 ) - incentive.totalSecondsClaimedX128
