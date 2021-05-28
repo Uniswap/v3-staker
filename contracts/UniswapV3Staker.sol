@@ -219,7 +219,7 @@ contract UniswapV3Staker is
         (bytes32 incentiveId, Incentive memory incentive, Stake memory stake) =
             _getUpdateIncentiveParams(params);
         (uint128 reward, ) =
-            _updateIncentive(incentiveId, incentive, stake, params);
+            _updateIncentiveRewards(incentiveId, incentive, stake, params);
 
         delete stakes[params.tokenId][incentiveId];
         deposits[params.tokenId].numberOfStakes -= 1;
@@ -229,7 +229,7 @@ contract UniswapV3Staker is
         emit TokenUnstaked(params.tokenId);
     }
 
-    function claimRewardsFromStake(UpdateStakeParams memory params, address to)
+    function claimRewardFromExistingStake(UpdateStakeParams memory params, address to)
         external
     {
         require(
@@ -239,7 +239,7 @@ contract UniswapV3Staker is
         (bytes32 incentiveId, Incentive memory incentive, Stake memory stake) =
             _getUpdateIncentiveParams(params);
         (uint128 reward, uint160 secondsPerLiquidityInsideX128) =
-            _updateIncentive(incentiveId, incentive, stake, params);
+            _updateIncentiveRewards(incentiveId, incentive, stake, params);
 
         stakes[params.tokenId][incentiveId].secondsPerLiquidityInitialX128 =
             secondsPerLiquidityInsideX128 +
@@ -247,7 +247,18 @@ contract UniswapV3Staker is
         TransferHelper.safeTransfer(incentive.rewardToken, to, reward);
     }
 
-    function _updateIncentive(
+
+    /// @inheritdoc IUniswapV3Staker
+    function claimReward(address rewardToken, address to) external override {
+        uint128 reward = rewards[rewardToken][msg.sender];
+        rewards[rewardToken][msg.sender] = 0;
+
+        TransferHelper.safeTransfer(rewardToken, to, reward);
+
+        emit RewardClaimed(to, reward);
+    }
+
+    function _updateIncentiveRewards(
         bytes32 incentiveId,
         Incentive memory incentive,
         Stake memory stake,
@@ -302,6 +313,7 @@ contract UniswapV3Staker is
     }
 
     function _getUpdateIncentiveParams(UpdateStakeParams memory params)
+        view
         internal
         returns (
             bytes32,
@@ -323,16 +335,6 @@ contract UniswapV3Staker is
         Incentive memory incentive = incentives[incentiveId];
         Stake memory stake = stakes[params.tokenId][incentiveId];
         return (incentiveId, incentive, stake);
-    }
-
-    /// @inheritdoc IUniswapV3Staker
-    function claimReward(address rewardToken, address to) external override {
-        uint128 reward = rewards[rewardToken][msg.sender];
-        rewards[rewardToken][msg.sender] = 0;
-
-        TransferHelper.safeTransfer(rewardToken, to, reward);
-
-        emit RewardClaimed(to, reward);
     }
 
     function _stakeToken(UpdateStakeParams memory params) internal {
