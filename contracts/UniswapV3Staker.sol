@@ -94,7 +94,10 @@ contract UniswapV3Staker is
                 params.claimDeadline
             );
 
-        require(incentives[key].rewardToken == address(0), 'incentive already exists');
+        require(
+            incentives[key].rewardToken == address(0),
+            'incentive already exists'
+        );
         require(params.rewardToken != address(0), 'invalid reward address');
         require(params.totalReward > 0, 'invalid reward amount');
 
@@ -125,7 +128,7 @@ contract UniswapV3Staker is
     {
         require(
             _blockTimestamp() > params.claimDeadline,
-            'reward transfer failed'
+            'before claim deadline'
         );
         bytes32 key =
             IncentiveHelper.getIncentiveId(
@@ -304,11 +307,7 @@ contract UniswapV3Staker is
         uint128 reward = rewards[rewardToken][msg.sender];
         rewards[rewardToken][msg.sender] = 0;
 
-        TransferHelper.safeTransfer(
-            rewardToken,
-            to,
-            reward
-        );
+        TransferHelper.safeTransfer(rewardToken, to, reward);
 
         emit RewardClaimed(to, reward);
     }
@@ -331,10 +330,7 @@ contract UniswapV3Staker is
             incentives[incentiveId].rewardToken != address(0),
             'non-existent incentive'
         );
-        require(
-            params.startTime <= block.timestamp,
-            'incentive not started'
-        );
+        require(params.startTime <= block.timestamp, 'incentive not started');
         require(params.endTime > block.timestamp, 'incentive ended');
         require(
             stakes[params.tokenId][incentiveId].exists != true,
