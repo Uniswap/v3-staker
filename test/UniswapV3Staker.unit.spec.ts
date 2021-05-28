@@ -700,9 +700,11 @@ describe('UniswapV3Staker.unit', async () => {
             timestamps.endTime,
             timestamps.claimDeadline
           )
+          const stakeBefore = await context.staker.stakes(tokenId, incentiveId)
+          expect(stakeBefore.exists).to.true
           await subject()
-          const stake = await context.staker.stakes(tokenId, incentiveId)
-          expect(stake.exists).to.be.false
+          const stakeAfter = await context.staker.stakes(tokenId, incentiveId)
+          expect(stakeAfter.exists).to.false
         })
   
         it('calculates the right secondsPerLiquidity')
