@@ -2,11 +2,7 @@ import { constants, BigNumberish, Wallet } from 'ethers'
 import { LoadFixtureFunction } from './types'
 import { ethers } from 'hardhat'
 import { UniswapV3Staker } from '../typechain/UniswapV3Staker'
-import {
-  TestERC20,
-  INonfungiblePositionManager,
-  IUniswapV3Factory,
-} from '../typechain'
+import { TestERC20 } from '../typechain'
 import {
   uniswapFixture,
   mintPosition,
@@ -26,9 +22,14 @@ import {
   ActorFixture,
   erc20Wrap,
   makeTimestamps,
+  maxGas,
 } from './shared'
 import { createFixtureLoader, provider } from './shared/provider'
-import { HelperCommands, ERC20Helper } from './helpers'
+import {
+  HelperCommands,
+  ERC20Helper,
+  incentiveResultToStakeAdapter,
+} from './helpers'
 
 import { ContractParams } from '../types/contractParams'
 import { createTimeMachine } from './shared/time'
@@ -264,7 +265,6 @@ describe('UniswapV3Staker.unit', async () => {
         const idGetter = await (
           await ethers.getContractFactory('TestIncentiveID')
         ).deploy()
-
         const incentiveId = idGetter.getIncentiveId(
           incentiveCreator.address,
           context.rewardToken.address,
@@ -523,7 +523,6 @@ describe('UniswapV3Staker.unit', async () => {
           const idGetter = await (
             await ethers.getContractFactory('TestIncentiveID')
           ).deploy()
-
           const incentiveId = await idGetter.getIncentiveId(
             incentiveCreator.address,
             context.rewardToken.address,
@@ -718,56 +717,47 @@ describe('UniswapV3Staker.unit', async () => {
     const stakeParamsEncodeType =
       'tuple(address creator, address rewardToken, uint256 tokenId, uint32 startTime, uint32 endTime, uint32 claimDeadline)'
     let tokenId: BigNumberish
-    let rewardToken: TestERC20
-    let startTime: number
-    let endTime: number
-    let claimDeadline: number
     let data: string
+    let timestamps: ContractParams.Timestamps
 
     beforeEach(async () => {
-      const currentTime = await blockTimestamp()
+      const { rewardToken } = context
+      timestamps = makeTimestamps((await blockTimestamp()) + 1_000)
 
-      rewardToken = context.tokens[1]
-      startTime = currentTime
-      endTime = currentTime + 100
-      claimDeadline = currentTime + 1000
+      await e20h.ensureBalancesAndApprovals(
+        lpUser0,
+        [context.token0, context.token1],
+        amountDesired,
+        context.nft.address
+      )
 
-      tokenId = await mintPosition(context.nft.connect(wallets[0]), {
-        token0: context.tokens[0].address,
-        token1: context.tokens[1].address,
+      tokenId = await mintPosition(context.nft.connect(lpUser0), {
+        token0: context.token0.address,
+        token1: context.token1.address,
         fee: FeeAmount.MEDIUM,
         tickLower: getMinTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
         tickUpper: getMaxTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
-        recipient: wallet.address,
-        amount0Desired: BNe18(10),
-        amount1Desired: BNe18(10),
+        recipient: lpUser0.address,
+        amount0Desired: amountDesired,
+        amount1Desired: amountDesired,
         amount0Min: 0,
         amount1Min: 0,
         deadline: (await blockTimestamp()) + 1000,
       })
 
-      await rewardToken.transfer(incentiveCreator.address, totalReward)
-      await rewardToken
-        .connect(incentiveCreator)
-        .approve(context.staker.address, totalReward)
-
-      await context.staker.connect(incentiveCreator).createIncentive({
-        pool: context.pool01,
-        rewardToken: rewardToken.address,
+      const incentive = await helpers.createIncentiveFlow({
+        rewardToken,
         totalReward,
-        startTime,
-        endTime,
-        claimDeadline,
+        poolAddress: context.poolObj.address,
+        ...timestamps,
       })
 
-      const stakeParams = {
-        creator: incentiveCreator.address,
-        rewardToken: rewardToken.address,
-        tokenId,
-        startTime,
-        endTime,
-        claimDeadline,
-      }
+      const stakeParams: ContractParams.StakeToken = incentiveResultToStakeAdapter(
+        {
+          ...incentive,
+          tokenId,
+        }
+      )
 
       data = ethers.utils.defaultAbiCoder.encode(
         [stakeParamsEncodeType],
@@ -776,21 +766,26 @@ describe('UniswapV3Staker.unit', async () => {
     })
 
     describe('on successful transfer with staking data', () => {
+      beforeEach(async () => {
+        await Time.set(timestamps.startTime + 1)
+      })
+
       it('deposits the token', async () => {
         expect((await context.staker.deposits(1)).owner).to.equal(
           constants.AddressZero
         )
-        await context.nft['safeTransferFrom(address,address,uint256)'](
-          wallets[0].address,
-          context.staker.address,
-          tokenId,
-          {
-            gasLimit: MAX_GAS_LIMIT,
-            from: wallets[0].address,
-          }
-        )
+        await context.nft
+          .connect(lpUser0)
+          ['safeTransferFrom(address,address,uint256)'](
+            lpUser0.address,
+            context.staker.address,
+            tokenId,
+            {
+              ...maxGas,
+            }
+          )
         expect((await context.staker.deposits(1)).owner).to.equal(
-          wallet.address
+          lpUser0.address
         )
       })
 
@@ -798,28 +793,29 @@ describe('UniswapV3Staker.unit', async () => {
         const idGetter = await (
           await ethers.getContractFactory('TestIncentiveID')
         ).deploy()
-
         const incentiveId = await idGetter.getIncentiveId(
           incentiveCreator.address,
-          rewardToken.address,
+          context.rewardToken.address,
           context.pool01,
-          startTime,
-          endTime,
-          claimDeadline
+          timestamps.startTime,
+          timestamps.endTime,
+          timestamps.claimDeadline
         )
-
+        Time.set(timestamps.startTime + 10)
         const stakeBefore = await context.staker.stakes(tokenId, incentiveId)
         const depositBefore = await context.staker.deposits(tokenId)
-        await context.nft['safeTransferFrom(address,address,uint256,bytes)'](
-          wallets[0].address,
-          context.staker.address,
-          tokenId,
-          data,
-          {
-            gasLimit: MAX_GAS_LIMIT,
-            from: wallets[0].address,
-          }
-        )
+        await context.nft
+          .connect(lpUser0)
+          ['safeTransferFrom(address,address,uint256,bytes)'](
+            lpUser0.address,
+            context.staker.address,
+            tokenId,
+            data,
+            {
+              ...maxGas,
+              from: lpUser0.address,
+            }
+          )
         const stakeAfter = await context.staker.stakes(tokenId, incentiveId)
 
         expect(depositBefore.numberOfStakes).to.equal(0)
@@ -834,16 +830,18 @@ describe('UniswapV3Staker.unit', async () => {
 
       it('has gas cost', async () => {
         await snapshotGasCost(
-          context.nft['safeTransferFrom(address,address,uint256,bytes)'](
-            wallets[0].address,
-            context.staker.address,
-            tokenId,
-            data,
-            {
-              gasLimit: MAX_GAS_LIMIT,
-              from: wallets[0].address,
-            }
-          )
+          context.nft
+            .connect(lpUser0)
+            ['safeTransferFrom(address,address,uint256,bytes)'](
+              lpUser0.address,
+              context.staker.address,
+              tokenId,
+              data,
+              {
+                ...maxGas,
+                from: lpUser0.address,
+              }
+            )
         )
       })
     })
@@ -851,23 +849,19 @@ describe('UniswapV3Staker.unit', async () => {
     describe('on invalid call', async () => {
       it('reverts when called by contract other than uniswap v3 nonfungiblePositionManager', async () => {
         await expect(
-          context.staker.onERC721Received(
-            incentiveCreator.address,
-            wallet.address,
-            1,
-            data
-          )
+          context.staker
+            .connect(lpUser0)
+            .onERC721Received(incentiveCreator.address, wallet.address, 1, data)
         ).to.be.revertedWith('uniswap v3 nft only')
       })
 
       it('reverts when staking on invalid incentive', async () => {
         const invalidStakeParams = {
           creator: incentiveCreator.address,
-          rewardToken: rewardToken.address,
+          rewardToken: context.rewardToken.address,
           tokenId,
+          ...timestamps,
           startTime: 100,
-          endTime,
-          claimDeadline,
         }
 
         let invalidData = ethers.utils.defaultAbiCoder.encode(
@@ -875,12 +869,14 @@ describe('UniswapV3Staker.unit', async () => {
           [invalidStakeParams]
         )
         await expect(
-          context.nft['safeTransferFrom(address,address,uint256,bytes)'](
-            wallet.address,
-            context.staker.address,
-            tokenId,
-            invalidData
-          )
+          context.nft
+            .connect(lpUser0)
+            ['safeTransferFrom(address,address,uint256,bytes)'](
+              lpUser0.address,
+              context.staker.address,
+              tokenId,
+              invalidData
+            )
         ).to.be.revertedWith('non-existent incentive')
       })
     })
@@ -891,7 +887,7 @@ describe('UniswapV3Staker.unit', async () => {
       const rewardToken = context.tokens[2]
       const currentTime = await blockTimestamp()
 
-      const tokenId = await mintPosition(context.nft, {
+      const tokenId = await mintPosition(context.nft.connect(lpUser0), {
         token0: context.tokens[0].address,
         token1: context.tokens[1].address,
         fee: FeeAmount.MEDIUM,
