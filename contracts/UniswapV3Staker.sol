@@ -164,6 +164,7 @@ contract UniswapV3Staker is
         );
     }
 
+    /// @inheritdoc IERC721Receiver
     function onERC721Received(
         address,
         address from,
@@ -356,6 +357,11 @@ contract UniswapV3Staker is
         emit TokenStaked(params.tokenId, liquidity);
     }
 
+    /// @param tokenId The unique identifier of an Uniswap V3 LP token
+    /// @return pool The address of the Uniswap V3 pool
+    /// @return tickLower The lower tick of the Uniswap V3 position
+    /// @return tickUpper The upper tick of the Uniswap V3 position
+    /// @return liquidity The amount of liquidity staked
     function _getPositionDetails(uint256 tokenId)
         internal
         view
