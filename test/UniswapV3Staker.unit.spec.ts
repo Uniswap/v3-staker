@@ -851,7 +851,12 @@ describe('UniswapV3Staker.unit', async () => {
         await expect(
           context.staker
             .connect(lpUser0)
-            .onERC721Received(incentiveCreator.address, wallet.address, 1, data)
+            .onERC721Received(
+              incentiveCreator.address,
+              lpUser0.address,
+              1,
+              data
+            )
         ).to.be.revertedWith('uniswap v3 nft only')
       })
 
@@ -884,38 +889,48 @@ describe('UniswapV3Staker.unit', async () => {
 
   describe('#multicall', () => {
     it('is implemented', async () => {
-      const rewardToken = context.tokens[2]
       const currentTime = await blockTimestamp()
+      const multicaller = actors.traderUser2()
 
-      const tokenId = await mintPosition(context.nft.connect(lpUser0), {
-        token0: context.tokens[0].address,
-        token1: context.tokens[1].address,
+      await e20h.ensureBalancesAndApprovals(
+        multicaller,
+        [context.token0, context.token1],
+        amountDesired,
+        context.nft.address
+      )
+      const tokenId = await mintPosition(context.nft.connect(multicaller), {
+        token0: context.token0.address,
+        token1: context.token1.address,
         fee: FeeAmount.MEDIUM,
         tickLower: getMinTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
         tickUpper: getMaxTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
-        recipient: wallet.address,
-        amount0Desired: BNe18(10),
-        amount1Desired: BNe18(10),
+        recipient: multicaller.address,
+        amount0Desired: amountDesired,
+        amount1Desired: amountDesired,
         amount0Min: 0,
         amount1Min: 0,
         deadline: currentTime + 10_000,
       })
-      await rewardToken.transfer(wallet.address, BNe18(5))
-      await context.nft.connect(wallet).approve(context.staker.address, tokenId)
-      await rewardToken
-        .connect(wallet)
-        .approve(context.staker.address, BNe18(5))
+
+      await e20h.ensureBalancesAndApprovals(
+        multicaller,
+        context.rewardToken,
+        totalReward,
+        context.staker.address
+      )
+
+      await context.nft
+        .connect(multicaller)
+        .approve(context.staker.address, tokenId)
 
       const createIncentiveTx = context.staker.interface.encodeFunctionData(
         'createIncentive',
         [
           {
             pool: context.pool01,
-            rewardToken: rewardToken.address,
-            totalReward: BNe18(5),
-            startTime: currentTime,
-            endTime: currentTime + 100,
-            claimDeadline: currentTime + 200,
+            rewardToken: context.rewardToken.address,
+            totalReward,
+            ...makeTimestamps(currentTime),
           },
         ]
       )
@@ -924,12 +939,11 @@ describe('UniswapV3Staker.unit', async () => {
         [tokenId]
       )
       await context.staker
-        .connect(wallet)
-        .multicall([createIncentiveTx, depositTx], {
-          gasLimit: MAX_GAS_LIMIT,
-        })
+        .connect(multicaller)
+        .multicall([createIncentiveTx, depositTx], maxGas)
+
       expect((await context.staker.deposits(tokenId)).owner).to.eq(
-        wallet.address
+        multicaller.address
       )
     })
   })
