@@ -34,25 +34,51 @@ import {
 import { ContractParams } from '../types/contractParams'
 import { createTimeMachine } from './shared/time'
 import { HelperTypes } from './helpers/types'
-import { times } from 'lodash'
+import _ from 'lodash'
 
 let loadFixture: LoadFixtureFunction
 
 describe('UniswapV3Staker.unit', async () => {
+  /**
+   * Instead of using wallet indexes, we use the actors fixture to
+   * acces specific roles.
+   */
   const actors = new ActorFixture(provider.getWallets(), provider)
+
+  /**
+   * By default, this EOA create incentives.
+   */
   const incentiveCreator = actors.incentiveCreator()
+
+  /**
+   * By default, lpUser0 is the liquidity provider who gets the NFT.
+   */
   const lpUser0 = actors.lpUser0()
+
+  /**
+   * How much the lp wants to deposit (of each token)
+   */
+  const amountDesired = BNe18(10)
+
+  /**
+   * Incentive programs will distribute this much of rewardToken.
+   */
+  const totalReward = BNe18(100)
+
   const erc20Helper = new ERC20Helper()
   const Time = createTimeMachine(provider)
-
-  let context: UniswapFixtureType
   let helpers: HelperCommands
-  let timestamps: ContractParams.Timestamps
 
-  // By default, incentive rewards will be this much
-  const totalReward = BNe18(100)
-  // How much of each token the LP wants to deposit
-  const amountDesired = BNe18(10)
+  /**
+   * Access context this way instead of dealing with namespace collisions.
+   * Context is always loaded from the test fixture.
+   */
+  let context: UniswapFixtureType
+
+  /**
+   * Helper for keeping track of startTime, endTime, claimDeadline.
+   */
+  let timestamps: ContractParams.Timestamps
 
   before('loader', async () => {
     loadFixture = createFixtureLoader(provider.getWallets(), provider)
@@ -63,10 +89,10 @@ describe('UniswapV3Staker.unit', async () => {
     helpers = new HelperCommands({
       nft: context.nft,
       router: context.router,
-      actors,
-      provider,
       staker: context.staker,
       pool: context.poolObj,
+      actors,
+      provider,
     })
   })
 
@@ -1001,9 +1027,8 @@ describe('UniswapV3Staker.unit', async () => {
       ).to.equal(0)
     })
 
-    it('has gas cost', async () => {
-      await snapshotGasCost(subject(context.rewardToken.address))
-    })
+    it('has gas cost', async () =>
+      await snapshotGasCost(subject(context.rewardToken.address)))
   })
 
   describe('#getPositionDetails', () => {
