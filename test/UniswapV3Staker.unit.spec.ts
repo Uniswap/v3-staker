@@ -1,12 +1,13 @@
-import { constants, BigNumber, BigNumberish } from 'ethers'
+import { constants, BigNumberish, Wallet } from 'ethers'
+import { LoadFixtureFunction } from './types'
 import { ethers } from 'hardhat'
 import { UniswapV3Staker } from '../typechain/UniswapV3Staker'
+import { TestERC20 } from '../typechain'
 import {
-  TestERC20,
-  INonfungiblePositionManager,
-  IUniswapV3Factory,
-} from '../typechain'
-import { uniswapFixture, mintPosition } from './shared/fixtures'
+  uniswapFixture,
+  mintPosition,
+  UniswapFixtureType,
+} from './shared/fixtures'
 import {
   expect,
   getMaxTick,
@@ -19,71 +20,121 @@ import {
   snapshotGasCost,
   MAX_GAS_LIMIT,
   ActorFixture,
-  setTime
+  erc20Wrap,
+  makeTimestamps,
+  maxGas,
 } from './shared'
 import { createFixtureLoader, provider } from './shared/provider'
+import {
+  HelperCommands,
+  ERC20Helper,
+  incentiveResultToStakeAdapter,
+} from './helpers'
 
-let loadFixture: ReturnType<typeof createFixtureLoader>
+import { ContractParams } from '../types/contractParams'
+import { createTimeMachine } from './shared/time'
+import { HelperTypes } from './helpers/types'
+import _ from 'lodash'
+
+let loadFixture: LoadFixtureFunction
 
 describe('UniswapV3Staker.unit', async () => {
-  const wallets = provider.getWallets()
-  const [wallet, other] = wallets
-  let tokens: [TestERC20, TestERC20, TestERC20]
-  let factory: IUniswapV3Factory
-  let nft: INonfungiblePositionManager
-  let staker: UniswapV3Staker
-  let pool01: string
-  let pool12: string
-  let subject
-  const actors = new ActorFixture(wallets, provider)
+  /**
+   * Instead of using wallet indexes, we use the actors fixture to
+   * acces specific roles.
+   */
+  const actors = new ActorFixture(provider.getWallets(), provider)
 
-  // The account that has rewardToken and creates the incentive program
+  /**
+   * By default, this EOA create incentives.
+   */
   const incentiveCreator = actors.incentiveCreator()
 
-  // The account the collects the reward token
+  /**
+   * By default, lpUser0 is the liquidity provider who gets the NFT.
+   */
   const lpUser0 = actors.lpUser0()
 
-  // Default total reward for incentive
+  /**
+   * How much the lp wants to deposit (of each token)
+   */
+  const amountDesired = BNe18(10)
+
+  /**
+   * Incentive programs will distribute this much of rewardToken.
+   */
   const totalReward = BNe18(100)
 
+  const erc20Helper = new ERC20Helper()
+  const Time = createTimeMachine(provider)
+  let helpers: HelperCommands
+
+  /**
+   * Access context this way instead of dealing with namespace collisions.
+   * Context is always loaded from the test fixture.
+   */
+  let context: UniswapFixtureType
+
+  /**
+   * Helper for keeping track of startTime, endTime, claimDeadline.
+   */
+  let timestamps: ContractParams.Timestamps
+
   before('loader', async () => {
-    loadFixture = createFixtureLoader(wallets)
+    loadFixture = createFixtureLoader(provider.getWallets(), provider)
   })
 
   beforeEach('create fixture loader', async () => {
-    ;({ nft, tokens, staker, factory, pool01, pool12 } = await loadFixture(
-      uniswapFixture
-    ))
+    context = await loadFixture(uniswapFixture)
+    helpers = new HelperCommands({
+      nft: context.nft,
+      router: context.router,
+      staker: context.staker,
+      pool: context.poolObj,
+      actors,
+      provider,
+    })
   })
 
-  it('deploys and has an address', async () => {
-    const stakerFactory = await ethers.getContractFactory('UniswapV3Staker')
-    staker = (await stakerFactory.deploy(
-      factory.address,
-      nft.address
-    )) as UniswapV3Staker
-    expect(staker.address).to.be.a.string
+  describe('deploying', async () => {
+    it('deploys and has an address', async () => {
+      const stakerFactory = await ethers.getContractFactory('UniswapV3Staker')
+      const staker = (await stakerFactory.deploy(
+        context.factory.address,
+        context.nft.address
+      )) as UniswapV3Staker
+      expect(staker.address).to.be.a.string
+    })
   })
 
   describe('#createIncentive', async () => {
+    let subject: (
+      params: Partial<ContractParams.CreateIncentive>
+    ) => Promise<any>
+
     beforeEach('setup', async () => {
-      subject = async ({
-        startTime = 10,
-        endTime = 20,
-        claimDeadline = 30,
-        totalReward = BNe18(1000),
-        rewardToken = tokens[0].address,
-      } = {}) => {
-        await tokens[0].transfer(incentiveCreator.address, totalReward)
-        await tokens[0]
-          .connect(incentiveCreator)
-          .approve(staker.address, totalReward)
-        return await staker.connect(incentiveCreator).createIncentive({
-          rewardToken,
-          pool: pool01,
-          startTime,
-          endTime,
-          claimDeadline,
+      subject = async (
+        params: Partial<ContractParams.CreateIncentive> = {}
+      ) => {
+        await erc20Helper.ensureBalancesAndApprovals(
+          incentiveCreator,
+          params.rewardToken
+            ? await erc20Wrap(params?.rewardToken)
+            : context.rewardToken,
+          totalReward,
+          context.staker.address
+        )
+
+        const { startTime, endTime, claimDeadline } = makeTimestamps(
+          await blockTimestamp()
+        )
+
+        return await context.staker.connect(incentiveCreator).createIncentive({
+          rewardToken: params.rewardToken || context.rewardToken.address,
+          pool: context.pool01,
+          startTime: params.startTime || startTime,
+          endTime: params.endTime || endTime,
+          claimDeadline: params.claimDeadline || claimDeadline,
           totalReward,
         })
       }
@@ -91,248 +142,263 @@ describe('UniswapV3Staker.unit', async () => {
 
     describe('works and', async () => {
       it('transfers the right amount of rewardToken', async () => {
-        const balanceBefore = await tokens[0].balanceOf(staker.address)
-        await subject({ totalReward })
-        expect(await tokens[0].balanceOf(staker.address)).to.eq(
-          balanceBefore.add(totalReward)
+        const balanceBefore = await context.rewardToken.balanceOf(
+          context.staker.address
         )
+        await subject({
+          totalReward,
+          rewardToken: context.rewardToken.address,
+        })
+        expect(
+          await context.rewardToken.balanceOf(context.staker.address)
+        ).to.eq(balanceBefore.add(totalReward))
       })
 
       it('emits an event with valid parameters', async () => {
-        await expect(subject())
-          .to.emit(staker, 'IncentiveCreated')
-          .withArgs(tokens[0].address, pool01, 10, 20, 30, BNe18(1000))
+        const { startTime, endTime, claimDeadline } = makeTimestamps(
+          await blockTimestamp()
+        )
+        await expect(subject({ startTime, endTime, claimDeadline }))
+          .to.emit(context.staker, 'IncentiveCreated')
+          .withArgs(
+            context.rewardToken.address,
+            context.pool01,
+            startTime,
+            endTime,
+            claimDeadline,
+            totalReward
+          )
       })
 
       it('creates an incentive with the correct parameters', async () => {
-        await subject()
+        const timestamps = makeTimestamps(await blockTimestamp())
+        await subject(timestamps)
         const idGetter = await (
           await ethers.getContractFactory('TestIncentiveID')
         ).deploy()
 
         const incentiveId = idGetter.getIncentiveId(
           incentiveCreator.address,
-          tokens[0].address,
-          pool01,
-          10,
-          20,
-          30
+          context.rewardToken.address,
+          context.pool01,
+          timestamps.startTime,
+          timestamps.endTime,
+          timestamps.claimDeadline
         )
 
-        const incentive = await staker.incentives(incentiveId)
-        expect(incentive.totalRewardUnclaimed).to.equal(BNe18(1000))
+        const incentive = await context.staker.incentives(incentiveId)
+        expect(incentive.totalRewardUnclaimed).to.equal(totalReward)
         expect(incentive.totalSecondsClaimedX128).to.equal(BN(0))
-        expect(incentive.rewardToken).to.equal(tokens[0].address)
+        expect(incentive.rewardToken).to.equal(context.rewardToken.address)
       })
 
       it('has gas cost', async () => {
-        await snapshotGasCost(subject())
+        await snapshotGasCost(subject({}))
       })
     })
 
     describe('fails when', async () => {
       it('there is already has an incentive with those params', async () => {
-        const params = {
-          startTime: 10,
-          endTime: 20,
-          claimDeadline: 30,
-        }
-        expect(await subject(params)).to.emit(staker, 'IncentiveCreated')
+        const params = await makeTimestamps((await blockTimestamp()) + 10)
+        expect(await subject(params)).to.emit(
+          context.staker,
+          'IncentiveCreated'
+        )
         await expect(subject(params)).to.be.revertedWith('INCENTIVE_EXISTS')
       })
 
       it('claim deadline is not greater than or equal to end time', async () => {
-        await expect(
-          subject({
-            startTime: 10,
-            endTime: 30,
-            claimDeadline: 20,
-          })
-        ).to.be.revertedWith('claimDeadline_not_gte_endTime')
+        const params = await makeTimestamps((await blockTimestamp()) + 10)
+        params.endTime = params.claimDeadline + 100
+        await expect(subject(params)).to.be.revertedWith(
+          'claimDeadline_not_gte_endTime'
+        )
       })
 
       it('end time is not gte start time', async () => {
-        await expect(
-          subject({
-            startTime: 20,
-            endTime: 10,
-            claimDeadline: 100,
-          })
-        ).to.be.revertedWith('endTime_not_gte_startTime')
+        const params = makeTimestamps((await blockTimestamp()) + 10)
+        params.endTime = params.startTime - 10
+        await expect(subject(params)).to.be.revertedWith(
+          'endTime_not_gte_startTime'
+        )
       })
 
-      it('rewardToken is 0 address', async () => {
+      it('rewardToken is 0 address', async () =>
         await expect(
-          subject({
+          context.staker.connect(incentiveCreator).createIncentive({
             rewardToken: constants.AddressZero,
+            pool: context.pool01,
+            totalReward,
+            ...makeTimestamps(0),
           })
-        ).to.be.revertedWith('INVALID_REWARD_ADDRESS')
-      })
+        ).to.be.revertedWith('INVALID_REWARD_ADDRESS'))
 
-      it('totalReward is 0 or an invalid amount', async () => {
+      it('totalReward is 0 or an invalid amount', async () =>
         await expect(
-          subject({
+          context.staker.connect(incentiveCreator).createIncentive({
+            rewardToken: context.rewardToken.address,
+            pool: context.pool01,
             totalReward: BNe18(0),
+            ...makeTimestamps(0),
           })
-        ).to.be.revertedWith('INVALID_REWARD_AMOUNT')
-      })
+        ).to.be.revertedWith('INVALID_REWARD_AMOUNT'))
     })
   })
 
   describe('#endIncentive', async () => {
-    let rewardToken: string
-    let blockTime: number
-    let startTime: number
-    let endTime: number
-    let claimDeadline: number
-    let subject: Function
-    let createIncentive: Function
-
+    let subject: (params: Partial<ContractParams.EndIncentive>) => Promise<any>
     beforeEach('setup', async () => {
-      rewardToken = tokens[0].address
-      blockTime = await blockTimestamp()
-      startTime = blockTime
-      endTime = blockTime + 1000
-      claimDeadline = blockTime + 2000
+      timestamps = makeTimestamps(await blockTimestamp())
 
-      await tokens[0].transfer(incentiveCreator.address, totalReward)
-      await tokens[0]
-        .connect(incentiveCreator)
-        .approve(staker.address, totalReward)
+      await helpers.createIncentiveFlow({
+        ...timestamps,
+        rewardToken: context.rewardToken,
+        poolAddress: context.poolObj.address,
+        totalReward,
+      })
 
-      createIncentive = async () =>
-        staker.connect(incentiveCreator).createIncentive({
-          rewardToken,
-          pool: pool01,
-          startTime,
-          endTime,
-          claimDeadline,
-          totalReward,
+      subject = async (params: Partial<ContractParams.EndIncentive> = {}) => {
+        return await context.staker.connect(incentiveCreator).endIncentive({
+          rewardToken: params.rewardToken || context.rewardToken.address,
+          pool: context.pool01,
+          startTime: params.startTime || timestamps.startTime,
+          endTime: params.endTime || timestamps.endTime,
+          claimDeadline: params.claimDeadline || timestamps.claimDeadline,
         })
-
-      subject = async ({ ...args } = {}) =>
-        await staker.connect(incentiveCreator).endIncentive({
-          rewardToken,
-          pool: pool01,
-          startTime,
-          endTime,
-          claimDeadline,
-          ...args,
-        })
+      }
     })
 
     describe('works and', () => {
       it('emits IncentiveEnded event', async () => {
-        await createIncentive()
-        // Adjust the block.timestamp so it is after the claim deadline
-        await provider.send('evm_setNextBlockTimestamp', [claimDeadline + 1])
+        await Time.set(timestamps.claimDeadline + 10)
 
-        await expect(subject())
-          .to.emit(staker, 'IncentiveEnded')
-          .withArgs(rewardToken, pool01, startTime, endTime)
+        await expect(subject({}))
+          .to.emit(context.staker, 'IncentiveEnded')
+          .withArgs(
+            context.rewardToken.address,
+            context.pool01,
+            timestamps.startTime,
+            timestamps.endTime
+          )
       })
 
       it('deletes incentives[key]', async () => {
-        await createIncentive()
         const idGetter = await (
           await ethers.getContractFactory('TestIncentiveID')
         ).deploy()
-
         const incentiveId = idGetter.getIncentiveId(
           incentiveCreator.address,
-          rewardToken,
-          pool01,
-          startTime,
-          endTime,
-          claimDeadline
+          context.rewardToken.address,
+          context.pool01,
+          timestamps.startTime,
+          timestamps.endTime,
+          timestamps.claimDeadline
         )
-        expect((await staker.incentives(incentiveId)).rewardToken).to.eq(
-          tokens[0].address
-        )
-        await provider.send('evm_setNextBlockTimestamp', [claimDeadline + 1])
+        expect(
+          (await context.staker.incentives(incentiveId)).rewardToken
+        ).to.eq(context.rewardToken.address)
 
-        await subject()
-        expect((await staker.incentives(incentiveId)).rewardToken).to.eq(
-          constants.AddressZero
-        )
+        await Time.set(timestamps.claimDeadline + 1)
+        await subject({})
+        expect(
+          (await context.staker.incentives(incentiveId)).rewardToken
+        ).to.eq(constants.AddressZero)
       })
 
       it('has gas cost', async () => {
-        await createIncentive()
-        await provider.send('evm_setNextBlockTimestamp', [claimDeadline + 1])
-        await snapshotGasCost(subject())
+        await Time.set(timestamps.claimDeadline + 1)
+        await snapshotGasCost(subject({}))
       })
     })
 
-    describe('fails when ', () => {
+    describe('fails when', async () => {
       it('block.timestamp <= claim deadline', async () => {
-        await createIncentive()
-
-        // Adjust the block.timestamp so it is before the claim deadline
-        await provider.send('evm_setNextBlockTimestamp', [claimDeadline - 1])
-
-        await expect(subject()).to.be.revertedWith(
+        await Time.set(timestamps.claimDeadline - 10)
+        await expect(subject({})).to.be.revertedWith(
           'TIMESTAMP_LTE_CLAIMDEADLINE'
         )
       })
 
       it('incentive does not exist', async () => {
         // Adjust the block.timestamp so it is after the claim deadline
-        await provider.send('evm_setNextBlockTimestamp', [claimDeadline + 1])
-
-        await expect(subject()).to.be.revertedWith('INVALID_INCENTIVE')
+        Time.set(timestamps.claimDeadline + 1)
+        await expect(
+          subject({
+            startTime: (await blockTimestamp()) + 1000,
+          })
+        ).to.be.revertedWith('INVALID_INCENTIVE')
       })
     })
   })
 
-  describe('#depositToken', () => {
-    let tokenId
-    let subject
+  describe('Deposit/Withdraw', () => {
+    /**
+     * In these tests, lpUser0 is the one depositing the token.
+     */
+
+    let subject: (tokenId: string, recipient: string) => Promise<any>
+    let tokenId: string
+    let recipient = lpUser0.address
 
     beforeEach(async () => {
-      tokenId = await mintPosition(nft, {
-        token0: tokens[1].address,
-        token1: tokens[2].address,
+      await erc20Helper.ensureBalancesAndApprovals(
+        lpUser0,
+        [context.token0, context.token1],
+        amountDesired,
+        context.nft.address
+      )
+
+      tokenId = await mintPosition(context.nft.connect(lpUser0), {
+        token0: context.token0.address,
+        token1: context.token1.address,
         fee: FeeAmount.MEDIUM,
         tickLower: getMinTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
         tickUpper: getMaxTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
-        recipient: wallet.address,
-        amount0Desired: BN(10).mul(BN(10).pow(18)),
-        amount1Desired: BN(10).mul(BN(10).pow(18)),
+        recipient: lpUser0.address,
+        amount0Desired: amountDesired,
+        amount1Desired: amountDesired,
         amount0Min: 0,
         amount1Min: 0,
         deadline: (await blockTimestamp()) + 1000,
       })
 
-      await nft.approve(staker.address, tokenId, { gasLimit: MAX_GAS_LIMIT })
-      subject = async () => await staker.connect(wallet).depositToken(tokenId)
+      await context.nft
+        .connect(lpUser0)
+        .approve(context.staker.address, tokenId, {
+          gasLimit: MAX_GAS_LIMIT,
+        })
     })
 
-    describe('works and', async () => {
-      it('emits a Deposited event', async () => {
-        await expect(subject())
-          .to.emit(staker, 'TokenDeposited')
-          .withArgs(tokenId, wallet.address)
-      })
+    describe('#depositToken', () => {
+      subject = async () =>
+        await context.staker.connect(lpUser0).depositToken(tokenId)
 
-      it('transfers ownership of the NFT', async () => {
-        await subject()
-        expect(await nft.ownerOf(tokenId)).to.eq(staker.address)
-      })
+      describe('works and', async () => {
+        it('emits a Deposited event', async () => {
+          await expect(subject(tokenId, lpUser0.address))
+            .to.emit(context.staker, 'TokenDeposited')
+            .withArgs(tokenId, lpUser0.address)
+        })
 
-      it('sets owner and maintains numberOfStakes at 0', async () => {
-        await subject()
-        const deposit = await staker.deposits(tokenId)
-        expect(deposit.owner).to.eq(wallet.address)
-        expect(deposit.numberOfStakes).to.eq(0)
-      })
+        it('transfers ownership of the NFT', async () => {
+          await subject(tokenId, lpUser0.address)
+          expect(await context.nft.ownerOf(tokenId)).to.eq(
+            context.staker.address
+          )
+        })
 
-      it('has gas cost', async () => {
-        await snapshotGasCost(subject())
-      })
-    })
+        it('sets owner and maintains numberOfStakes at 0', async () => {
+          await subject(tokenId, lpUser0.address)
+          const deposit = await context.staker.deposits(tokenId)
+          expect(deposit.owner).to.eq(lpUser0.address)
+          expect(deposit.numberOfStakes).to.eq(0)
+        })
 
-    /*
+        it('has gas cost', async () => {
+          await snapshotGasCost(subject(tokenId, lpUser0.address))
+        })
+      })
+      /*
       Other possible cases to consider:
         * What if make nft.safeTransferFrom is adversarial in some way?
         * What happens if the nft.safeTransferFrom call fails
@@ -340,352 +406,308 @@ describe('UniswapV3Staker.unit', async () => {
         * What happens if I call deposit() twice with the same tokenId?
         * Ownership checks around tokenId? Can you transfer something that is not yours?
       */
-  })
-
-  describe('#withdrawToken', () => {
-    let tokenId: string
-    let subject
-    const recipient = wallet.address
-
-    beforeEach(async () => {
-      tokenId = await mintPosition(nft, {
-        token0: tokens[0].address,
-        token1: tokens[1].address,
-        fee: FeeAmount.MEDIUM,
-        tickLower: getMinTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
-        tickUpper: getMaxTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
-        recipient: wallet.address,
-        amount0Desired: BN(10).mul(BN(10).pow(18)),
-        amount1Desired: BN(10).mul(BN(10).pow(18)),
-        amount0Min: 0,
-        amount1Min: 0,
-        deadline: (await blockTimestamp()) + 1000,
-      })
-
-      await nft
-        .connect(wallets[0])
-        .approve(staker.address, tokenId, { gasLimit: MAX_GAS_LIMIT })
-
-      await staker.connect(wallets[0]).depositToken(tokenId)
-      subject = ({ tokenId, recipient }) =>
-        staker.connect(wallets[0]).withdrawToken(tokenId, recipient)
     })
 
-    describe('works and', () => {
-      it('emits a TokenWithdrawn event', async () => {
-        await expect(subject({ tokenId, recipient }))
-          .to.emit(staker, 'TokenWithdrawn')
-          .withArgs(tokenId, recipient)
-      })
-
-      it('transfers nft ownership', async () => {
-        await subject({ tokenId, recipient })
-        expect(await nft.ownerOf(tokenId)).to.eq(recipient)
-      })
-
-      it('prevents you from withdrawing twice', async () => {
-        await subject({ tokenId, recipient })
-        expect(await nft.ownerOf(tokenId)).to.eq(recipient)
-        await expect(subject({ tokenId, recipient })).to.be.reverted
-      })
-
-      it('has gas cost', async () => {
-        await snapshotGasCost(subject({ tokenId, recipient }))
-      })
-    })
-
-    describe('fails if', () => {
-      it('you are withdrawing a token that is not yours', async () => {
-        await expect(
-          staker.connect(other).withdrawToken(tokenId, wallet.address)
-        ).to.revertedWith('NOT_YOUR_NFT')
-      })
-
-      it('number of stakes is not 0', async () => {
-        const currentTime = await blockTimestamp()
-        await tokens[0].approve(staker.address, totalReward)
-        await staker.connect(wallets[0]).createIncentive({
-          pool: pool01,
-          rewardToken: tokens[0].address,
-          totalReward,
-          startTime: currentTime,
-          endTime: currentTime + 100,
-          claimDeadline: currentTime + 200,
-        })
-
-        await staker.connect(wallets[0]).stakeToken({
-          creator: wallet.address,
-          rewardToken: tokens[0].address,
-          tokenId,
-          startTime: currentTime,
-          endTime: currentTime + 100,
-          claimDeadline: currentTime + 200,
-        })
-        await expect(subject({ tokenId, recipient })).to.revertedWith(
-          'NUMBER_OF_STAKES_NOT_ZERO'
-        )
-      })
-    })
-  })
-
-  describe('#stakeToken', () => {
-    let tokenId: string
-    let subject
-    let rewardToken: TestERC20
-    let otherRewardToken: TestERC20
-    let startTime: number
-    let endTime: number
-    let claimDeadline: number
-
-    beforeEach(async () => {
-      const currentTime = await blockTimestamp()
-
-      rewardToken = tokens[0]
-      otherRewardToken = tokens[1]
-      startTime = currentTime + 1000
-      endTime = currentTime + 2000
-      claimDeadline = currentTime + 3000
-
-      tokenId = await mintPosition(nft, {
-        token0: tokens[0].address,
-        token1: tokens[1].address,
-        fee: FeeAmount.MEDIUM,
-        tickLower: getMinTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
-        tickUpper: getMaxTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
-        recipient: wallet.address,
-        amount0Desired: BN(10).mul(BN(10).pow(18)),
-        amount1Desired: BN(10).mul(BN(10).pow(18)),
-        amount0Min: 0,
-        amount1Min: 0,
-        deadline: claimDeadline,
-      })
-
-      await nft
-        .connect(wallets[0])
-        .approve(staker.address, tokenId, { gasLimit: MAX_GAS_LIMIT })
-
-      await staker.connect(wallets[0]).depositToken(tokenId)
-
-      await tokens[0].transfer(incentiveCreator.address, totalReward)
-      await tokens[0]
-        .connect(incentiveCreator)
-        .approve(staker.address, totalReward)
-
-      await rewardToken
-        .connect(incentiveCreator)
-        .approve(staker.address, totalReward)
-
-      await staker.connect(incentiveCreator).createIncentive({
-        pool: pool01,
-        rewardToken: rewardToken.address,
-        totalReward,
-        startTime,
-        endTime,
-        claimDeadline,
-      })
-
-      subject = () =>
-        staker.connect(wallets[0]).stakeToken({
-          creator: incentiveCreator.address,
-          rewardToken: rewardToken.address,
-          tokenId,
-          startTime,
-          endTime,
-          claimDeadline,
-        })
-    })
-
-    describe('works and', async () => {
+    describe('#withdrawToken', () => {
       beforeEach(async () => {
-        await setTime(startTime)
+        await context.staker.connect(lpUser0).depositToken(tokenId)
+
+        subject = (_tokenId, _recipient) =>
+          context.staker.connect(lpUser0).withdrawToken(_tokenId, _recipient)
       })
 
-      it('emits the stake event', async () => {
-        const liquidity = (await nft.positions(tokenId)).liquidity
-        await expect(await subject())
-          .to.emit(staker, 'TokenStaked')
-          .withArgs(tokenId, liquidity)
+      describe('works and', () => {
+        it('emits a TokenWithdrawn event', async () =>
+          await expect(subject(tokenId, recipient))
+            .to.emit(context.staker, 'TokenWithdrawn')
+            .withArgs(tokenId, recipient))
+
+        it('transfers nft ownership', async () => {
+          await subject(tokenId, recipient)
+          expect(await context.nft.ownerOf(tokenId)).to.eq(recipient)
+        })
+
+        it('prevents you from withdrawing twice', async () => {
+          await subject(tokenId, recipient)
+          expect(await context.nft.ownerOf(tokenId)).to.eq(recipient)
+          await expect(subject(tokenId, recipient)).to.be.reverted
+        })
+
+        it('has gas cost', async () =>
+          await snapshotGasCost(subject(tokenId, recipient)))
       })
 
-      it('sets the stake struct properly', async () => {
-        const liquidity = (await nft.positions(tokenId)).liquidity
-        const idGetter = await (
-          await ethers.getContractFactory('TestIncentiveID')
-        ).deploy()
+      describe('fails if', () => {
+        it('you are withdrawing a token that is not yours', async () => {
+          const notOwner = actors.traderUser1()
+          await expect(
+            context.staker
+              .connect(notOwner)
+              .withdrawToken(tokenId, notOwner.address)
+          ).to.revertedWith('NOT_YOUR_NFT')
+        })
 
-        const incentiveId = await idGetter.getIncentiveId(
-          incentiveCreator.address,
-          rewardToken.address,
-          pool01,
-          startTime,
-          endTime,
-          claimDeadline
-        )
+        it('number of stakes is not 0', async () => {
+          const incentiveParams: HelperTypes.CreateIncentive.Args = {
+            rewardToken: context.rewardToken,
+            totalReward,
+            poolAddress: context.poolObj.address,
+            ...makeTimestamps(await blockTimestamp()),
+          }
+          const incentive = await helpers.createIncentiveFlow(incentiveParams)
 
-        const stakeBefore = await staker.stakes(tokenId, incentiveId)
-        const nStakesBefore = (await staker.deposits(tokenId)).numberOfStakes
-        await subject()
-        const stakeAfter = await staker.stakes(tokenId, incentiveId)
+          await context.staker.connect(lpUser0).stakeToken({
+            ...incentive,
+            rewardToken: incentive.rewardToken.address,
+            creator: incentive.creatorAddress,
+            tokenId,
+          })
 
-        expect(stakeBefore.secondsPerLiquidityInitialX128).to.eq(0)
-        expect(stakeBefore.liquidity).to.eq(0)
-        expect(stakeBefore.exists).to.be.false
-        expect(stakeAfter.secondsPerLiquidityInitialX128).to.be.gt(0)
-        expect(stakeAfter.liquidity).to.eq(liquidity)
-        expect(stakeAfter.exists).to.be.true
-        expect((await staker.deposits(tokenId)).numberOfStakes).to.eq(
-          nStakesBefore + 1
-        )
-      })
-
-      it('has gas cost', async () => {
-        await snapshotGasCost(subject())
-      })
-    })
-
-    describe('fails when', () => {
-      it('deposit is already staked in the incentive', async () => {
-        await setTime(startTime)
-        await subject()
-        await expect(subject()).to.be.revertedWith('already staked')
-      })
-
-      it('you are not the owner of the deposit', async () => {
-        const nonOwner = wallets[1]
-        await setTime(startTime)
-        await expect(staker.connect(nonOwner).stakeToken({
-          creator: incentiveCreator.address,
-          rewardToken: rewardToken.address,
-          tokenId,
-          startTime,
-          endTime,
-          claimDeadline,
-        })).to.be.revertedWith('NOT_YOUR_DEPOSIT')
-      })
-
-      it('is before the start time', async () => {
-        await expect(subject()).to.be.revertedWith('incentive not started yet')
-      })
-
-      it('is past the end time', async () => {
-        await setTime(endTime)
-        await expect(subject()).to.be.revertedWith('incentive ended')
+          await expect(subject(tokenId, lpUser0.address)).to.revertedWith(
+            'NUMBER_OF_STAKES_NOT_ZERO'
+          )
+        })
       })
     })
   })
 
-  describe('#unstakeToken', () => {
+  describe('Stake/Unstake', () => {
+    /**
+     * lpUser0 stakes and unstakes
+     */
     let tokenId: string
-    let subject
-    let rewardToken: TestERC20
-    let startTime: number
-    let endTime: number
-    let claimDeadline: number
 
-    beforeEach(async () => {
-      const currentTime = await blockTimestamp()
-      rewardToken = tokens[2]
-      startTime = currentTime
-      endTime = currentTime + 100
-      claimDeadline = currentTime + 200
+    describe('#stakeToken', () => {
+      let subject: (_tokenId: string, _actor?: Wallet) => Promise<any>
+      let timestamps: ContractParams.Timestamps
 
-      await rewardToken
-        .connect(wallets[0])
-        .transfer(incentiveCreator.address, totalReward)
+      beforeEach(async () => {
+        /* We will be doing a lot of time-testing here, so leave some room between
+        and when the incentive starts */
+        timestamps = makeTimestamps(1_000 + (await blockTimestamp()))
 
-      await rewardToken
-        .connect(incentiveCreator)
-        .approve(staker.address, totalReward)
-
-      await tokens[0].connect(wallets[0]).transfer(lpUser0.address, BNe18(10))
-      await tokens[1].connect(wallets[0]).transfer(lpUser0.address, BNe18(10))
-
-      await tokens[0].connect(lpUser0).approve(nft.address, BNe18(10))
-      await tokens[1].connect(lpUser0).approve(nft.address, BNe18(10))
-
-      await staker.connect(incentiveCreator).createIncentive({
-        pool: pool01,
-        rewardToken: rewardToken.address,
-        totalReward,
-        startTime,
-        endTime,
-        claimDeadline,
-      })
-
-      tokenId = await mintPosition(nft.connect(lpUser0), {
-        token0: tokens[0].address,
-        token1: tokens[1].address,
-        fee: FeeAmount.MEDIUM,
-        tickLower: getMinTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
-        tickUpper: getMaxTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
-        recipient: lpUser0.address,
-        amount0Desired: BNe18(10),
-        amount1Desired: BNe18(10),
-        amount0Min: 0,
-        amount1Min: 0,
-        deadline: claimDeadline,
-      })
-
-      await nft
-        .connect(lpUser0)
-        .approve(staker.address, tokenId, { gasLimit: MAX_GAS_LIMIT })
-      await staker.connect(lpUser0).depositToken(tokenId)
-
-      await staker.connect(lpUser0).stakeToken({
-        creator: incentiveCreator.address,
-        rewardToken: rewardToken.address,
-        tokenId,
-        startTime,
-        endTime,
-        claimDeadline,
-      })
-
-      subject = () =>
-        staker.connect(lpUser0).unstakeToken({
-          creator: incentiveCreator.address,
-          rewardToken: rewardToken.address,
-          tokenId,
-          startTime,
-          endTime,
-          claimDeadline,
-        })
-    })
-
-    describe('works and', async () => {
-      it('decrements numberOfStakes by 1', async () => {
-        const { numberOfStakes: stakesPre } = await staker.deposits(tokenId)
-        await subject()
-        const { numberOfStakes: stakesPost } = await staker.deposits(tokenId)
-        expect(stakesPre).to.not.equal(stakesPost - 1)
-      })
-
-      it('emits an unstaked event', async () => {
-        await expect(subject())
-          .to.emit(staker, 'TokenUnstaked')
-          .withArgs(tokenId)
-      })
-
-      it('has gas cost', async () => {
-        await snapshotGasCost(subject())
-      })
-
-      it('updates the reward available for the staker', async () => {
-        const rewardsAccured = await staker.rewards(
-          rewardToken.address,
-          lpUser0.address
+        await erc20Helper.ensureBalancesAndApprovals(
+          lpUser0,
+          [context.token0, context.token1],
+          amountDesired,
+          context.nft.address
         )
-        await subject()
-        expect(
-          await staker.rewards(rewardToken.address, lpUser0.address)
-        ).to.be.gt(rewardsAccured)
+
+        tokenId = await mintPosition(context.nft.connect(lpUser0), {
+          token0: context.token0.address,
+          token1: context.token1.address,
+          fee: FeeAmount.MEDIUM,
+          tickLower: getMinTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
+          tickUpper: getMaxTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
+          recipient: lpUser0.address,
+          amount0Desired: amountDesired,
+          amount1Desired: amountDesired,
+          amount0Min: 0,
+          amount1Min: 0,
+          deadline: (await blockTimestamp()) + 1000,
+        })
+
+        await context.nft
+          .connect(lpUser0)
+          .approve(context.staker.address, tokenId, { gasLimit: MAX_GAS_LIMIT })
+
+        await context.staker.connect(lpUser0).depositToken(tokenId)
+        const incentiveParams: HelperTypes.CreateIncentive.Args = {
+          rewardToken: context.rewardToken,
+          totalReward,
+          poolAddress: context.poolObj.address,
+          ...timestamps,
+        }
+        const incentive = await helpers.createIncentiveFlow(incentiveParams)
+
+        subject = (_tokenId: string, _actor: Wallet = lpUser0) =>
+          context.staker.connect(_actor).stakeToken({
+            creator: incentiveCreator.address,
+            rewardToken: context.rewardToken.address,
+            tokenId: _tokenId,
+            ...timestamps,
+          })
       })
 
-      it('calculates the right secondsPerLiquidity')
-      it('does not overflow totalSecondsUnclaimed')
+      describe('works and', async () => {
+        // Make sure the incentive has started
+        beforeEach(async () => {
+          await Time.set(timestamps.startTime + 100)
+        })
+
+        it('emits the stake event', async () => {
+          const { liquidity } = await context.nft.positions(tokenId)
+          await expect(subject(tokenId))
+            .to.emit(context.staker, 'TokenStaked')
+            .withArgs(tokenId, liquidity)
+        })
+
+        it('sets the stake struct properly', async () => {
+          const liquidity = (await context.nft.positions(tokenId)).liquidity
+          const idGetter = await (
+            await ethers.getContractFactory('TestIncentiveID')
+          ).deploy()
+          const incentiveId = await idGetter.getIncentiveId(
+            incentiveCreator.address,
+            context.rewardToken.address,
+            context.pool01,
+            timestamps.startTime,
+            timestamps.endTime,
+            timestamps.claimDeadline
+          )
+
+          const stakeBefore = await context.staker.stakes(tokenId, incentiveId)
+          const nStakesBefore = (await context.staker.deposits(tokenId))
+            .numberOfStakes
+          await subject(tokenId)
+          const stakeAfter = await context.staker.stakes(tokenId, incentiveId)
+
+          expect(stakeBefore.secondsPerLiquidityInitialX128).to.eq(0)
+          expect(stakeBefore.liquidity).to.eq(0)
+          expect(stakeBefore.exists).to.be.false
+          expect(stakeAfter.secondsPerLiquidityInitialX128).to.be.gt(0)
+          expect(stakeAfter.liquidity).to.eq(liquidity)
+          expect(stakeAfter.exists).to.be.true
+          expect((await context.staker.deposits(tokenId)).numberOfStakes).to.eq(
+            nStakesBefore + 1
+          )
+        })
+
+        it('has gas cost', async () => {
+          await snapshotGasCost(subject(tokenId))
+        })
+      })
+
+      describe('fails when', () => {
+        it('deposit is already staked in the incentive', async () => {
+          await Time.set(timestamps.startTime + 500)
+          await subject(tokenId)
+          await expect(subject(tokenId)).to.be.revertedWith('already staked')
+        })
+
+        it('you are not the owner of the deposit', async () => {
+          await Time.set(timestamps.startTime + 500)
+          await expect(subject(tokenId, actors.lpUser2())).to.be.revertedWith(
+            'NOT_YOUR_DEPOSIT'
+          )
+        })
+
+        it('is past the end time', async () => {
+          await Time.set(timestamps.endTime + 100)
+          await expect(subject(tokenId)).to.be.revertedWith('incentive ended')
+        })
+
+        it('is before the start time', async () => {
+          if (timestamps.startTime < (await blockTimestamp())) {
+            throw new Error('no good')
+          }
+          await Time.set(timestamps.startTime - 2)
+          await expect(subject(tokenId)).to.be.revertedWith(
+            'incentive not started yet'
+          )
+        })
+      })
     })
 
-    describe('fails if', () => {
-      it('you have not staked')
+    describe('#unstakeToken', () => {
+      let subject: () => Promise<any>
+
+      beforeEach(async () => {
+        timestamps = makeTimestamps(await blockTimestamp())
+
+        const createIncentiveResult = await helpers.createIncentiveFlow({
+          rewardToken: context.rewardToken,
+          totalReward,
+          poolAddress: context.poolObj.address,
+          ...timestamps,
+        })
+
+        await erc20Helper.ensureBalancesAndApprovals(
+          lpUser0,
+          [context.token0, context.token1],
+          amountDesired,
+          context.nft.address
+        )
+
+        tokenId = await mintPosition(context.nft.connect(lpUser0), {
+          token0: context.token0.address,
+          token1: context.token1.address,
+          fee: FeeAmount.MEDIUM,
+          tickLower: getMinTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
+          tickUpper: getMaxTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
+          recipient: lpUser0.address,
+          amount0Desired: amountDesired,
+          amount1Desired: amountDesired,
+          amount0Min: 0,
+          amount1Min: 0,
+          deadline: (await blockTimestamp()) + 1000,
+        })
+
+        await context.nft
+          .connect(lpUser0)
+          .approve(context.staker.address, tokenId, { gasLimit: MAX_GAS_LIMIT })
+
+        await context.staker.connect(lpUser0).depositToken(tokenId)
+
+        await context.staker.connect(lpUser0).stakeToken({
+          creator: incentiveCreator.address,
+          rewardToken: context.rewardToken.address,
+          tokenId,
+          ...timestamps,
+        })
+
+        subject = () =>
+          context.staker.connect(lpUser0).unstakeToken({
+            creator: incentiveCreator.address,
+            rewardToken: context.rewardToken.address,
+            tokenId,
+            ...timestamps,
+          })
+      })
+
+      describe('works and', async () => {
+        it('decrements numberOfStakes by 1', async () => {
+          const { numberOfStakes: stakesPre } = await context.staker.deposits(
+            tokenId
+          )
+          await subject()
+          const { numberOfStakes: stakesPost } = await context.staker.deposits(
+            tokenId
+          )
+          expect(stakesPre).to.not.equal(stakesPost - 1)
+        })
+
+        it('emits an unstaked event', async () => {
+          await expect(subject())
+            .to.emit(context.staker, 'TokenUnstaked')
+            .withArgs(tokenId)
+        })
+
+        it('has gas cost', async () => {
+          await snapshotGasCost(subject())
+        })
+
+        it('updates the reward available for the context.staker', async () => {
+          const rewardsAccured = await context.staker.rewards(
+            context.rewardToken.address,
+            lpUser0.address
+          )
+          await subject()
+          expect(
+            await context.staker.rewards(
+              context.rewardToken.address,
+              lpUser0.address
+            )
+          ).to.be.gt(rewardsAccured)
+        })
+
+        it('calculates the right secondsPerLiquidity')
+        it('does not overflow totalSecondsUnclaimed')
+      })
+
+      describe('fails if', () => {
+        it('you have not staked')
+      })
     })
   })
 
@@ -693,56 +715,47 @@ describe('UniswapV3Staker.unit', async () => {
     const stakeParamsEncodeType =
       'tuple(address creator, address rewardToken, uint256 tokenId, uint32 startTime, uint32 endTime, uint32 claimDeadline)'
     let tokenId: BigNumberish
-    let rewardToken: TestERC20
-    let startTime: number
-    let endTime: number
-    let claimDeadline: number
     let data: string
+    let timestamps: ContractParams.Timestamps
 
     beforeEach(async () => {
-      const currentTime = await blockTimestamp()
+      const { rewardToken } = context
+      timestamps = makeTimestamps((await blockTimestamp()) + 1_000)
 
-      rewardToken = tokens[1]
-      startTime = currentTime
-      endTime = currentTime + 100
-      claimDeadline = currentTime + 1000
+      await erc20Helper.ensureBalancesAndApprovals(
+        lpUser0,
+        [context.token0, context.token1],
+        amountDesired,
+        context.nft.address
+      )
 
-      tokenId = await mintPosition(nft.connect(wallets[0]), {
-        token0: tokens[0].address,
-        token1: tokens[1].address,
+      tokenId = await mintPosition(context.nft.connect(lpUser0), {
+        token0: context.token0.address,
+        token1: context.token1.address,
         fee: FeeAmount.MEDIUM,
         tickLower: getMinTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
         tickUpper: getMaxTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
-        recipient: wallet.address,
-        amount0Desired: BNe18(10),
-        amount1Desired: BNe18(10),
+        recipient: lpUser0.address,
+        amount0Desired: amountDesired,
+        amount1Desired: amountDesired,
         amount0Min: 0,
         amount1Min: 0,
         deadline: (await blockTimestamp()) + 1000,
       })
 
-      await rewardToken.transfer(incentiveCreator.address, totalReward)
-      await rewardToken
-        .connect(incentiveCreator)
-        .approve(staker.address, totalReward)
-
-      await staker.connect(incentiveCreator).createIncentive({
-        pool: pool01,
-        rewardToken: rewardToken.address,
+      const incentive = await helpers.createIncentiveFlow({
+        rewardToken,
         totalReward,
-        startTime,
-        endTime,
-        claimDeadline,
+        poolAddress: context.poolObj.address,
+        ...timestamps,
       })
 
-      const stakeParams = {
-        creator: incentiveCreator.address,
-        rewardToken: rewardToken.address,
-        tokenId,
-        startTime,
-        endTime,
-        claimDeadline,
-      }
+      const stakeParams: ContractParams.StakeToken = incentiveResultToStakeAdapter(
+        {
+          ...incentive,
+          tokenId,
+        }
+      )
 
       data = ethers.utils.defaultAbiCoder.encode(
         [stakeParamsEncodeType],
@@ -751,50 +764,62 @@ describe('UniswapV3Staker.unit', async () => {
     })
 
     describe('on successful transfer with staking data', () => {
+      beforeEach(async () => {
+        await Time.set(timestamps.startTime + 1)
+      })
+
       it('deposits the token', async () => {
-        expect((await staker.deposits(1)).owner).to.equal(constants.AddressZero)
-        await nft['safeTransferFrom(address,address,uint256)'](
-          wallets[0].address,
-          staker.address,
-          tokenId,
-          {
-            gasLimit: MAX_GAS_LIMIT,
-            from: wallets[0].address,
-          }
+        expect((await context.staker.deposits(1)).owner).to.equal(
+          constants.AddressZero
         )
-        expect((await staker.deposits(1)).owner).to.equal(wallet.address)
+        await context.nft
+          .connect(lpUser0)
+          ['safeTransferFrom(address,address,uint256)'](
+            lpUser0.address,
+            context.staker.address,
+            tokenId,
+            {
+              ...maxGas,
+            }
+          )
+        expect((await context.staker.deposits(1)).owner).to.equal(
+          lpUser0.address
+        )
       })
 
       it('properly stakes the deposit in the select incentive', async () => {
         const idGetter = await (
           await ethers.getContractFactory('TestIncentiveID')
         ).deploy()
-
         const incentiveId = await idGetter.getIncentiveId(
           incentiveCreator.address,
-          rewardToken.address,
-          pool01,
-          startTime,
-          endTime,
-          claimDeadline
+          context.rewardToken.address,
+          context.pool01,
+          timestamps.startTime,
+          timestamps.endTime,
+          timestamps.claimDeadline
         )
-
-        const stakeBefore = await staker.stakes(tokenId, incentiveId)
-        const depositBefore = await staker.deposits(tokenId)
-        await nft['safeTransferFrom(address,address,uint256,bytes)'](
-          wallets[0].address,
-          staker.address,
-          tokenId,
-          data,
-          {
-            gasLimit: MAX_GAS_LIMIT,
-            from: wallets[0].address,
-          }
-        )
-        const stakeAfter = await staker.stakes(tokenId, incentiveId)
+        Time.set(timestamps.startTime + 10)
+        const stakeBefore = await context.staker.stakes(tokenId, incentiveId)
+        const depositBefore = await context.staker.deposits(tokenId)
+        await context.nft
+          .connect(lpUser0)
+          ['safeTransferFrom(address,address,uint256,bytes)'](
+            lpUser0.address,
+            context.staker.address,
+            tokenId,
+            data,
+            {
+              ...maxGas,
+              from: lpUser0.address,
+            }
+          )
+        const stakeAfter = await context.staker.stakes(tokenId, incentiveId)
 
         expect(depositBefore.numberOfStakes).to.equal(0)
-        expect((await staker.deposits(tokenId)).numberOfStakes).to.equal(1)
+        expect(
+          (await context.staker.deposits(tokenId)).numberOfStakes
+        ).to.equal(1)
         expect(stakeBefore.secondsPerLiquidityInitialX128).to.equal(0)
         expect(stakeBefore.exists).to.be.false
         expect(stakeAfter.secondsPerLiquidityInitialX128).to.be.gt(0)
@@ -803,16 +828,18 @@ describe('UniswapV3Staker.unit', async () => {
 
       it('has gas cost', async () => {
         await snapshotGasCost(
-          nft['safeTransferFrom(address,address,uint256,bytes)'](
-            wallets[0].address,
-            staker.address,
-            tokenId,
-            data,
-            {
-              gasLimit: MAX_GAS_LIMIT,
-              from: wallets[0].address,
-            }
-          )
+          context.nft
+            .connect(lpUser0)
+            ['safeTransferFrom(address,address,uint256,bytes)'](
+              lpUser0.address,
+              context.staker.address,
+              tokenId,
+              data,
+              {
+                ...maxGas,
+                from: lpUser0.address,
+              }
+            )
         )
       })
     })
@@ -820,23 +847,24 @@ describe('UniswapV3Staker.unit', async () => {
     describe('on invalid call', async () => {
       it('reverts when called by contract other than uniswap v3 nonfungiblePositionManager', async () => {
         await expect(
-          staker.onERC721Received(
-            incentiveCreator.address,
-            wallet.address,
-            1,
-            data
-          )
+          context.staker
+            .connect(lpUser0)
+            .onERC721Received(
+              incentiveCreator.address,
+              lpUser0.address,
+              1,
+              data
+            )
         ).to.be.revertedWith('uniswap v3 nft only')
       })
 
       it('reverts when staking on invalid incentive', async () => {
         const invalidStakeParams = {
           creator: incentiveCreator.address,
-          rewardToken: rewardToken.address,
+          rewardToken: context.rewardToken.address,
           tokenId,
+          ...timestamps,
           startTime: 100,
-          endTime,
-          claimDeadline,
         }
 
         let invalidData = ethers.utils.defaultAbiCoder.encode(
@@ -844,12 +872,14 @@ describe('UniswapV3Staker.unit', async () => {
           [invalidStakeParams]
         )
         await expect(
-          nft['safeTransferFrom(address,address,uint256,bytes)'](
-            wallet.address,
-            staker.address,
-            tokenId,
-            invalidData
-          )
+          context.nft
+            .connect(lpUser0)
+            ['safeTransferFrom(address,address,uint256,bytes)'](
+              lpUser0.address,
+              context.staker.address,
+              tokenId,
+              invalidData
+            )
         ).to.be.revertedWith('non-existent incentive')
       })
     })
@@ -857,164 +887,148 @@ describe('UniswapV3Staker.unit', async () => {
 
   describe('#multicall', () => {
     it('is implemented', async () => {
-      const rewardToken = tokens[2]
       const currentTime = await blockTimestamp()
+      const multicaller = actors.traderUser2()
 
-      const tokenId = await mintPosition(nft, {
-        token0: tokens[0].address,
-        token1: tokens[1].address,
+      await erc20Helper.ensureBalancesAndApprovals(
+        multicaller,
+        [context.token0, context.token1],
+        amountDesired,
+        context.nft.address
+      )
+      const tokenId = await mintPosition(context.nft.connect(multicaller), {
+        token0: context.token0.address,
+        token1: context.token1.address,
         fee: FeeAmount.MEDIUM,
         tickLower: getMinTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
         tickUpper: getMaxTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
-        recipient: wallet.address,
-        amount0Desired: BNe18(10),
-        amount1Desired: BNe18(10),
+        recipient: multicaller.address,
+        amount0Desired: amountDesired,
+        amount1Desired: amountDesired,
         amount0Min: 0,
         amount1Min: 0,
         deadline: currentTime + 10_000,
       })
-      await rewardToken.transfer(wallet.address, BNe18(5))
-      await nft.connect(wallet).approve(staker.address, tokenId)
-      await rewardToken.connect(wallet).approve(staker.address, BNe18(5))
 
-      const createIncentiveTx = staker.interface.encodeFunctionData(
+      await erc20Helper.ensureBalancesAndApprovals(
+        multicaller,
+        context.rewardToken,
+        totalReward,
+        context.staker.address
+      )
+
+      await context.nft
+        .connect(multicaller)
+        .approve(context.staker.address, tokenId)
+
+      const createIncentiveTx = context.staker.interface.encodeFunctionData(
         'createIncentive',
         [
           {
-            pool: pool01,
-            rewardToken: rewardToken.address,
-            totalReward: BNe18(5),
-            startTime: currentTime,
-            endTime: currentTime + 100,
-            claimDeadline: currentTime + 200,
+            pool: context.pool01,
+            rewardToken: context.rewardToken.address,
+            totalReward,
+            ...makeTimestamps(currentTime),
           },
         ]
       )
-      const depositTx = staker.interface.encodeFunctionData('depositToken', [
-        tokenId,
-      ])
-      await staker.connect(wallet).multicall([createIncentiveTx, depositTx], {
-        gasLimit: MAX_GAS_LIMIT,
-      })
-      expect((await staker.deposits(tokenId)).owner).to.eq(wallet.address)
+      const depositTx = context.staker.interface.encodeFunctionData(
+        'depositToken',
+        [tokenId]
+      )
+      await context.staker
+        .connect(multicaller)
+        .multicall([createIncentiveTx, depositTx], maxGas)
+
+      expect((await context.staker.deposits(tokenId)).owner).to.eq(
+        multicaller.address
+      )
     })
   })
 
   describe('#claimReward', () => {
-    let rewardToken: TestERC20
-    let startTime: number
-    let endTime: number
-    let claimDeadline: number
-    let tokenId: string
+    let subject: (token: string, to?: string) => Promise<any>
 
     beforeEach('setup', async () => {
-      const currentTime = await blockTimestamp()
-      rewardToken = tokens[2]
-      startTime = currentTime
-      endTime = currentTime + 100
-      claimDeadline = currentTime + 200
+      const { token0, token1, rewardToken } = context
+      timestamps = makeTimestamps(await blockTimestamp())
+      const tokensToStake = [token0, token1] as [TestERC20, TestERC20]
 
-      await tokens[0].connect(wallets[0]).transfer(lpUser0.address, 100)
-      await tokens[1].connect(wallets[0]).transfer(lpUser0.address, 100)
+      await erc20Helper.ensureBalancesAndApprovals(
+        lpUser0,
+        tokensToStake,
+        amountDesired,
+        context.nft.address
+      )
 
-      await tokens[0].connect(lpUser0).approve(nft.address, 100)
-      await tokens[1].connect(lpUser0).approve(nft.address, 100)
-
-      await rewardToken
-        .connect(wallets[0])
-        .transfer(incentiveCreator.address, totalReward)
-
-      await rewardToken
-        .connect(incentiveCreator)
-        .approve(staker.address, totalReward)
-
-      await staker.connect(incentiveCreator).createIncentive({
-        pool: pool01,
-        rewardToken: rewardToken.address,
+      const createIncentiveResult = await helpers.createIncentiveFlow({
+        rewardToken: context.rewardToken,
         totalReward,
-        startTime,
-        endTime,
-        claimDeadline,
+        poolAddress: context.poolObj.address,
+        ...timestamps,
       })
 
-      tokenId = await mintPosition(nft.connect(lpUser0), {
-        token0: tokens[0].address,
-        token1: tokens[1].address,
-        fee: FeeAmount.MEDIUM,
-        tickLower: getMinTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
-        tickUpper: getMaxTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
-        recipient: lpUser0.address,
-        amount0Desired: 10,
-        amount1Desired: 10,
-        amount0Min: 0,
-        amount1Min: 0,
-        deadline: claimDeadline,
+      const { tokenId } = await helpers.mintDepositStakeFlow({
+        lp: lpUser0,
+        tokensToStake,
+        ticks: [
+          getMinTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
+          getMaxTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
+        ],
+        amountsToStake: [amountDesired, amountDesired],
+        createIncentiveResult,
       })
 
-      await nft
-        .connect(lpUser0)
-        .approve(staker.address, tokenId, { gasLimit: MAX_GAS_LIMIT })
-      await staker.connect(lpUser0).depositToken(tokenId)
-
-      await staker.connect(lpUser0).stakeToken({
+      await context.staker.connect(lpUser0).unstakeToken({
         creator: incentiveCreator.address,
         rewardToken: rewardToken.address,
         tokenId,
-        startTime,
-        endTime,
-        claimDeadline,
+        ...timestamps,
       })
 
-      await staker.connect(lpUser0).unstakeToken({
-        creator: incentiveCreator.address,
-        rewardToken: rewardToken.address,
-        tokenId,
-        startTime,
-        endTime,
-        claimDeadline,
-      })
-
-      subject = ({ token, actor = lpUser0 }) =>
-        staker.connect(actor).claimReward(token, actor.address)
+      subject = (_token: string, _to: string = lpUser0.address) =>
+        context.staker.connect(lpUser0).claimReward(_token, _to)
     })
 
     it('emits RewardClaimed event', async () => {
-      const claimable = await staker.rewards(
+      const { rewardToken } = context
+      const claimable = await context.staker.rewards(
         rewardToken.address,
         lpUser0.address
       )
-      await expect(subject({ token: rewardToken.address, actor: lpUser0 }))
-        .to.emit(staker, 'RewardClaimed')
+      await expect(subject(rewardToken.address))
+        .to.emit(context.staker, 'RewardClaimed')
         .withArgs(lpUser0.address, claimable)
     })
 
     it('transfers the correct reward amount to destination address', async () => {
-      const claimable = await staker.rewards(
+      const { rewardToken } = context
+      const claimable = await context.staker.rewards(
         rewardToken.address,
         lpUser0.address
       )
       const balance = await rewardToken.balanceOf(lpUser0.address)
-      await subject({ token: rewardToken.address })
+      await subject(rewardToken.address)
       expect(await rewardToken.balanceOf(lpUser0.address)).to.equal(
         balance.add(claimable)
       )
     })
 
     it('sets the claimed reward amount to zero', async () => {
+      const { rewardToken } = context
       expect(
-        await staker.rewards(rewardToken.address, lpUser0.address)
+        await context.staker.rewards(rewardToken.address, lpUser0.address)
       ).to.not.equal(0)
 
-      await subject({ token: rewardToken.address, actor: lpUser0 })
+      await subject(rewardToken.address)
 
       expect(
-        await staker.rewards(rewardToken.address, lpUser0.address)
+        await context.staker.rewards(rewardToken.address, lpUser0.address)
       ).to.equal(0)
     })
 
-    it('has gas cost', async () => {
-      await snapshotGasCost(subject({ token: rewardToken.address }))
-    })
+    it('has gas cost', async () =>
+      await snapshotGasCost(subject(context.rewardToken.address)))
   })
 
   describe('#getPositionDetails', () => {

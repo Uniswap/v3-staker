@@ -220,6 +220,9 @@ export type UniswapFixtureType = {
   router: ISwapRouter
   staker: UniswapV3Staker
   tokens: [TestERC20, TestERC20, TestERC20]
+  token0: TestERC20
+  token1: TestERC20
+  rewardToken: TestERC20
 }
 export const uniswapFixture: Fixture<UniswapFixtureType> = async (
   wallets,
@@ -282,6 +285,9 @@ export const uniswapFixture: Fixture<UniswapFixtureType> = async (
     pool12,
     fee,
     poolObj,
+    token0: tokens[0],
+    token1: tokens[1],
+    rewardToken: tokens[2],
   }
 }
 

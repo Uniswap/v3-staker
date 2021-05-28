@@ -24,6 +24,7 @@ import { mintPosition } from '../shared/fixtures'
 import UniswapV3Pool from '@uniswap/v3-core/artifacts/contracts/UniswapV3Pool.sol/UniswapV3Pool.json'
 import { ISwapRouter } from '../../types/ISwapRouter'
 import { ethers } from 'hardhat'
+import { ContractParams } from '../../types/contractParams'
 
 /**
  * HelperCommands is a utility that abstracts away lower-level ethereum details
@@ -169,7 +170,7 @@ export class HelperCommands {
     await this.nft.connect(params.lp).approve(this.staker.address, tokenId)
     await this.staker.connect(params.lp).depositToken(tokenId, maxGas)
     await this.staker.connect(params.lp).stakeToken({
-      ..._incentiveAdapter({
+      ...incentiveResultToStakeAdapter({
         ...params.createIncentiveResult,
         tokenId,
       }),
@@ -190,7 +191,7 @@ export class HelperCommands {
   ) => {
     await this.staker.connect(params.lp).unstakeToken(
       {
-        ..._incentiveAdapter({
+        ...incentiveResultToStakeAdapter({
           ...params.createIncentiveResult,
           tokenId: params.tokenId,
         }),
@@ -331,7 +332,8 @@ export class HelperCommands {
 
       const amountIn = BNe18(1)
 
-      await this.ensureBalancesAndApprovals(
+      const erc20Helper = new ERC20Helper()
+      await erc20Helper.ensureBalancesAndApprovals(
         actor,
         [tok0, tok1],
         amountIn,
@@ -367,7 +369,9 @@ export class HelperCommands {
 
     return { currentTick }
   }
+}
 
+export class ERC20Helper {
   ensureBalancesAndApprovals = async (
     actor: Wallet,
     tokens: TestERC20 | Array<TestERC20>,
@@ -414,25 +418,17 @@ export class HelperCommands {
   }
 }
 
-const _incentiveAdapter: (
+type IncentiveAdapterFunc = (
   params: HelperTypes.CreateIncentive.Result & { tokenId: string }
-) => {
-  creator: string
-  rewardToken: TestERC20
-  tokenId: string
-  startTime: number
-  endTime: number
-  claimDeadline: number
-} = (params) =>
-  _.assign(
-    _.pick(params, [
-      'tokenId',
-      'startTime',
-      'endTime',
-      'claimDeadline',
-      'rewardToken',
-    ]),
-    {
-      creator: params.creatorAddress,
-    }
-  )
+) => ContractParams.StakeToken
+
+export const incentiveResultToStakeAdapter: IncentiveAdapterFunc = (
+  params
+) => ({
+  tokenId: (params.tokenId as any) as number,
+  startTime: params.startTime,
+  endTime: params.endTime,
+  claimDeadline: params.claimDeadline,
+  rewardToken: params.rewardToken.address,
+  creator: params.creatorAddress,
+})

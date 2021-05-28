@@ -8,10 +8,7 @@ export * from './logging'
 import { FeeAmount } from './external/v3-periphery/constants'
 import { provider } from './provider'
 import { BigNumber, BigNumberish, Contract, ContractTransaction } from 'ethers'
-import {
-  TransactionReceipt,
-  TransactionResponse,
-} from '@ethersproject/abstract-provider'
+import { TransactionReceipt, TransactionResponse } from '@ethersproject/abstract-provider'
 import { constants } from 'ethers'
 
 export const { MaxUint256 } = constants
@@ -42,10 +39,7 @@ use(jestSnapshotPlugin())
 export { expect }
 
 // returns the sqrt price as a 64x96
-export const encodePriceSqrt = (
-  reserve1: BigNumberish,
-  reserve0: BigNumberish
-): BigNumber => {
+export const encodePriceSqrt = (reserve1: BigNumberish, reserve0: BigNumberish): BigNumber => {
   return BigNumber.from(
     new bn(reserve1.toString())
       .div(reserve0.toString())
@@ -57,16 +51,13 @@ export const encodePriceSqrt = (
 }
 
 export const BN = BigNumber.from
-export const BNe = (n: BigNumberish, exponent: BigNumberish) =>
-  BN(n).mul(BN(10).pow(exponent))
+export const BNe = (n: BigNumberish, exponent: BigNumberish) => BN(n).mul(BN(10).pow(exponent))
 export const BNe18 = (n: BigNumberish) => BNe(n, 18)
 
 export const divE18 = (n: BigNumber) => n.div(BNe18('1')).toNumber()
-export const ratioE18 = (a: BigNumber, b: BigNumber) =>
-  (divE18(a) / divE18(b)).toFixed(2)
+export const ratioE18 = (a: BigNumber, b: BigNumber) => (divE18(a) / divE18(b)).toFixed(2)
 
-const bigNumberSum = (arr: Array<BigNumber>) =>
-  arr.reduce((acc, item) => acc.add(item), BN('0'))
+const bigNumberSum = (arr: Array<BigNumber>) => arr.reduce((acc, item) => acc.add(item), BN('0'))
 
 export const bnSum = bigNumberSum
 
@@ -115,9 +106,7 @@ export function encodePath(path: string[], fees: FeeAmount[]): string {
 }
 
 export const MIN_SQRT_RATIO = BigNumber.from('4295128739')
-export const MAX_SQRT_RATIO = BigNumber.from(
-  '1461446703485210103287273052203988822378723970342'
-)
+export const MAX_SQRT_RATIO = BigNumber.from('1461446703485210103287273052203988822378723970342')
 
 export const MAX_GAS_LIMIT = 12_450_000
 export const maxGas = {
@@ -125,8 +114,9 @@ export const maxGas = {
 }
 export const days = (n: number) => 86_400 * n
 
-import { IUniswapV3Pool } from '../../typechain'
-import { isArray } from 'lodash'
+import { IUniswapV3Pool, TestERC20 } from '../../typechain'
+import { isArray, isString } from 'lodash'
+import { ethers } from 'hardhat'
 
 export const getSlot0 = async (pool: IUniswapV3Pool) => {
   if (!pool.signer) {
@@ -145,3 +135,17 @@ export const arrayWrap = (x: any) => {
   }
   return x
 }
+
+export const erc20Wrap = async (x: string | TestERC20): Promise<TestERC20> => {
+  if (isString(x)) {
+    const factory = await ethers.getContractFactory('TestERC20')
+    return factory.attach(x) as TestERC20
+  }
+  return x
+}
+
+export const makeTimestamps = (n: number) => ({
+  startTime: n,
+  endTime: n + 1_000,
+  claimDeadline: n + 2_000,
+})
