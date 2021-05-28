@@ -7,7 +7,7 @@ interface IUniswapV3Staker {
     /// @param rewardToken The address of the token being distributed as a reward
     /// @param pool The address of the Uniswap V3 pool
     /// @param endTime The time when rewards stop accruing
-    /// @param claimDeadline 
+    /// @param claimDeadline -
     /// @param totalReward The total amount of reward tokens to be distributed
     event IncentiveCreated(
         address indexed rewardToken,
@@ -37,17 +37,16 @@ interface IUniswapV3Staker {
 
     /// @notice Event emitted when a Uniswap V3 LP token has been withdrawn
     /// @param tokenId The unique identifier of an Uniswap V3 LP token
-    /// @param owner The address that the token will be withdawn to
+    /// @param to The address that the token will be withdawn to
     event TokenWithdrawn(uint256 tokenId, address to);
 
     /// @notice Event emitted when a Uniswap V3 LP token has been staked
     /// @param tokenId The unique identifier of an Uniswap V3 LP token
-    /// @param liquidity
+    /// @param liquidity The amount of liquidity staked
     event TokenStaked(uint256 tokenId, uint128 liquidity);
 
     /// @notice Event emitted when a Uniswap V3 LP token has been unstaked
     /// @param tokenId The unique identifier of an Uniswap V3 LP token
-    /// @param liquidity
     event TokenUnstaked(uint256 tokenId);
 
     /// @notice Event emitted when a reward token has been claimed
@@ -55,12 +54,11 @@ interface IUniswapV3Staker {
     /// @param reward The amount of reward tokens claimed
     event RewardClaimed(address indexed to, uint256 reward);
 
-    /// @notice
     /// @param rewardToken The address of the token being distributed as a reward
     /// @param pool The address of the Uniswap V3 pool
     /// @param startTime The time when the incentive program begins
     /// @param endTime The time when rewards stop accruing
-    /// @param claimDeadline 
+    /// @param claimDeadline -
     /// @param totalReward The total amount of reward tokens to be distributed
     struct CreateIncentiveParams {
         address pool;
@@ -74,12 +72,11 @@ interface IUniswapV3Staker {
     /// @notice Creates a new liquidity mining incentive program.
     function createIncentive(CreateIncentiveParams memory params) external;
 
-    /// @notice
     /// @param pool The address of the Uniswap V3 pool
     /// @param rewardToken The address of the token being distributed as a reward
     /// @param startTime The time when the incentive program begins
     /// @param endTime The time when rewards stop accruing
-    /// @param claimDeadline 
+    /// @param claimDeadline
     struct EndIncentiveParams {
         address pool;
         address rewardToken;
@@ -100,7 +97,6 @@ interface IUniswapV3Staker {
     /// @notice Deletes an incentive whose claimDeadline has passed.
     function endIncentive(EndIncentiveParams memory params) external;
 
-    /// @notice
     /// @param creator The address that created this incentive
     /// @param rewardToken The address of the token being distributed as a reward
     /// @param tokenId The address of the Uniswap V3 pool
@@ -119,7 +115,6 @@ interface IUniswapV3Staker {
     /// @notice Stakes a Uniswap V3 LP token
     function stakeToken(StakeTokenParams memory params) external;
 
-    /// @notice
     /// @param creator The address that created this incentive
     /// @param rewardToken The address of the token being distributed as a reward
     /// @param tokenId The address of the Uniswap V3 pool

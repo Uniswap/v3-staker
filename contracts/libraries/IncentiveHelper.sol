@@ -6,10 +6,11 @@ library IncentiveHelper {
     /// @notice Calculate the key for a staking incentive
     /// @param creator The address that created this incentive
     /// @param rewardToken The address of the token being distributed as a reward
-    /// @param tokenId The address of the Uniswap V3 pool this incentive is on
+    /// @param pool The address of the Uniswap V3 pool
     /// @param startTime The time when the incentive begins
     /// @param endTime The time when rewards stop accruing
-    /// @param claimDeadline 
+    /// @param claimDeadline -
+    /// @return key Returns the identifier for the incentive
     function getIncentiveId(
         address creator,
         address rewardToken,
@@ -17,7 +18,7 @@ library IncentiveHelper {
         uint32 startTime,
         uint32 endTime,
         uint32 claimDeadline
-    ) internal pure returns (bytes32) {
+    ) internal pure returns (bytes32 key) {
         return
             keccak256(
                 abi.encode(
