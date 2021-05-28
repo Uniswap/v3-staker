@@ -4,12 +4,12 @@ pragma abicoder v2;
 
 library IncentiveHelper {
     /// @notice Calculate the key for a staking incentive
-    /// @param creator Address that created this incentive
-    /// @param rewardToken Token being distributed as a reward
-    /// @param pool The UniswapV3 pool this incentive is on
-    /// @param startTime When the incentive begins
-    /// @param endTime When the incentive ends
-    /// @param claimDeadline Time by which incentive rewards must be claimed
+    /// @param creator The address that created this incentive
+    /// @param rewardToken The address of the token being distributed as a reward
+    /// @param tokenId The address of the Uniswap V3 pool this incentive is on
+    /// @param startTime The time when the incentive begins
+    /// @param endTime The time when rewards stop accruing
+    /// @param claimDeadline 
     function getIncentiveId(
         address creator,
         address rewardToken,
