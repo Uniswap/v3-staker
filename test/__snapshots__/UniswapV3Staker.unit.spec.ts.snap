@@ -14,4 +14,4 @@ exports[`UniswapV3Staker.unit Deposit/Withdraw #withdrawToken works and has gas 
 
 exports[`UniswapV3Staker.unit Stake/Unstake #stakeToken works and has gas cost 1`] = `122531`;
 
-exports[`UniswapV3Staker.unit Stake/Unstake #unstakeToken works and has gas cost 1`] = `129183`;
+exports[`UniswapV3Staker.unit Stake/Unstake #unstakeToken works and has gas cost 1`] = `105351`;

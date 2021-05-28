@@ -173,11 +173,7 @@ describe('UniswapV3Staker.unit', async () => {
       it('creates an incentive with the correct parameters', async () => {
         const timestamps = makeTimestamps(await blockTimestamp())
         await subject(timestamps)
-        const idGetter = await (
-          await ethers.getContractFactory('TestIncentiveID')
-        ).deploy()
-
-        const incentiveId = idGetter.getIncentiveId(
+        const incentiveId = await context.incentiveHelper.getIncentiveId(
           incentiveCreator.address,
           context.rewardToken.address,
           context.pool01,
@@ -283,10 +279,7 @@ describe('UniswapV3Staker.unit', async () => {
       })
 
       it('deletes incentives[key]', async () => {
-        const idGetter = await (
-          await ethers.getContractFactory('TestIncentiveID')
-        ).deploy()
-        const incentiveId = idGetter.getIncentiveId(
+        const incentiveId = await context.incentiveHelper.getIncentiveId(
           incentiveCreator.address,
           context.rewardToken.address,
           context.pool01,
@@ -544,10 +537,7 @@ describe('UniswapV3Staker.unit', async () => {
 
         it('sets the stake struct properly', async () => {
           const liquidity = (await context.nft.positions(tokenId)).liquidity
-          const idGetter = await (
-            await ethers.getContractFactory('TestIncentiveID')
-          ).deploy()
-          const incentiveId = await idGetter.getIncentiveId(
+          const incentiveId = await context.incentiveHelper.getIncentiveId(
             incentiveCreator.address,
             context.rewardToken.address,
             context.pool01,
@@ -701,12 +691,38 @@ describe('UniswapV3Staker.unit', async () => {
           ).to.be.gt(rewardsAccured)
         })
 
+        it('updates the stake struct', async () => {
+          const liquidity = (await context.nft.positions(tokenId)).liquidity
+          const incentiveId = await context.incentiveHelper.getIncentiveId(
+            incentiveCreator.address,
+            context.rewardToken.address,
+            context.pool01,
+            timestamps.startTime,
+            timestamps.endTime,
+            timestamps.claimDeadline
+          )
+
+          const stakeBefore = await context.staker.stakes(tokenId, incentiveId)
+          await subject()
+          const stakeAfter = await context.staker.stakes(tokenId, incentiveId)
+
+          expect(stakeBefore.secondsPerLiquidityInitialX128).to.gt(0)
+          expect(stakeBefore.liquidity).to.gt(0)
+          expect(stakeBefore.exists).to.be.true
+          expect(stakeAfter.secondsPerLiquidityInitialX128).to.eq(0)
+          expect(stakeAfter.liquidity).to.eq(0)
+          expect(stakeAfter.exists).to.be.false
+        })
+
         it('calculates the right secondsPerLiquidity')
         it('does not overflow totalSecondsUnclaimed')
       })
 
       describe('fails if', () => {
-        it('you have not staked')
+        it('you have not staked', async () => {
+          await subject()
+          await expect(subject()).to.revertedWith('Stake does not exist')
+        })
       })
     })
   })
@@ -788,10 +804,7 @@ describe('UniswapV3Staker.unit', async () => {
       })
 
       it('properly stakes the deposit in the select incentive', async () => {
-        const idGetter = await (
-          await ethers.getContractFactory('TestIncentiveID')
-        ).deploy()
-        const incentiveId = await idGetter.getIncentiveId(
+        const incentiveId = await context.incentiveHelper.getIncentiveId(
           incentiveCreator.address,
           context.rewardToken.address,
           context.pool01,
