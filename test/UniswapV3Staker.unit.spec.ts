@@ -692,6 +692,7 @@ describe('UniswapV3Staker.unit', async () => {
         })
 
         it('updates the stake struct', async () => {
+          const liquidity = (await context.nft.positions(tokenId)).liquidity
           const incentiveId = await context.incentiveHelper.getIncentiveId(
             incentiveCreator.address,
             context.rewardToken.address,
@@ -700,13 +701,19 @@ describe('UniswapV3Staker.unit', async () => {
             timestamps.endTime,
             timestamps.claimDeadline
           )
+
           const stakeBefore = await context.staker.stakes(tokenId, incentiveId)
-          expect(stakeBefore.exists).to.true
           await subject()
           const stakeAfter = await context.staker.stakes(tokenId, incentiveId)
-          expect(stakeAfter.exists).to.false
+
+          expect(stakeBefore.secondsPerLiquidityInitialX128).to.gt(0)
+          expect(stakeBefore.liquidity).to.gt(0)
+          expect(stakeBefore.exists).to.be.true
+          expect(stakeAfter.secondsPerLiquidityInitialX128).to.eq(0)
+          expect(stakeAfter.liquidity).to.eq(0)
+          expect(stakeAfter.exists).to.be.false
         })
-  
+
         it('calculates the right secondsPerLiquidity')
         it('does not overflow totalSecondsUnclaimed')
       })
