@@ -710,7 +710,10 @@ describe('UniswapV3Staker.unit', async () => {
       })
 
       describe('fails if', () => {
-        it('you have not staked')
+        it('you have not staked', async () => {
+          await subject()
+          expect(subject()).to.revertedWith('Stake does not exist')
+        })
       })
     })
   })
