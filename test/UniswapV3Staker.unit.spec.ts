@@ -1089,13 +1089,6 @@ describe('UniswapV3Staker.unit', async () => {
 
       await context.staker.connect(lpUser0).depositToken(tokenId)
 
-      await context.staker.connect(lpUser0).stakeToken({
-        creator: incentiveCreator.address,
-        rewardToken: context.rewardToken.address,
-        tokenId,
-        ...timestamps,
-      })
-
       subject = (to: string) =>
         context.staker.connect(lpUser0).claimRewardFromExistingStake({
           creator: incentiveCreator.address,
@@ -1109,9 +1102,16 @@ describe('UniswapV3Staker.unit', async () => {
       let recipient
       let expectedReward
       beforeEach(async () => {
+        await setTime(timestamps.startTime + 100)
+        await context.staker.connect(lpUser0).stakeToken({
+          creator: incentiveCreator.address,
+          rewardToken: context.rewardToken.address,
+          tokenId,
+          ...timestamps,
+        })
         await setTime(timestamps.startTime + 500)
         recipient = actors.lpUser2().address
-        expectedReward = BN('48799999999999999999')
+        expectedReward = BN('40000000000000000000')
       })
 
       it('transfers the reward amount to the receipient', async () => {
@@ -1125,22 +1125,6 @@ describe('UniswapV3Staker.unit', async () => {
         await expect(subject(recipient))
           .to.emit(context.staker, 'RewardClaimedFromExistingStake')
           .withArgs(recipient, expectedReward)
-      })
-
-      it('updates the incentive appropriately', async () => {
-        const incentivePrev = await context.staker.incentives(incentiveId)
-        const rewardsUnclaimedPrev = incentivePrev.totalRewardUnclaimed
-        const secondsClaimedPrev = incentivePrev.totalSecondsClaimedX128
-
-        await subject(recipient)
-
-        const incentiveCurrent = await context.staker.incentives(incentiveId)
-        const rewardsUnclaimedCurrent = incentiveCurrent.totalRewardUnclaimed
-        const secondsClaimedCurrent = incentiveCurrent.totalSecondsClaimedX128
-
-        expect(rewardsUnclaimedPrev.sub(rewardsUnclaimedCurrent)).to.eq(expectedReward)
-        expect(secondsClaimedPrev).to.equal(0)
-        expect(secondsClaimedCurrent).to.equal(BN('166057795057417970170120000000000000000000'))
       })
 
       it('updates the stake appropriately', async () => {
@@ -1157,6 +1141,22 @@ describe('UniswapV3Staker.unit', async () => {
         expect(secondsInitialBefore).to.be.lt(secondsInitialAfter)
         expect(liquidityBefore).to.equal(liquidityAfter)
         expect(stakeBefore.exists).to.equal(stakeAfter.exists)
+      })
+
+      it('updates the incentive appropriately', async () => {
+        const incentivePrev = await context.staker.incentives(incentiveId)
+        const rewardsUnclaimedPrev = incentivePrev.totalRewardUnclaimed
+        const secondsClaimedPrev = incentivePrev.totalSecondsClaimedX128
+
+        await subject(recipient)
+
+        const incentiveCurrent = await context.staker.incentives(incentiveId)
+        const rewardsUnclaimedCurrent = incentiveCurrent.totalRewardUnclaimed
+        const secondsClaimedCurrent = incentiveCurrent.totalSecondsClaimedX128
+
+        expect(rewardsUnclaimedPrev.sub(rewardsUnclaimedCurrent)).to.eq(expectedReward)
+        expect(secondsClaimedPrev).to.equal(0)
+        expect(secondsClaimedCurrent).to.equal(BN('136112946768375385385350000000000000000000'))
       })
     })
 
