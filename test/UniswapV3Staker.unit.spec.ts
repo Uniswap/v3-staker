@@ -200,14 +200,16 @@ describe('UniswapV3Staker.unit', async () => {
           context.staker,
           'IncentiveCreated'
         )
-        await expect(subject(params)).to.be.revertedWith('INCENTIVE_EXISTS')
+        await expect(subject(params)).to.be.revertedWith(
+          'incentive already exists'
+        )
       })
 
-      it('claim deadline is not greater than or equal to end time', async () => {
+      it('claim deadline is before end time', async () => {
         const params = await makeTimestamps((await blockTimestamp()) + 10)
         params.endTime = params.claimDeadline + 100
         await expect(subject(params)).to.be.revertedWith(
-          'claimDeadline_not_gte_endTime'
+          'claim deadline before end time'
         )
       })
 
@@ -215,7 +217,7 @@ describe('UniswapV3Staker.unit', async () => {
         const params = makeTimestamps((await blockTimestamp()) + 10)
         params.endTime = params.startTime - 10
         await expect(subject(params)).to.be.revertedWith(
-          'endTime_not_gte_startTime'
+          'end time before start'
         )
       })
 
@@ -227,7 +229,7 @@ describe('UniswapV3Staker.unit', async () => {
             totalReward,
             ...makeTimestamps(0),
           })
-        ).to.be.revertedWith('INVALID_REWARD_ADDRESS'))
+        ).to.be.revertedWith('invalid reward address'))
 
       it('totalReward is 0 or an invalid amount', async () =>
         await expect(
@@ -237,7 +239,7 @@ describe('UniswapV3Staker.unit', async () => {
             totalReward: BNe18(0),
             ...makeTimestamps(0),
           })
-        ).to.be.revertedWith('INVALID_REWARD_AMOUNT'))
+        ).to.be.revertedWith('invalid reward amount'))
     })
   })
 
@@ -307,9 +309,7 @@ describe('UniswapV3Staker.unit', async () => {
     describe('fails when', async () => {
       it('block.timestamp <= claim deadline', async () => {
         await Time.set(timestamps.claimDeadline - 10)
-        await expect(subject({})).to.be.revertedWith(
-          'TIMESTAMP_LTE_CLAIMDEADLINE'
-        )
+        await expect(subject({})).to.be.revertedWith('before claim deadline')
       })
 
       it('incentive does not exist', async () => {
@@ -319,7 +319,7 @@ describe('UniswapV3Staker.unit', async () => {
           subject({
             startTime: (await blockTimestamp()) + 1000,
           })
-        ).to.be.revertedWith('INVALID_INCENTIVE')
+        ).to.be.revertedWith('invalid incentive')
       })
     })
   })
@@ -437,7 +437,7 @@ describe('UniswapV3Staker.unit', async () => {
             context.staker
               .connect(notOwner)
               .withdrawToken(tokenId, notOwner.address)
-          ).to.revertedWith('NOT_YOUR_NFT')
+          ).to.revertedWith('sender is not nft owner')
         })
 
         it('number of stakes is not 0', async () => {
@@ -457,7 +457,7 @@ describe('UniswapV3Staker.unit', async () => {
           })
 
           await expect(subject(tokenId, lpUser0.address)).to.revertedWith(
-            'NUMBER_OF_STAKES_NOT_ZERO'
+            'nonzero num of stakes'
           )
         })
       })
@@ -578,7 +578,7 @@ describe('UniswapV3Staker.unit', async () => {
         it('you are not the owner of the deposit', async () => {
           await Time.set(timestamps.startTime + 500)
           await expect(subject(tokenId, actors.lpUser2())).to.be.revertedWith(
-            'NOT_YOUR_DEPOSIT'
+            'sender is not deposit owner'
           )
         })
 
@@ -593,7 +593,7 @@ describe('UniswapV3Staker.unit', async () => {
           }
           await Time.set(timestamps.startTime - 2)
           await expect(subject(tokenId)).to.be.revertedWith(
-            'incentive not started yet'
+            'incentive not started'
           )
         })
       })
@@ -721,7 +721,7 @@ describe('UniswapV3Staker.unit', async () => {
       describe('fails if', () => {
         it('you have not staked', async () => {
           await subject()
-          await expect(subject()).to.revertedWith('Stake does not exist')
+          await expect(subject()).to.revertedWith('nonexistent stake')
         })
       })
     })
@@ -868,7 +868,7 @@ describe('UniswapV3Staker.unit', async () => {
               1,
               data
             )
-        ).to.be.revertedWith('uniswap v3 nft only')
+        ).to.be.revertedWith('not a univ3 nft')
       })
 
       it('reverts when staking on invalid incentive', async () => {
