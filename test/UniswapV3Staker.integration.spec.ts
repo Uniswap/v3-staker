@@ -25,7 +25,7 @@ import {
   BNe,
 } from './shared'
 import { createTimeMachine } from './shared/time'
-import { HelperCommands } from './helpers'
+import { ERC20Helper, HelperCommands } from './helpers'
 import { createFixtureLoader, provider } from './shared/provider'
 import { ActorFixture } from './shared/actors'
 import { Fixture } from 'ethereum-waffle'
@@ -35,10 +35,11 @@ import { Wallet } from '@ethersproject/wallet'
 
 let loadFixture: LoadFixtureFunction
 
-describe('UniswapV3Staker.math', async () => {
+describe('UniswapV3Staker.integration', async () => {
   const wallets = provider.getWallets()
   const Time = createTimeMachine(provider)
   const actors = new ActorFixture(wallets, provider)
+  const e20h = new ERC20Helper()
 
   before('create fixture loader', async () => {
     loadFixture = createFixtureLoader(wallets, provider)
@@ -235,7 +236,7 @@ describe('UniswapV3Staker.math', async () => {
           await Time.set(startTime + (3 / 4) * duration)
           const tokensToStake: [TestERC20, TestERC20] = [token0, token1]
 
-          await helpers.ensureBalancesAndApprovals(
+          await e20h.ensureBalancesAndApprovals(
             lpUser0,
             [token0, token1],
             amountsToStake[0],
