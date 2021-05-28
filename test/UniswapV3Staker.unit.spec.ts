@@ -34,20 +34,18 @@ import {
 import { ContractParams } from '../types/contractParams'
 import { createTimeMachine } from './shared/time'
 import { HelperTypes } from './helpers/types'
+import { times } from 'lodash'
 
 let loadFixture: LoadFixtureFunction
 
 describe('UniswapV3Staker.unit', async () => {
-  const wallets = provider.getWallets()
-  const actors = new ActorFixture(wallets, provider)
-  let context: UniswapFixtureType
-
-  // TODO: remove wallet,other
-  const [wallet, other] = wallets
+  const actors = new ActorFixture(provider.getWallets(), provider)
   const incentiveCreator = actors.incentiveCreator()
   const lpUser0 = actors.lpUser0()
-  const e20h = new ERC20Helper()
+  const erc20Helper = new ERC20Helper()
   const Time = createTimeMachine(provider)
+
+  let context: UniswapFixtureType
   let helpers: HelperCommands
   let timestamps: ContractParams.Timestamps
 
@@ -56,10 +54,8 @@ describe('UniswapV3Staker.unit', async () => {
   // How much of each token the LP wants to deposit
   const amountDesired = BNe18(10)
 
-  let subject: Function
-
   before('loader', async () => {
-    loadFixture = createFixtureLoader(wallets, provider)
+    loadFixture = createFixtureLoader(provider.getWallets(), provider)
   })
 
   beforeEach('create fixture loader', async () => {
@@ -94,7 +90,7 @@ describe('UniswapV3Staker.unit', async () => {
       subject = async (
         params: Partial<ContractParams.CreateIncentive> = {}
       ) => {
-        await e20h.ensureBalancesAndApprovals(
+        await erc20Helper.ensureBalancesAndApprovals(
           incentiveCreator,
           params.rewardToken
             ? await erc20Wrap(params?.rewardToken)
@@ -319,7 +315,7 @@ describe('UniswapV3Staker.unit', async () => {
     let recipient = lpUser0.address
 
     beforeEach(async () => {
-      await e20h.ensureBalancesAndApprovals(
+      await erc20Helper.ensureBalancesAndApprovals(
         lpUser0,
         [context.token0, context.token1],
         amountDesired,
@@ -417,8 +413,11 @@ describe('UniswapV3Staker.unit', async () => {
 
       describe('fails if', () => {
         it('you are withdrawing a token that is not yours', async () => {
+          const notOwner = actors.traderUser1()
           await expect(
-            context.staker.connect(other).withdrawToken(tokenId, wallet.address)
+            context.staker
+              .connect(notOwner)
+              .withdrawToken(tokenId, notOwner.address)
           ).to.revertedWith('NOT_YOUR_NFT')
         })
 
@@ -461,7 +460,7 @@ describe('UniswapV3Staker.unit', async () => {
         and when the incentive starts */
         timestamps = makeTimestamps(1_000 + (await blockTimestamp()))
 
-        await e20h.ensureBalancesAndApprovals(
+        await erc20Helper.ensureBalancesAndApprovals(
           lpUser0,
           [context.token0, context.token1],
           amountDesired,
@@ -585,87 +584,58 @@ describe('UniswapV3Staker.unit', async () => {
     })
 
     describe('#unstakeToken', () => {
-      let tokenId: string
-      let subject
-      let rewardToken: TestERC20
-      let startTime: number
-      let endTime: number
-      let claimDeadline: number
+      let subject: () => Promise<any>
 
       beforeEach(async () => {
-        const currentTime = await blockTimestamp()
-        rewardToken = context.tokens[2]
-        startTime = currentTime
-        endTime = currentTime + 100
-        claimDeadline = currentTime + 200
+        timestamps = makeTimestamps(await blockTimestamp())
 
-        await rewardToken
-          .connect(wallets[0])
-          .transfer(incentiveCreator.address, totalReward)
-
-        await rewardToken
-          .connect(incentiveCreator)
-          .approve(context.staker.address, totalReward)
-
-        await context.tokens[0]
-          .connect(wallets[0])
-          .transfer(lpUser0.address, BNe18(10))
-        await context.tokens[1]
-          .connect(wallets[0])
-          .transfer(lpUser0.address, BNe18(10))
-
-        await context.tokens[0]
-          .connect(lpUser0)
-          .approve(context.nft.address, BNe18(10))
-        await context.tokens[1]
-          .connect(lpUser0)
-          .approve(context.nft.address, BNe18(10))
-
-        await context.staker.connect(incentiveCreator).createIncentive({
-          pool: context.pool01,
-          rewardToken: rewardToken.address,
+        const createIncentiveResult = await helpers.createIncentiveFlow({
+          rewardToken: context.rewardToken,
           totalReward,
-          startTime,
-          endTime,
-          claimDeadline,
+          poolAddress: context.poolObj.address,
+          ...timestamps,
         })
 
+        await erc20Helper.ensureBalancesAndApprovals(
+          lpUser0,
+          [context.token0, context.token1],
+          amountDesired,
+          context.nft.address
+        )
+
         tokenId = await mintPosition(context.nft.connect(lpUser0), {
-          token0: context.tokens[0].address,
-          token1: context.tokens[1].address,
+          token0: context.token0.address,
+          token1: context.token1.address,
           fee: FeeAmount.MEDIUM,
           tickLower: getMinTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
           tickUpper: getMaxTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
           recipient: lpUser0.address,
-          amount0Desired: BNe18(10),
-          amount1Desired: BNe18(10),
+          amount0Desired: amountDesired,
+          amount1Desired: amountDesired,
           amount0Min: 0,
           amount1Min: 0,
-          deadline: claimDeadline,
+          deadline: (await blockTimestamp()) + 1000,
         })
 
         await context.nft
           .connect(lpUser0)
           .approve(context.staker.address, tokenId, { gasLimit: MAX_GAS_LIMIT })
+
         await context.staker.connect(lpUser0).depositToken(tokenId)
 
         await context.staker.connect(lpUser0).stakeToken({
           creator: incentiveCreator.address,
-          rewardToken: rewardToken.address,
+          rewardToken: context.rewardToken.address,
           tokenId,
-          startTime,
-          endTime,
-          claimDeadline,
+          ...timestamps,
         })
 
         subject = () =>
           context.staker.connect(lpUser0).unstakeToken({
             creator: incentiveCreator.address,
-            rewardToken: rewardToken.address,
+            rewardToken: context.rewardToken.address,
             tokenId,
-            startTime,
-            endTime,
-            claimDeadline,
+            ...timestamps,
           })
       })
 
@@ -693,12 +663,15 @@ describe('UniswapV3Staker.unit', async () => {
 
         it('updates the reward available for the context.staker', async () => {
           const rewardsAccured = await context.staker.rewards(
-            rewardToken.address,
+            context.rewardToken.address,
             lpUser0.address
           )
           await subject()
           expect(
-            await context.staker.rewards(rewardToken.address, lpUser0.address)
+            await context.staker.rewards(
+              context.rewardToken.address,
+              lpUser0.address
+            )
           ).to.be.gt(rewardsAccured)
         })
 
@@ -723,7 +696,7 @@ describe('UniswapV3Staker.unit', async () => {
       const { rewardToken } = context
       timestamps = makeTimestamps((await blockTimestamp()) + 1_000)
 
-      await e20h.ensureBalancesAndApprovals(
+      await erc20Helper.ensureBalancesAndApprovals(
         lpUser0,
         [context.token0, context.token1],
         amountDesired,
@@ -891,7 +864,7 @@ describe('UniswapV3Staker.unit', async () => {
       const currentTime = await blockTimestamp()
       const multicaller = actors.traderUser2()
 
-      await e20h.ensureBalancesAndApprovals(
+      await erc20Helper.ensureBalancesAndApprovals(
         multicaller,
         [context.token0, context.token1],
         amountDesired,
@@ -911,7 +884,7 @@ describe('UniswapV3Staker.unit', async () => {
         deadline: currentTime + 10_000,
       })
 
-      await e20h.ensureBalancesAndApprovals(
+      await erc20Helper.ensureBalancesAndApprovals(
         multicaller,
         context.rewardToken,
         totalReward,
@@ -955,7 +928,7 @@ describe('UniswapV3Staker.unit', async () => {
       timestamps = makeTimestamps(await blockTimestamp())
       const tokensToStake = [token0, token1] as [TestERC20, TestERC20]
 
-      await e20h.ensureBalancesAndApprovals(
+      await erc20Helper.ensureBalancesAndApprovals(
         lpUser0,
         tokensToStake,
         amountDesired,
