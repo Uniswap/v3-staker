@@ -690,6 +690,20 @@ describe('UniswapV3Staker.unit', async () => {
             )
           ).to.be.gt(rewardsAccured)
         })
+
+        it('updates the stake struct', async () => {
+          const incentiveId = await context.incentiveHelper.getIncentiveId(
+            incentiveCreator.address,
+            context.rewardToken.address,
+            context.pool01,
+            timestamps.startTime,
+            timestamps.endTime,
+            timestamps.claimDeadline
+          )
+          await subject()
+          const stake = await context.staker.stakes(tokenId, incentiveId)
+          expect(stake.exists).to.be.false
+        })
   
         it('calculates the right secondsPerLiquidity')
         it('does not overflow totalSecondsUnclaimed')
