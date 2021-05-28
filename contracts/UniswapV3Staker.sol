@@ -80,9 +80,9 @@ contract UniswapV3Staker is
     {
         require(
             params.claimDeadline >= params.endTime,
-            'claimDeadline_not_gte_endTime'
+            'claim deadline before end time'
         );
-        require(params.endTime > params.startTime, 'endTime_not_gte_startTime');
+        require(params.endTime > params.startTime, 'end time before start');
 
         bytes32 key =
             IncentiveHelper.getIncentiveId(
@@ -94,9 +94,9 @@ contract UniswapV3Staker is
                 params.claimDeadline
             );
 
-        require(incentives[key].rewardToken == address(0), 'INCENTIVE_EXISTS');
-        require(params.rewardToken != address(0), 'INVALID_REWARD_ADDRESS');
-        require(params.totalReward > 0, 'INVALID_REWARD_AMOUNT');
+        require(incentives[key].rewardToken == address(0), 'incentive already exists');
+        require(params.rewardToken != address(0), 'invalid reward address');
+        require(params.totalReward > 0, 'invalid reward amount');
 
         TransferHelper.safeTransferFrom(
             params.rewardToken,
@@ -125,7 +125,7 @@ contract UniswapV3Staker is
     {
         require(
             _blockTimestamp() > params.claimDeadline,
-            'TIMESTAMP_LTE_CLAIMDEADLINE'
+            'reward transfer failed'
         );
         bytes32 key =
             IncentiveHelper.getIncentiveId(
@@ -138,7 +138,7 @@ contract UniswapV3Staker is
             );
 
         Incentive memory incentive = incentives[key];
-        require(incentive.rewardToken != address(0), 'INVALID_INCENTIVE');
+        require(incentive.rewardToken != address(0), 'invalid incentive');
         delete incentives[key];
 
         TransferHelper.safeTransfer(
@@ -173,7 +173,7 @@ contract UniswapV3Staker is
     ) external override returns (bytes4) {
         require(
             msg.sender == address(nonfungiblePositionManager),
-            'uniswap v3 nft only'
+            'not a univ3 nft'
         );
 
         deposits[tokenId] = Deposit(from, 0);
@@ -188,8 +188,8 @@ contract UniswapV3Staker is
     /// @inheritdoc IUniswapV3Staker
     function withdrawToken(uint256 tokenId, address to) external override {
         Deposit memory deposit = deposits[tokenId];
-        require(deposit.numberOfStakes == 0, 'NUMBER_OF_STAKES_NOT_ZERO');
-        require(deposit.owner == msg.sender, 'NOT_YOUR_NFT');
+        require(deposit.numberOfStakes == 0, 'nonzero num of stakes');
+        require(deposit.owner == msg.sender, 'sender is not nft owner');
 
         nonfungiblePositionManager.safeTransferFrom(address(this), to, tokenId);
 
@@ -200,7 +200,7 @@ contract UniswapV3Staker is
     function stakeToken(StakeTokenParams memory params) external override {
         require(
             deposits[params.tokenId].owner == msg.sender,
-            'NOT_YOUR_DEPOSIT'
+            'sender is not deposit owner'
         );
 
         _stakeToken(params);
@@ -214,7 +214,7 @@ contract UniswapV3Staker is
     {
         require(
             deposits[params.tokenId].owner == msg.sender,
-            'NOT_YOUR_DEPOSIT'
+            'position is invalid'
         );
 
         deposits[params.tokenId].numberOfStakes -= 1;
@@ -243,8 +243,8 @@ contract UniswapV3Staker is
         Incentive memory incentive = incentives[incentiveId];
         Stake memory stake = stakes[params.tokenId][incentiveId];
 
-        require(stake.exists == true, 'Stake does not exist');
-        require(incentive.rewardToken != address(0), 'BAD INCENTIVE');
+        require(stake.exists == true, 'nonexistent stake');
+        require(incentive.rewardToken != address(0), 'incentive not found');
 
         uint160 secondsInPeriodX128 =
             uint160(
@@ -333,12 +333,12 @@ contract UniswapV3Staker is
         );
         require(
             params.startTime <= block.timestamp,
-            'incentive not started yet'
+            'incentive not started'
         );
         require(params.endTime > block.timestamp, 'incentive ended');
         require(
             stakes[params.tokenId][incentiveId].exists != true,
-            'already staked'
+            'incentive already staked'
         );
 
         (, uint160 secondsPerLiquidityInsideX128, ) =
