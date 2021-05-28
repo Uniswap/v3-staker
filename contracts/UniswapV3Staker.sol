@@ -245,6 +245,7 @@ contract UniswapV3Staker is
             secondsPerLiquidityInsideX128 +
             1;
         TransferHelper.safeTransfer(incentive.rewardToken, to, reward);
+        emit RewardClaimedFromExistingStake(to, reward);
     }
 
 

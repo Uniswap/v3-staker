@@ -24,7 +24,8 @@ interface IUniswapV3Staker {
     event TokenStaked(uint256 tokenId, uint128 liquidity);
     event TokenUnstaked(uint256 tokenId);
 
-    event RewardClaimed(address indexed user, uint256 reward);
+    event RewardClaimed(address indexed recipient, uint256 reward);
+    event RewardClaimedFromExistingStake(address indexed recipient, uint256 reward);
 
     /**
     @param rewardToken The token being distributed as a reward
