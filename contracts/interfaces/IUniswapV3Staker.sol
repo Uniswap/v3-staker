@@ -3,6 +3,34 @@ pragma solidity =0.7.6;
 pragma abicoder v2;
 
 interface IUniswapV3Staker {
+    /// @notice Represents a Staking incentive.
+    /// @param totalRewardUnclaimed The amount of rewards not yet claimed by users
+    /// @param totalSecondsClaimedX128 Total seconds of liquidity claimed, represented as a UQ64.96.
+    /// @param rewardToken The address of the token being distributed as a reward
+    struct Incentive {
+        uint128 totalRewardUnclaimed;
+        uint160 totalSecondsClaimedX128;
+        address rewardToken;
+    }
+
+    /// @notice Represents the deposit of a liquidity NFT
+    /// @param owner The owner of the LP token
+    /// @param numberOfStakes Counter to keep track of whether the deposit has been staked.
+    struct Deposit {
+        address owner;
+        uint32 numberOfStakes;
+    }
+
+    /// @notice Represents a staked liquidity NFT
+    /// @param secondsPerLiquidityInitialX128 secondsPerLiquidity represented as a UQ64.96
+    /// @param liquidity The amount of liquidity staked
+    /// @param exists Used to for truthiness checks
+    struct Stake {
+        uint160 secondsPerLiquidityInitialX128;
+        uint128 liquidity;
+        bool exists;
+    }
+
     /// @notice Event emitted when a liquidity mining incentive has been created
     /// @param rewardToken The address of the token being distributed as a reward
     /// @param pool The address of the Uniswap V3 pool

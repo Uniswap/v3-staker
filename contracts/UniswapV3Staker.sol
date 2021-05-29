@@ -30,23 +30,6 @@ contract UniswapV3Staker is
     ReentrancyGuard,
     Multicall
 {
-    struct Incentive {
-        uint128 totalRewardUnclaimed;
-        uint160 totalSecondsClaimedX128;
-        address rewardToken;
-    }
-
-    struct Deposit {
-        address owner;
-        uint32 numberOfStakes;
-    }
-
-    struct Stake {
-        uint160 secondsPerLiquidityInitialX128;
-        uint128 liquidity;
-        bool exists;
-    }
-
     IUniswapV3Factory public immutable factory;
     INonfungiblePositionManager public immutable nonfungiblePositionManager;
 
