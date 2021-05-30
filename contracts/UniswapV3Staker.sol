@@ -154,7 +154,8 @@ contract UniswapV3Staker is
             params.rewardToken,
             params.pool,
             params.startTime,
-            params.endTime
+            params.endTime,
+            params.claimDeadline
         );
     }
 

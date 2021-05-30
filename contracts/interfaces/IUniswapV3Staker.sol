@@ -4,6 +4,7 @@ pragma abicoder v2;
 
 interface IUniswapV3Staker {
     /// @notice Event emitted when a liquidity mining incentive has been created
+    /// @param creator The address that created this incentive
     /// @param rewardToken The address of the token being distributed as a reward
     /// @param pool The address of the Uniswap V3 pool
     /// @param endTime The time when rewards stop accruing
@@ -20,16 +21,19 @@ interface IUniswapV3Staker {
     );
 
     /// @notice Event emitted when a liquidity mining incentive has ended
+    /// @param creator The address that created this incentive
     /// @param rewardToken The address of the token being distributed as a reward
     /// @param pool The address of the Uniswap V3 pool
     /// @param startTime The time when the incentive program begins
     /// @param endTime The time when rewards stop accruing
+    /// @param claimDeadline Time after which LPs can no longer claim rewards (and incentiveCreator can end the incentive and receive unclaimed rewards)
     event IncentiveEnded(
         address creator,
         address indexed rewardToken,
         address indexed pool,
         uint32 startTime,
-        uint32 endTime
+        uint32 endTime,
+        uint43 claimDeadline
     );
 
     /// @notice Event emitted when a Uniswap V3 LP token has been deposited
@@ -45,10 +49,12 @@ interface IUniswapV3Staker {
     /// @notice Event emitted when a Uniswap V3 LP token has been staked
     /// @param tokenId The unique identifier of an Uniswap V3 LP token
     /// @param liquidity The amount of liquidity staked
+    /// @param incentiveId The incentive in which the token is staking 
     event TokenStaked(uint256 tokenId, uint128 liquidity, bytes32 incentiveId);
 
     /// @notice Event emitted when a Uniswap V3 LP token has been unstaked
     /// @param tokenId The unique identifier of an Uniswap V3 LP token
+    /// @param incentiveId The incentive in which the token is staking
     event TokenUnstaked(uint256 tokenId, bytes32 incentiveId);
 
     /// @notice Event emitted when a reward token has been claimed

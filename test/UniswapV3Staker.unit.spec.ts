@@ -278,7 +278,8 @@ describe('UniswapV3Staker.unit', async () => {
             context.rewardToken.address,
             context.pool01,
             timestamps.startTime,
-            timestamps.endTime
+            timestamps.endTime,
+            timestamps.claimDeadline
           )
       })
 
