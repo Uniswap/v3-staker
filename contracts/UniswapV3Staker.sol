@@ -220,8 +220,10 @@ contract UniswapV3Staker is
 
         (bytes32 incentiveId, Incentive memory incentive, Stake memory stake) =
             _getUpdateIncentiveParams(params);
-        (uint128 reward, ) =
-            _updateIncentiveRewards(incentiveId, incentive, stake, params);
+        (uint128 reward, uint160 secondsInPeriodX128, ) =
+            getRewardInfo(incentive, stake, params);
+
+        _updateIncentive(incentiveId, secondsInPeriodX128, reward, incentive.totalRewardUnclaimed);
 
         delete stakes[params.tokenId][incentiveId];
         deposits[params.tokenId].numberOfStakes -= 1;
@@ -231,17 +233,23 @@ contract UniswapV3Staker is
         emit TokenUnstaked(params.tokenId);
     }
 
-    function claimRewardFromExistingStake(UpdateStakeParams memory params, address to)
-        external
-    {
+    function claimRewardFromExistingStake(
+        UpdateStakeParams memory params,
+        address to
+    ) external {
         require(
             deposits[params.tokenId].owner == msg.sender,
             'NOT_YOUR_DEPOSIT'
         );
         (bytes32 incentiveId, Incentive memory incentive, Stake memory stake) =
             _getUpdateIncentiveParams(params);
-        (uint128 reward, uint160 secondsPerLiquidityInsideX128) =
-            _updateIncentiveRewards(incentiveId, incentive, stake, params);
+        (
+            uint128 reward,
+            uint160 secondsInPeriodX128,
+            uint160 secondsPerLiquidityInsideX128
+        ) = getRewardInfo(incentive, stake, params);
+
+        _updateIncentive(incentiveId, secondsInPeriodX128, reward, incentive.totalRewardUnclaimed);
 
         stakes[params.tokenId][incentiveId].secondsPerLiquidityInitialX128 =
             secondsPerLiquidityInsideX128 +
@@ -249,7 +257,6 @@ contract UniswapV3Staker is
         TransferHelper.safeTransfer(incentive.rewardToken, to, reward);
         emit RewardClaimedFromExistingStake(to, reward);
     }
-
 
     /// @inheritdoc IUniswapV3Staker
     function claimReward(address rewardToken, address to) external override {
@@ -261,12 +268,19 @@ contract UniswapV3Staker is
         emit RewardClaimed(to, reward);
     }
 
-    function _updateIncentiveRewards(
-        bytes32 incentiveId,
+    function getRewardInfo(
         Incentive memory incentive,
         Stake memory stake,
         UpdateStakeParams memory params
-    ) internal returns (uint128 reward, uint160 secondsPerLiquidityInsideX128) {
+    )
+        public
+        view
+        returns (
+            uint128 reward,
+            uint160 secondsInPeriodX128,
+            uint160 secondsPerLiquidityInsideX128
+        )
+    {
         (address poolAddress, int24 tickLower, int24 tickUpper, ) =
             _getPositionDetails(params.tokenId);
 
@@ -276,14 +290,13 @@ contract UniswapV3Staker is
         require(stake.exists == true, 'nonexistent stake');
         require(incentive.rewardToken != address(0), 'incentive not found');
 
-        uint160 secondsInPeriodX128 =
-            uint160(
-                SafeMath.mul(
-                    secondsPerLiquidityInsideX128 -
-                        stake.secondsPerLiquidityInitialX128,
-                    stake.liquidity
-                )
-            );
+        secondsInPeriodX128 = uint160(
+            SafeMath.mul(
+                secondsPerLiquidityInsideX128 -
+                    stake.secondsPerLiquidityInitialX128,
+                stake.liquidity
+            )
+        );
 
         // TODO: double-check for overflow risk here
         uint160 totalSecondsUnclaimedX128 =
@@ -307,11 +320,18 @@ contract UniswapV3Staker is
         reward = uint128(
             FullMath.mulDiv(secondsInPeriodX128, rewardRate, FixedPoint128.Q128)
         );
+    }
 
+    function _updateIncentive(
+        bytes32 incentiveId,
+        uint160 secondsInPeriodX128,
+        uint128 reward,
+        uint160 totalRewardUnclaimed
+    ) internal {
         incentives[incentiveId].totalSecondsClaimedX128 += secondsInPeriodX128;
         // TODO: is SafeMath necessary here? Could we do just a subtraction?
         incentives[incentiveId].totalRewardUnclaimed = uint128(
-            SafeMath.sub(incentive.totalRewardUnclaimed, reward)
+            SafeMath.sub(totalRewardUnclaimed, reward)
         );
     }
 

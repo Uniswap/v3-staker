@@ -53,7 +53,10 @@ interface IUniswapV3Staker {
     /// @param to The address where claimed rewards were sent to
     /// @param reward The amount of reward tokens claimed
     event RewardClaimed(address indexed to, uint256 reward);
-    event RewardClaimedFromExistingStake(address indexed recipient, uint256 reward);
+    event RewardClaimedFromExistingStake(
+        address indexed recipient,
+        uint256 reward
+    );
 
     /// @param rewardToken The address of the token being distributed as a reward
     /// @param pool The address of the Uniswap V3 pool
