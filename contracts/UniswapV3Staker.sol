@@ -4,7 +4,6 @@ pragma abicoder v2;
 
 import './interfaces/IUniswapV3Staker.sol';
 import './libraries/IncentiveHelper.sol';
-import './base/BlockTimestamp.sol';
 
 import '@uniswap/v3-core/contracts/libraries/FixedPoint96.sol';
 import '@uniswap/v3-core/contracts/libraries/FixedPoint128.sol';
@@ -26,7 +25,6 @@ import '@openzeppelin/contracts/utils/ReentrancyGuard.sol';
 @title Uniswap V3 canonical staking interface
 */
 contract UniswapV3Staker is
-    BlockTimestamp,
     IUniswapV3Staker,
     IERC721Receiver,
     ReentrancyGuard,
@@ -80,9 +78,9 @@ contract UniswapV3Staker is
     {
         require(
             params.claimDeadline >= params.endTime,
-            'claimDeadline_not_gte_endTime'
+            'claim deadline before end time'
         );
-        require(params.endTime > params.startTime, 'endTime_not_gte_startTime');
+        require(params.endTime > params.startTime, 'end time before start');
 
         bytes32 key =
             IncentiveHelper.getIncentiveId(
@@ -94,9 +92,12 @@ contract UniswapV3Staker is
                 params.claimDeadline
             );
 
-        require(incentives[key].rewardToken == address(0), 'INCENTIVE_EXISTS');
-        require(params.rewardToken != address(0), 'INVALID_REWARD_ADDRESS');
-        require(params.totalReward > 0, 'INVALID_REWARD_AMOUNT');
+        require(
+            incentives[key].rewardToken == address(0),
+            'incentive already exists'
+        );
+        require(params.rewardToken != address(0), 'invalid reward address');
+        require(params.totalReward > 0, 'invalid reward amount');
 
         TransferHelper.safeTransferFrom(
             params.rewardToken,
@@ -124,8 +125,8 @@ contract UniswapV3Staker is
         nonReentrant
     {
         require(
-            _blockTimestamp() > params.claimDeadline,
-            'TIMESTAMP_LTE_CLAIMDEADLINE'
+            block.timestamp > params.claimDeadline,
+            'before claim deadline'
         );
         bytes32 key =
             IncentiveHelper.getIncentiveId(
@@ -138,7 +139,7 @@ contract UniswapV3Staker is
             );
 
         Incentive memory incentive = incentives[key];
-        require(incentive.rewardToken != address(0), 'INVALID_INCENTIVE');
+        require(incentive.rewardToken != address(0), 'invalid incentive');
         delete incentives[key];
 
         TransferHelper.safeTransfer(
@@ -164,6 +165,7 @@ contract UniswapV3Staker is
         );
     }
 
+    /// @inheritdoc IERC721Receiver
     function onERC721Received(
         address,
         address from,
@@ -172,7 +174,7 @@ contract UniswapV3Staker is
     ) external override returns (bytes4) {
         require(
             msg.sender == address(nonfungiblePositionManager),
-            'uniswap v3 nft only'
+            'not a univ3 nft'
         );
 
         deposits[tokenId] = Deposit(from, 0);
@@ -187,8 +189,8 @@ contract UniswapV3Staker is
     /// @inheritdoc IUniswapV3Staker
     function withdrawToken(uint256 tokenId, address to) external override {
         Deposit memory deposit = deposits[tokenId];
-        require(deposit.numberOfStakes == 0, 'NUMBER_OF_STAKES_NOT_ZERO');
-        require(deposit.owner == msg.sender, 'NOT_YOUR_NFT');
+        require(deposit.numberOfStakes == 0, 'nonzero num of stakes');
+        require(deposit.owner == msg.sender, 'sender is not nft owner');
 
         nonfungiblePositionManager.safeTransferFrom(address(this), to, tokenId);
 
@@ -199,7 +201,7 @@ contract UniswapV3Staker is
     function stakeToken(UpdateStakeParams memory params) external override {
         require(
             deposits[params.tokenId].owner == msg.sender,
-            'NOT_YOUR_DEPOSIT'
+            'sender is not deposit owner'
         );
 
         _stakeToken(params);
@@ -213,7 +215,7 @@ contract UniswapV3Staker is
     {
         require(
             deposits[params.tokenId].owner == msg.sender,
-            'NOT_YOUR_DEPOSIT'
+            'position is invalid'
         );
 
         (bytes32 incentiveId, Incentive memory incentive, Stake memory stake) =
@@ -271,8 +273,8 @@ contract UniswapV3Staker is
         (, secondsPerLiquidityInsideX128, ) = IUniswapV3Pool(poolAddress)
             .snapshotCumulativesInside(tickLower, tickUpper);
 
-        require(stake.exists == true, 'Stake does not exist');
-        require(incentive.rewardToken != address(0), 'BAD INCENTIVE');
+        require(stake.exists == true, 'nonexistent stake');
+        require(incentive.rewardToken != address(0), 'incentive not found');
 
         uint160 secondsInPeriodX128 =
             uint160(
@@ -287,7 +289,7 @@ contract UniswapV3Staker is
         uint160 totalSecondsUnclaimedX128 =
             uint160(
                 SafeMath.mul(
-                    Math.max(params.endTime, _blockTimestamp()) -
+                    Math.max(params.endTime, block.timestamp) -
                         params.startTime,
                     FixedPoint128.Q128
                 ) - incentive.totalSecondsClaimedX128
@@ -356,14 +358,11 @@ contract UniswapV3Staker is
             incentives[incentiveId].rewardToken != address(0),
             'non-existent incentive'
         );
-        require(
-            params.startTime <= block.timestamp,
-            'incentive not started yet'
-        );
+        require(params.startTime <= block.timestamp, 'incentive not started');
         require(params.endTime > block.timestamp, 'incentive ended');
         require(
             stakes[params.tokenId][incentiveId].exists != true,
-            'already staked'
+            'incentive already staked'
         );
 
         (, uint160 secondsPerLiquidityInsideX128, ) =
@@ -382,6 +381,11 @@ contract UniswapV3Staker is
         emit TokenStaked(params.tokenId, liquidity);
     }
 
+    /// @param tokenId The unique identifier of an Uniswap V3 LP token
+    /// @return pool The address of the Uniswap V3 pool
+    /// @return tickLower The lower tick of the Uniswap V3 position
+    /// @return tickUpper The upper tick of the Uniswap V3 position
+    /// @return liquidity The amount of liquidity staked
     function _getPositionDetails(uint256 tokenId)
         internal
         view
