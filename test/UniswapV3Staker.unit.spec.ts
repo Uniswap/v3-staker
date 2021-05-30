@@ -161,6 +161,7 @@ describe('UniswapV3Staker.unit', async () => {
         await expect(subject({ startTime, endTime, claimDeadline }))
           .to.emit(context.staker, 'IncentiveCreated')
           .withArgs(
+            incentiveCreator.address,
             context.rewardToken.address,
             context.pool01,
             startTime,
@@ -273,6 +274,7 @@ describe('UniswapV3Staker.unit', async () => {
         await expect(subject({}))
           .to.emit(context.staker, 'IncentiveEnded')
           .withArgs(
+            incentiveCreator.address,
             context.rewardToken.address,
             context.pool01,
             timestamps.startTime,

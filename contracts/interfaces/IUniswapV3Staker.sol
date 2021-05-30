@@ -10,12 +10,13 @@ interface IUniswapV3Staker {
     /// @param claimDeadline Time after which LPs can no longer claim rewards (and incentiveCreator can end the incentive and receive unclaimed rewards)
     /// @param totalReward The total amount of reward tokens to be distributed
     event IncentiveCreated(
+        address creator,
         address indexed rewardToken,
         address indexed pool,
         uint32 startTime,
         uint32 endTime,
         uint32 claimDeadline,
-        uint128 indexed totalReward
+        uint128 totalReward
     );
 
     /// @notice Event emitted when a liquidity mining incentive has ended
@@ -24,6 +25,7 @@ interface IUniswapV3Staker {
     /// @param startTime The time when the incentive program begins
     /// @param endTime The time when rewards stop accruing
     event IncentiveEnded(
+        address creator,
         address indexed rewardToken,
         address indexed pool,
         uint32 startTime,

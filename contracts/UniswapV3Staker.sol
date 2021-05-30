@@ -109,6 +109,7 @@ contract UniswapV3Staker is
         incentives[key] = Incentive(params.totalReward, 0, params.rewardToken);
 
         emit IncentiveCreated(
+            msg.sender,
             params.rewardToken,
             params.pool,
             params.startTime,
@@ -149,6 +150,7 @@ contract UniswapV3Staker is
         );
 
         emit IncentiveEnded(
+            msg.sender,
             params.rewardToken,
             params.pool,
             params.startTime,
