@@ -219,7 +219,7 @@ contract UniswapV3Staker is
         );
 
         (bytes32 incentiveId, Incentive memory incentive, Stake memory stake) =
-            _getUpdateIncentiveParams(params);
+            _getUpdateRewardParams(params);
         (uint128 reward, uint160 secondsInPeriodX128, ) =
             getRewardInfo(incentive, stake, params);
 
@@ -242,7 +242,7 @@ contract UniswapV3Staker is
             'NOT_YOUR_DEPOSIT'
         );
         (bytes32 incentiveId, Incentive memory incentive, Stake memory stake) =
-            _getUpdateIncentiveParams(params);
+            _getUpdateRewardParams(params);
         (
             uint128 reward,
             uint160 secondsInPeriodX128,
@@ -335,7 +335,7 @@ contract UniswapV3Staker is
         );
     }
 
-    function _getUpdateIncentiveParams(UpdateStakeParams memory params)
+    function _getUpdateRewardParams(UpdateStakeParams memory params)
         view
         internal
         returns (
