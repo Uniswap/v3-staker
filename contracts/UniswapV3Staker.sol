@@ -181,7 +181,7 @@ contract UniswapV3Staker is
         emit TokenDeposited(tokenId, from);
 
         if (data.length > 0) {
-            _stakeToken(abi.decode(data, (UpdateStakeParams)));
+            _stakeToken(abi.decode(data, (StakeParams)));
         }
         return this.onERC721Received.selector;
     }
@@ -198,7 +198,7 @@ contract UniswapV3Staker is
     }
 
     /// @inheritdoc IUniswapV3Staker
-    function stakeToken(UpdateStakeParams memory params) external override {
+    function stakeToken(StakeParams memory params) external override {
         require(
             deposits[params.tokenId].owner == msg.sender,
             'sender is not deposit owner'
@@ -208,7 +208,7 @@ contract UniswapV3Staker is
     }
 
     /// @inheritdoc IUniswapV3Staker
-    function unstakeToken(UpdateStakeParams memory params)
+    function unstakeToken(StakeParams memory params)
         external
         override
         nonReentrant
@@ -234,7 +234,7 @@ contract UniswapV3Staker is
     }
 
     function claimRewardFromExistingStake(
-        UpdateStakeParams memory params,
+        StakeParams memory params,
         address to
     ) external {
         require(
@@ -271,7 +271,7 @@ contract UniswapV3Staker is
     function getRewardInfo(
         Incentive memory incentive,
         Stake memory stake,
-        UpdateStakeParams memory params
+        StakeParams memory params
     )
         public
         view
@@ -335,7 +335,7 @@ contract UniswapV3Staker is
         );
     }
 
-    function _getUpdateRewardParams(UpdateStakeParams memory params)
+    function _getUpdateRewardParams(StakeParams memory params)
         view
         internal
         returns (
@@ -360,7 +360,7 @@ contract UniswapV3Staker is
         return (incentiveId, incentive, stake);
     }
 
-    function _stakeToken(UpdateStakeParams memory params) internal {
+    function _stakeToken(StakeParams memory params) internal {
         (address poolAddress, int24 tickLower, int24 tickUpper, ) =
             _getPositionDetails(params.tokenId);
 
