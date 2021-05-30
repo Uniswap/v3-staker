@@ -313,8 +313,8 @@ contract UniswapV3Staker is
     }
 
     function _stakeToken(StakeTokenParams memory params) internal {
-      require(params.startTime <= block.timestamp, 'incentive not started');
-      require(params.endTime > block.timestamp, 'incentive ended');
+        require(params.startTime <= block.timestamp, 'incentive not started');
+        require(params.endTime > block.timestamp, 'incentive ended');
 
         (address poolAddress, int24 tickLower, int24 tickUpper, ) =
             _getPositionDetails(params.tokenId);

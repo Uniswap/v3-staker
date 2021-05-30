@@ -33,7 +33,7 @@ interface IUniswapV3Staker {
         address indexed pool,
         uint32 startTime,
         uint32 endTime,
-        uint43 claimDeadline
+        uint32 claimDeadline
     );
 
     /// @notice Event emitted when a Uniswap V3 LP token has been deposited
@@ -49,7 +49,7 @@ interface IUniswapV3Staker {
     /// @notice Event emitted when a Uniswap V3 LP token has been staked
     /// @param tokenId The unique identifier of an Uniswap V3 LP token
     /// @param liquidity The amount of liquidity staked
-    /// @param incentiveId The incentive in which the token is staking 
+    /// @param incentiveId The incentive in which the token is staking
     event TokenStaked(uint256 tokenId, uint128 liquidity, bytes32 incentiveId);
 
     /// @notice Event emitted when a Uniswap V3 LP token has been unstaked
