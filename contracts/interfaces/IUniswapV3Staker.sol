@@ -43,11 +43,11 @@ interface IUniswapV3Staker {
     /// @notice Event emitted when a Uniswap V3 LP token has been staked
     /// @param tokenId The unique identifier of an Uniswap V3 LP token
     /// @param liquidity The amount of liquidity staked
-    event TokenStaked(uint256 tokenId, uint128 liquidity);
+    event TokenStaked(uint256 tokenId, uint128 liquidity, bytes32 incentiveId);
 
     /// @notice Event emitted when a Uniswap V3 LP token has been unstaked
     /// @param tokenId The unique identifier of an Uniswap V3 LP token
-    event TokenUnstaked(uint256 tokenId);
+    event TokenUnstaked(uint256 tokenId, bytes32 incentiveId);
 
     /// @notice Event emitted when a reward token has been claimed
     /// @param to The address where claimed rewards were sent to

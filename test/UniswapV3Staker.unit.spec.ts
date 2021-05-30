@@ -471,6 +471,7 @@ describe('UniswapV3Staker.unit', async () => {
     let tokenId: string
 
     describe('#stakeToken', () => {
+      let incentiveId: string
       let subject: (_tokenId: string, _actor?: Wallet) => Promise<any>
       let timestamps: ContractParams.Timestamps
 
@@ -512,6 +513,14 @@ describe('UniswapV3Staker.unit', async () => {
           ...timestamps,
         }
         const incentive = await helpers.createIncentiveFlow(incentiveParams)
+        incentiveId = await context.incentiveHelper.getIncentiveId(
+          incentiveCreator.address,
+          context.rewardToken.address,
+          context.pool01,
+          timestamps.startTime,
+          timestamps.endTime,
+          timestamps.claimDeadline
+        )
 
         subject = (_tokenId: string, _actor: Wallet = lpUser0) =>
           context.staker.connect(_actor).stakeToken({
@@ -532,19 +541,11 @@ describe('UniswapV3Staker.unit', async () => {
           const { liquidity } = await context.nft.positions(tokenId)
           await expect(subject(tokenId))
             .to.emit(context.staker, 'TokenStaked')
-            .withArgs(tokenId, liquidity)
+            .withArgs(tokenId, liquidity, incentiveId)
         })
 
         it('sets the stake struct properly', async () => {
           const liquidity = (await context.nft.positions(tokenId)).liquidity
-          const incentiveId = await context.incentiveHelper.getIncentiveId(
-            incentiveCreator.address,
-            context.rewardToken.address,
-            context.pool01,
-            timestamps.startTime,
-            timestamps.endTime,
-            timestamps.claimDeadline
-          )
 
           const stakeBefore = await context.staker.stakes(tokenId, incentiveId)
           const nStakesBefore = (await context.staker.deposits(tokenId))
@@ -600,6 +601,7 @@ describe('UniswapV3Staker.unit', async () => {
     })
 
     describe('#unstakeToken', () => {
+      let incentiveId: string
       let subject: () => Promise<any>
 
       beforeEach(async () => {
@@ -646,6 +648,15 @@ describe('UniswapV3Staker.unit', async () => {
           ...timestamps,
         })
 
+        incentiveId = await context.incentiveHelper.getIncentiveId(
+          incentiveCreator.address,
+          context.rewardToken.address,
+          context.pool01,
+          timestamps.startTime,
+          timestamps.endTime,
+          timestamps.claimDeadline
+        )
+
         subject = () =>
           context.staker.connect(lpUser0).unstakeToken({
             creator: incentiveCreator.address,
@@ -670,7 +681,7 @@ describe('UniswapV3Staker.unit', async () => {
         it('emits an unstaked event', async () => {
           await expect(subject())
             .to.emit(context.staker, 'TokenUnstaked')
-            .withArgs(tokenId)
+            .withArgs(tokenId, incentiveId)
         })
 
         it('has gas cost', async () => {
@@ -693,14 +704,6 @@ describe('UniswapV3Staker.unit', async () => {
 
         it('updates the stake struct', async () => {
           const liquidity = (await context.nft.positions(tokenId)).liquidity
-          const incentiveId = await context.incentiveHelper.getIncentiveId(
-            incentiveCreator.address,
-            context.rewardToken.address,
-            context.pool01,
-            timestamps.startTime,
-            timestamps.endTime,
-            timestamps.claimDeadline
-          )
 
           const stakeBefore = await context.staker.stakes(tokenId, incentiveId)
           await subject()
