@@ -277,6 +277,7 @@ contract UniswapV3Staker is
             SafeMath.sub(incentive.totalRewardUnclaimed, reward)
         );
 
+        // Makes rewards available to claimReward
         rewards[incentive.rewardToken][msg.sender] = uint128(
             SafeMath.add(rewards[incentive.rewardToken][msg.sender], reward)
         );

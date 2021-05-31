@@ -25,7 +25,11 @@ import {
   BNe,
 } from './shared'
 import { createTimeMachine } from './shared/time'
-import { ERC20Helper, HelperCommands } from './helpers'
+import {
+  ERC20Helper,
+  HelperCommands,
+  incentiveResultToStakeAdapter,
+} from './helpers'
 import { createFixtureLoader, provider } from './shared/provider'
 import { ActorFixture } from './shared/actors'
 import { Fixture } from 'ethereum-waffle'
@@ -71,11 +75,12 @@ describe('UniswapV3Staker.integration', async () => {
       } = context
       const helpers = new HelperCommands({
         provider,
+        actors,
         staker: context.staker,
+        router: context.router,
         nft: context.nft,
         pool: context.poolObj,
-        router: context.router,
-        actors,
+        testIncentiveId: context.testIncentiveId,
       })
       const tokensToStake: [TestERC20, TestERC20] = [token0, token1]
 
@@ -120,7 +125,7 @@ describe('UniswapV3Staker.integration', async () => {
       subject = await loadFixture(scenario)
     })
 
-    describe('who all stake the entire time ', async () => {
+    describe('who all stake the entire time ', () => {
       it('allows them all to withdraw at the end', async () => {
         const { helpers, createIncentiveResult } = subject
         await Time.set(createIncentiveResult.endTime + 1)
@@ -144,6 +149,82 @@ describe('UniswapV3Staker.integration', async () => {
           createIncentiveResult,
         })
         expect(rewardsEarned.add(amountReturnedToCreator)).to.eq(totalReward)
+      })
+
+      describe('time goes past the incentive claimDeadline', () => {
+        it('still allows an LP to unstake if they have not already', async () => {
+          const {
+            createIncentiveResult,
+            context: { nft, staker },
+            stakes,
+          } = subject
+
+          // Simple wrapper functions since we will call these several times
+          const actions = {
+            doUnstake: (params: HelperTypes.MintStake.Result) =>
+              staker
+                .connect(params.lp)
+                .unstakeToken(
+                  incentiveResultToStakeAdapter(
+                    createIncentiveResult,
+                    params.tokenId
+                  )
+                ),
+
+            doWithdraw: (params: HelperTypes.MintStake.Result) =>
+              staker
+                .connect(params.lp)
+                .withdrawToken(params.tokenId, params.lp.address),
+
+            doClaimRewards: (params: HelperTypes.MintStake.Result) =>
+              staker
+                .connect(params.lp)
+                .claimReward(
+                  createIncentiveResult.rewardToken.address,
+                  params.lp.address
+                ),
+          }
+
+          await Time.set(createIncentiveResult.claimDeadline + 1)
+
+          // First make sure it is still owned by the staker
+          expect(await nft.ownerOf(stakes[0].tokenId)).to.eq(staker.address)
+
+          // The incentive has not yet been ended by the creator
+          const incentiveId = await subject.helpers.getIncentiveId(
+            createIncentiveResult
+          )
+
+          // It allows the token to be unstaked the first time
+          await expect(actions.doUnstake(stakes[0]))
+            .to.emit(staker, 'TokenUnstaked')
+            .withArgs(stakes[0].tokenId, incentiveId)
+
+          // It does not allow them to claim rewards (since we're past claimDeadline)
+          await actions.doClaimRewards(stakes[0])
+
+          // Right now they're still getting rewards since rewards can be claimed past claimDeadline
+          // expect(
+          //   await createIncentiveResult.rewardToken.balanceOf(
+          //     stakes[0].lp.address
+          //   )
+          // ).to.eq(BN('0'))
+
+          // Owner is still the staker
+          expect(await nft.ownerOf(stakes[0].tokenId)).to.eq(staker.address)
+
+          // Now withdraw it
+          await expect(actions.doWithdraw(stakes[0]))
+            .to.emit(staker, 'TokenWithdrawn')
+            .withArgs(stakes[0].tokenId, stakes[0].lp.address)
+
+          // Owner is now the LP
+          expect(await nft.ownerOf(stakes[0].tokenId)).to.eq(
+            stakes[0].lp.address
+          )
+        })
+
+        it('does not allow the LP to claim rewards', async () => {})
       })
     })
 
@@ -350,6 +431,7 @@ describe('UniswapV3Staker.integration', async () => {
         pool: context.poolObj,
         router: context.router,
         actors,
+        testIncentiveId: context.testIncentiveId,
       })
 
       const epoch = await blockTimestamp()
