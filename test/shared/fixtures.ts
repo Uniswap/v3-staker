@@ -8,7 +8,7 @@ import NFTDescriptorJson from '@uniswap/v3-periphery/artifacts/contracts/librari
 import NonfungiblePositionManagerJson from '@uniswap/v3-periphery/artifacts/contracts/NonfungiblePositionManager.sol/NonfungiblePositionManager.json'
 import NonfungibleTokenPositionDescriptor from '@uniswap/v3-periphery/artifacts/contracts/NonfungibleTokenPositionDescriptor.sol/NonfungibleTokenPositionDescriptor.json'
 import SwapRouter from '@uniswap/v3-periphery/artifacts/contracts/SwapRouter.sol/SwapRouter.json'
-import WETH9 from '../contracts/WETH9.json'
+import WETH9 from './external/WETH9.json'
 import { linkLibraries } from './linkLibraries'
 import { ISwapRouter } from '../../types/ISwapRouter'
 import { IWETH9 } from '../../types/IWETH9'
@@ -220,7 +220,7 @@ export type UniswapFixtureType = {
   poolObj: IUniswapV3Pool
   router: ISwapRouter
   staker: UniswapV3Staker
-  incentiveHelper: TestIncentiveID
+  testIncentiveId: TestIncentiveID
   tokens: [TestERC20, TestERC20, TestERC20]
   token0: TestERC20
   token1: TestERC20
@@ -244,11 +244,11 @@ export const uniswapFixture: Fixture<UniswapFixtureType> = async (
     nft.address
   )) as UniswapV3Staker
 
-  const incentiveHelperFactory = await ethers.getContractFactory(
+  const testIncentiveIdFactory = await ethers.getContractFactory(
     'TestIncentiveID',
     signer
   )
-  const incentiveHelper = (await incentiveHelperFactory.deploy()) as TestIncentiveID
+  const testIncentiveId = (await testIncentiveIdFactory.deploy()) as TestIncentiveID
 
   for (const token of tokens) {
     await token.approve(nft.address, constants.MaxUint256)
@@ -288,7 +288,7 @@ export const uniswapFixture: Fixture<UniswapFixtureType> = async (
     router,
     tokens,
     staker,
-    incentiveHelper,
+    testIncentiveId,
     factory,
     pool01,
     pool12,
