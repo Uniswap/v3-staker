@@ -429,6 +429,12 @@ describe('UniswapV3Staker.unit', async () => {
           await expect(subject(tokenId, recipient)).to.be.reverted
         })
 
+        it('deletes deposit upon withdrawal', async () => {
+          expect((await context.staker.deposits(tokenId)).owner).to.equal(lpUser0.address)
+          await subject(tokenId, recipient)
+          expect((await context.staker.deposits(tokenId)).owner).to.equal(constants.AddressZero)
+        })
+
         it('has gas cost', async () =>
           await snapshotGasCost(subject(tokenId, recipient)))
       })

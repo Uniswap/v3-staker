@@ -195,6 +195,7 @@ contract UniswapV3Staker is
         require(deposit.numberOfStakes == 0, 'nonzero num of stakes');
         require(deposit.owner == msg.sender, 'sender is not nft owner');
 
+        delete deposits[tokenId];
         nonfungiblePositionManager.safeTransferFrom(address(this), to, tokenId);
         emit TokenWithdrawn(tokenId, to);
     }
