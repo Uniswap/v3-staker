@@ -139,7 +139,7 @@ interface IUniswapV3Staker {
     /// @param startTime The time when the incentive program begins
     /// @param endTime The time when rewards stop accruing
     /// @param claimDeadline Time after which LPs can no longer claim rewards (and incentiveCreator can end the incentive and receive unclaimed rewards)
-    struct StakeTokenParams {
+    struct UpdateStakeParams {
         address creator;
         address rewardToken;
         uint256 tokenId;
@@ -149,25 +149,10 @@ interface IUniswapV3Staker {
     }
 
     /// @notice Stakes a Uniswap V3 LP token
-    function stakeToken(StakeTokenParams memory params) external;
-
-    /// @param creator The address that created this incentive
-    /// @param rewardToken The address of the token being distributed as a reward
-    /// @param tokenId The address of the Uniswap V3 pool
-    /// @param startTime The time when the incentive program begins
-    /// @param endTime The time when rewards stop accruing
-    /// @param claimDeadline Time after which LPs can no longer claim rewards (and incentiveCreator can end the incentive and receive unclaimed rewards)
-    struct UnstakeTokenParams {
-        address creator;
-        address rewardToken;
-        uint256 tokenId;
-        uint32 startTime;
-        uint32 endTime;
-        uint32 claimDeadline;
-    }
+    function stakeToken(UpdateStakeParams memory params) external;
 
     /// @notice Unstakes a Uniswap V3 LP token
-    function unstakeToken(UnstakeTokenParams memory params) external;
+    function unstakeToken(UpdateStakeParams memory params) external;
 
     /// @notice Transfers accrued `rewardToken` rewards from the contarct to the recipient `to`
     /// @param rewardToken The address of the token being distributed as a reward

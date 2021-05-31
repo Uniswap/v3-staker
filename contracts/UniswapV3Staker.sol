@@ -167,7 +167,7 @@ contract UniswapV3Staker is
         emit TokenDeposited(tokenId, from);
 
         if (data.length > 0) {
-            _stakeToken(abi.decode(data, (StakeTokenParams)));
+            _stakeToken(abi.decode(data, (UpdateStakeParams)));
         }
         return this.onERC721Received.selector;
     }
@@ -184,7 +184,7 @@ contract UniswapV3Staker is
     }
 
     /// @inheritdoc IUniswapV3Staker
-    function stakeToken(StakeTokenParams memory params) external override {
+    function stakeToken(UpdateStakeParams memory params) external override {
         require(
             deposits[params.tokenId].owner == msg.sender,
             'sender is not deposit owner'
@@ -194,7 +194,7 @@ contract UniswapV3Staker is
     }
 
     /// @inheritdoc IUniswapV3Staker
-    function unstakeToken(UnstakeTokenParams memory params)
+    function unstakeToken(UpdateStakeParams memory params)
         external
         override
         nonReentrant
@@ -297,7 +297,7 @@ contract UniswapV3Staker is
         emit RewardClaimed(to, reward);
     }
 
-    function _stakeToken(StakeTokenParams memory params) internal {
+    function _stakeToken(UpdateStakeParams memory params) internal {
         require(params.startTime <= block.timestamp, 'incentive not started');
         require(params.endTime > block.timestamp, 'incentive ended');
 
