@@ -205,17 +205,8 @@ contract UniswapV3Staker is
         );
 
         deposits[params.tokenId].numberOfStakes -= 1;
-
-        (address poolAddress, int24 tickLower, int24 tickUpper, ) =
+        (address poolAddress, , , ) =
             _getPositionDetails(params.tokenId);
-
-        require(poolAddress != address(0), 'INVALID_POSITION');
-
-        (, uint160 secondsPerLiquidityInsideX128, ) =
-            IUniswapV3Pool(poolAddress).snapshotCumulativesInside(
-                tickLower,
-                tickUpper
-            );
 
         bytes32 incentiveId =
             IncentiveHelper.getIncentiveId(
@@ -233,7 +224,39 @@ contract UniswapV3Staker is
         require(stake.exists == true, 'nonexistent stake');
         require(incentive.rewardToken != address(0), 'incentive not found');
 
-        uint160 secondsInPeriodX128 =
+        (uint128 reward, uint160 secondsInPeriodX128) = getRewardAmount(stake, incentive, params);
+
+        incentives[incentiveId].totalSecondsClaimedX128 += secondsInPeriodX128;
+
+        // TODO: is SafeMath necessary here? Could we do just a subtraction?
+        incentives[incentiveId].totalRewardUnclaimed = uint128(
+            SafeMath.sub(incentive.totalRewardUnclaimed, reward)
+        );
+
+        // Makes rewards available to claimReward
+        rewards[incentive.rewardToken][msg.sender] = uint128(
+            SafeMath.add(rewards[incentive.rewardToken][msg.sender], reward)
+        );
+
+        delete stakes[params.tokenId][incentiveId];
+        emit TokenUnstaked(params.tokenId, incentiveId);
+    }
+
+    function getRewardAmount(Stake memory stake, Incentive memory incentive, UpdateStakeParams memory params)
+      public
+      view
+      returns (uint128 reward, uint160 secondsInPeriodX128){
+
+        (address poolAddress, int24 tickLower, int24 tickUpper, ) =
+            _getPositionDetails(params.tokenId);
+
+        (, uint160 secondsPerLiquidityInsideX128, ) =
+            IUniswapV3Pool(poolAddress).snapshotCumulativesInside(
+                tickLower,
+                tickUpper
+            );
+
+        secondsInPeriodX128 =
             uint160(
                 SafeMath.mul(
                     secondsPerLiquidityInsideX128 -
@@ -261,7 +284,7 @@ contract UniswapV3Staker is
             );
 
         // TODO: make sure casting is ok here
-        uint128 reward =
+        reward =
             uint128(
                 FullMath.mulDiv(
                     secondsInPeriodX128,
@@ -269,22 +292,6 @@ contract UniswapV3Staker is
                     FixedPoint128.Q128
                 )
             );
-
-        incentives[incentiveId].totalSecondsClaimedX128 += secondsInPeriodX128;
-
-        // TODO: is SafeMath necessary here? Could we do just a subtraction?
-        incentives[incentiveId].totalRewardUnclaimed = uint128(
-            SafeMath.sub(incentive.totalRewardUnclaimed, reward)
-        );
-
-        // Makes rewards available to claimReward
-        rewards[incentive.rewardToken][msg.sender] = uint128(
-            SafeMath.add(rewards[incentive.rewardToken][msg.sender], reward)
-        );
-
-        delete stakes[params.tokenId][incentiveId];
-
-        emit TokenUnstaked(params.tokenId, incentiveId);
     }
 
     /// @inheritdoc IUniswapV3Staker

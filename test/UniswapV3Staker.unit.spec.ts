@@ -1,8 +1,7 @@
 import { constants, BigNumberish, Wallet } from 'ethers'
 import { LoadFixtureFunction } from './types'
 import { ethers } from 'hardhat'
-import { UniswapV3Staker } from '../typechain/UniswapV3Staker'
-import { TestERC20 } from '../typechain'
+import { UniswapV3Staker, IUniswapV3Pool, TestERC20 } from '../typechain'
 import {
   uniswapFixture,
   mintPosition,
@@ -23,6 +22,7 @@ import {
   erc20Wrap,
   makeTimestamps,
   maxGas,
+  setTime,
 } from './shared'
 import { createFixtureLoader, provider } from './shared/provider'
 import {
@@ -610,6 +610,96 @@ describe('UniswapV3Staker.unit', async () => {
           )
         })
       })
+    })
+
+    describe('#getRewardAmount', async () => {
+        let incentiveId: string
+        let subject: (stake: HelperTypes.Stake, incentive:  HelperTypes.Incentive) => Promise<any>
+        let timestamps: ContractParams.Timestamps
+        let stake: HelperTypes.Stake
+        let incentive: HelperTypes.Incentive
+
+        beforeEach(async () => {
+          timestamps = makeTimestamps(await blockTimestamp() + 1_000)
+
+          await erc20Helper.ensureBalancesAndApprovals(
+            lpUser0,
+            [context.token0, context.token1],
+            amountDesired,
+            context.nft.address
+          )
+
+          tokenId = await mintPosition(context.nft.connect(lpUser0), {
+            token0: context.token0.address,
+            token1: context.token1.address,
+            fee: FeeAmount.MEDIUM,
+            tickLower: getMinTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
+            tickUpper: getMaxTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
+            recipient: lpUser0.address,
+            amount0Desired: amountDesired,
+            amount1Desired: amountDesired,
+            amount0Min: 0,
+            amount1Min: 0,
+            deadline: (await blockTimestamp()) + 1000,
+          })
+
+          await context.nft
+            .connect(lpUser0)
+            .approve(context.staker.address, tokenId, { gasLimit: MAX_GAS_LIMIT })
+
+          await context.staker.connect(lpUser0).depositToken(tokenId)
+          const incentiveParams: HelperTypes.CreateIncentive.Args = {
+            rewardToken: context.rewardToken,
+            totalReward,
+            poolAddress: context.poolObj.address,
+            ...timestamps,
+          }
+          const stakeParams = {
+            creator: incentiveCreator.address,
+            rewardToken: context.rewardToken.address,
+            tokenId,
+            ...timestamps,
+          }
+
+          incentiveId = await helpers.getIncentiveId(
+            await helpers.createIncentiveFlow(incentiveParams)
+          )
+
+          await setTime(timestamps.startTime)
+          await context.staker.connect(lpUser0).stakeToken({
+            creator: incentiveCreator.address,
+            rewardToken: context.rewardToken.address,
+            tokenId,
+            ...timestamps,
+          })
+          stake = await context.staker.stakes(tokenId, incentiveId)
+          incentive = await context.staker.incentives(incentiveId)
+          subject = (stake: HelperTypes.Stake, incentive:  HelperTypes.Incentive) => {
+            return context.staker.connect(lpUser0).getRewardAmount(stake, incentive, stakeParams)
+          }
+      })
+
+      it('returns correct rewardAmount and secondsInPeriodX128 for the position', async () => {
+        const pool = context.poolObj.connect(actors.lpUser0())
+        const stakeParams = {
+          creator: incentiveCreator.address,
+          rewardToken: context.rewardToken.address,
+          tokenId,
+          ...timestamps,
+        }
+
+        await provider.send("evm_mine", [timestamps.startTime + 100])
+        const result = await context.staker.connect(lpUser0).getRewardAmount(stake, incentive, stakeParams)
+        const position = await context.nft.positions(tokenId)
+        const secondsInside = (await pool.snapshotCumulativesInside(position.tickLower, position.tickUpper)).secondsPerLiquidityInsideX128
+
+        const expectedSecondsInPeriod = secondsInside.sub(stake.secondsPerLiquidityInitialX128).mul(stake.liquidity)
+        expect(result.reward).to.eq(BN(1).mul(BN(10).pow(19)))
+        expect(result.secondsInPeriodX128).to.eq(expectedSecondsInPeriod)
+      })
+
+
+      it('returns 0 for nonexistent positions')
     })
 
     describe('#claimReward', () => {
