@@ -25,14 +25,6 @@ export module HelperTypes {
     claimDeadline: number
   }
 
-  export type EndIncentiveParams = {
-    creator: string
-    rewardToken: string
-    startTime: number
-    endTime: number
-    claimDeadline: number
-  }
-
   export module CreateIncentive {
     export type Args = {
       rewardToken: TestERC20

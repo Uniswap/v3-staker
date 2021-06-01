@@ -619,7 +619,6 @@ describe('UniswapV3Staker.unit', async () => {
         let stake: HelperTypes.Stake
         let incentive: HelperTypes.Incentive
         let stakeParams: HelperTypes.UpdateStakeParams
-        let endIncentiveParams: HelperTypes.EndIncentiveParams
 
         beforeEach(async () => {
           timestamps = makeTimestamps(await blockTimestamp() + 1_000)
