@@ -16,6 +16,23 @@ export module HelperTypes {
     exists: boolean
   }
 
+  export type UpdateStakeParams = {
+    creator: string
+    rewardToken: string
+    tokenId: string
+    startTime: number
+    endTime: number
+    claimDeadline: number
+  }
+
+  export type EndIncentiveParams = {
+    creator: string
+    rewardToken: string
+    startTime: number
+    endTime: number
+    claimDeadline: number
+  }
+
   export module CreateIncentive {
     export type Args = {
       rewardToken: TestERC20

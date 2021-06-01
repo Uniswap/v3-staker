@@ -618,6 +618,8 @@ describe('UniswapV3Staker.unit', async () => {
         let timestamps: ContractParams.Timestamps
         let stake: HelperTypes.Stake
         let incentive: HelperTypes.Incentive
+        let stakeParams: HelperTypes.UpdateStakeParams
+        let endIncentiveParams: HelperTypes.EndIncentiveParams
 
         beforeEach(async () => {
           timestamps = makeTimestamps(await blockTimestamp() + 1_000)
@@ -654,7 +656,7 @@ describe('UniswapV3Staker.unit', async () => {
             poolAddress: context.poolObj.address,
             ...timestamps,
           }
-          const stakeParams = {
+          stakeParams = {
             creator: incentiveCreator.address,
             rewardToken: context.rewardToken.address,
             tokenId,
@@ -675,21 +677,15 @@ describe('UniswapV3Staker.unit', async () => {
           stake = await context.staker.stakes(tokenId, incentiveId)
           incentive = await context.staker.incentives(incentiveId)
           subject = (stake: HelperTypes.Stake, incentive:  HelperTypes.Incentive) => {
-            return context.staker.connect(lpUser0).getRewardAmount(stake, incentive, stakeParams)
+            return context.staker.connect(lpUser0).getRewardAmount(stakeParams)
           }
       })
 
       it('returns correct rewardAmount and secondsInPeriodX128 for the position', async () => {
         const pool = context.poolObj.connect(actors.lpUser0())
-        const stakeParams = {
-          creator: incentiveCreator.address,
-          rewardToken: context.rewardToken.address,
-          tokenId,
-          ...timestamps,
-        }
 
         await provider.send("evm_mine", [timestamps.startTime + 100])
-        const result = await context.staker.connect(lpUser0).getRewardAmount(stake, incentive, stakeParams)
+        const result = await context.staker.connect(lpUser0).getRewardAmount(stakeParams)
         const position = await context.nft.positions(tokenId)
         const secondsInside = (await pool.snapshotCumulativesInside(position.tickLower, position.tickUpper)).secondsPerLiquidityInsideX128
 
@@ -699,7 +695,16 @@ describe('UniswapV3Staker.unit', async () => {
       })
 
 
-      it('returns 0 for nonexistent positions')
+      it('returns 0 for ended incentives', async () => {
+        await setTime(timestamps.claimDeadline + 1)
+        await context.staker.connect(incentiveCreator).endIncentive({
+          rewardToken: context.rewardToken.address,
+          pool: context.pool01,
+          ...timestamps,
+        })
+        const result = await context.staker.connect(lpUser0).getRewardAmount(stakeParams)
+        expect(result.reward).to.equal(0)
+      })
     })
 
     describe('#claimReward', () => {

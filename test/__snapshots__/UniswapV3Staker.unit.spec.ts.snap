@@ -1,17 +1,17 @@
 // Jest Snapshot v1, https://goo.gl/fbAQLP
 
-exports[`UniswapV3Staker.unit #onERC721Received on successful transfer with staking data has gas cost 1`] = `202016`;
+exports[`UniswapV3Staker.unit #onERC721Received on successful transfer with staking data has gas cost 1`] = `201927`;
 
-exports[`UniswapV3Staker.unit Deposits #depositToken works and has gas cost 1`] = `96861`;
+exports[`UniswapV3Staker.unit Deposits #depositToken works and has gas cost 1`] = `96839`;
 
-exports[`UniswapV3Staker.unit Deposits #withdrawToken works and has gas cost 1`] = `74198`;
+exports[`UniswapV3Staker.unit Deposits #withdrawToken works and has gas cost 1`] = `74265`;
 
-exports[`UniswapV3Staker.unit Incentives #createIncentive works and has gas cost 1`] = `82751`;
+exports[`UniswapV3Staker.unit Incentives #createIncentive works and has gas cost 1`] = `82729`;
 
-exports[`UniswapV3Staker.unit Incentives #endIncentive works and has gas cost 1`] = `38695`;
+exports[`UniswapV3Staker.unit Incentives #endIncentive works and has gas cost 1`] = `38728`;
 
 exports[`UniswapV3Staker.unit Stakes #claimReward has gas cost 1`] = `46949`;
 
-exports[`UniswapV3Staker.unit Stakes #stakeToken works and has gas cost 1`] = `122817`;
+exports[`UniswapV3Staker.unit Stakes #stakeToken works and has gas cost 1`] = `122728`;
 
-exports[`UniswapV3Staker.unit Stakes #unstakeToken works and has gas cost 1`] = `111189`;
+exports[`UniswapV3Staker.unit Stakes #unstakeToken works and has gas cost 1`] = `112596`;

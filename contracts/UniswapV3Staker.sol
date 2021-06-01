@@ -224,7 +224,7 @@ contract UniswapV3Staker is
         require(stake.exists == true, 'nonexistent stake');
         require(incentive.rewardToken != address(0), 'incentive not found');
 
-        (uint128 reward, uint160 secondsInPeriodX128) = getRewardAmount(stake, incentive, params);
+        (uint128 reward, uint160 secondsInPeriodX128) = getRewardAmount(params);
 
         incentives[incentiveId].totalSecondsClaimedX128 += secondsInPeriodX128;
 
@@ -242,13 +242,27 @@ contract UniswapV3Staker is
         emit TokenUnstaked(params.tokenId, incentiveId);
     }
 
-    function getRewardAmount(Stake memory stake, Incentive memory incentive, UpdateStakeParams memory params)
+    function getRewardAmount(UpdateStakeParams memory params)
       public
       view
       returns (uint128 reward, uint160 secondsInPeriodX128){
 
-        (address poolAddress, int24 tickLower, int24 tickUpper, ) =
-            _getPositionDetails(params.tokenId);
+
+      (address poolAddress, int24 tickLower, int24 tickUpper, ) =
+          _getPositionDetails(params.tokenId);
+
+        bytes32 incentiveId =
+            IncentiveHelper.getIncentiveId(
+                params.creator,
+                params.rewardToken,
+                poolAddress,
+                params.startTime,
+                params.endTime,
+                params.claimDeadline
+            );
+
+        Incentive memory incentive = incentives[incentiveId];
+        Stake memory stake = stakes[params.tokenId][incentiveId];
 
         (, uint160 secondsPerLiquidityInsideX128, ) =
             IUniswapV3Pool(poolAddress).snapshotCumulativesInside(
