@@ -3,6 +3,7 @@ import '@typechain/hardhat'
 import '@nomiclabs/hardhat-ethers'
 import '@nomiclabs/hardhat-waffle'
 import '@nomiclabs/hardhat-etherscan'
+import 'hardhat-contract-sizer'
 
 import { HardhatUserConfig } from 'hardhat/config'
 
@@ -72,6 +73,11 @@ const config: HardhatUserConfig = {
   },
   solidity: {
     compilers: [DEFAULT_COMPILER_SETTINGS],
+  },
+  contractSizer: {
+    alphaSort: false,
+    disambiguatePaths: true,
+    runOnCompile: false,
   },
 }
 

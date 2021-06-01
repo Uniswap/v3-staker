@@ -48,6 +48,7 @@
     "ethereum-waffle": "^3.0.2",
     "ethers": "^5.0.8",
     "hardhat": "^2.2.0",
+    "hardhat-contract-sizer": "^2.0.3",
     "is-svg": "^4.3.1",
     "lodash": "^4.17.21",
     "mocha": "^6.2.2",
@@ -66,6 +67,7 @@
   },
   "scripts": {
     "compile": "hardhat compile",
+    "size-contracts": "hardhat size-contracts",
     "test": "hardhat test",
     "compile-uniswap": "hardhat compile-uniswap",
     "postinstall": "yarn compile-uniswap",

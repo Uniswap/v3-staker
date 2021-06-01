@@ -21,3 +21,9 @@ $ yarn test
 # if gas snapshots need to be updated
 $ UPDATE_SNAPSHOT=1 yarn test
 ```
+
+## Contract Sizing
+
+```sh
+$ yarn size-contracts
+```
