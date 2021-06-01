@@ -23,6 +23,7 @@ import {
   bnSum,
   getCurrentTick,
   BNe,
+  mintPosition,
 } from './shared'
 import { createTimeMachine } from './shared/time'
 import {
@@ -228,7 +229,7 @@ describe('UniswapV3Staker.integration', async () => {
       })
     })
 
-    describe('when one LP unstakes halfway through', async () => {
+    describe('when one LP unstakes halfway through', () => {
       it('only gives them one sixth the total reward', async () => {
         const { helpers, createIncentiveResult, stakes } = subject
         const { startTime, endTime } = createIncentiveResult
@@ -348,7 +349,7 @@ describe('UniswapV3Staker.integration', async () => {
       })
     })
 
-    describe('when another LP starts staking halfway through', async () => {
+    describe('when another LP starts staking halfway through', () => {
       describe('and provides half the liquidity', async () => {
         it('gives them a smaller share of the reward', async () => {
           const { helpers, createIncentiveResult, stakes, context } = subject
@@ -363,24 +364,22 @@ describe('UniswapV3Staker.integration', async () => {
             context.tokens[1],
           ]
 
-          stakes.push(
-            await helpers.mintDepositStakeFlow({
-              tokensToStake,
-              amountsToStake: amountsToStake.map((a) => a.div(2)) as [
-                BigNumber,
-                BigNumber
-              ],
-              createIncentiveResult,
-              ticks: ticksToStake,
-              lp: lpUser3,
-            })
-          )
+          const extraStake = await helpers.mintDepositStakeFlow({
+            tokensToStake,
+            amountsToStake: amountsToStake.map((a) => a.div(2)) as [
+              BigNumber,
+              BigNumber
+            ],
+            createIncentiveResult,
+            ticks: ticksToStake,
+            lp: lpUser3,
+          })
 
           // Now, go to the end and get rewards
           await Time.set(endTime + 1)
 
           const unstakes = await Promise.all(
-            stakes.map(({ lp, tokenId }) =>
+            stakes.concat(extraStake).map(({ lp, tokenId }) =>
               helpers.unstakeCollectBurnFlow({
                 lp,
                 tokenId,
@@ -403,9 +402,87 @@ describe('UniswapV3Staker.integration', async () => {
         })
       })
     })
+
+    describe('when another LP adds liquidity but does not stake', () => {
+      it('still changes the reward amounts', async () => {
+        const { helpers, createIncentiveResult, context, stakes } = subject
+
+        // Go halfway through
+        await Time.set(createIncentiveResult.startTime + duration / 2)
+
+        const lpUser3 = actors.traderUser2()
+
+        // The non-staking user will deposit 25x the liquidity as the others
+        const balanceDeposited = amountsToStake[0]
+
+        // Someone starts staking
+        await e20h.ensureBalancesAndApprovals(
+          lpUser3,
+          [context.token0, context.token1],
+          balanceDeposited,
+          context.nft.address
+        )
+
+        await mintPosition(context.nft.connect(lpUser3), {
+          token0: context.token0.address,
+          token1: context.token1.address,
+          fee: FeeAmount.MEDIUM,
+          tickLower: ticksToStake[0],
+          tickUpper: ticksToStake[1],
+          recipient: lpUser3.address,
+          amount0Desired: balanceDeposited,
+          amount1Desired: balanceDeposited,
+          amount0Min: 0,
+          amount1Min: 0,
+          deadline: (await blockTimestamp()) + 1000,
+        })
+
+        await Time.set(createIncentiveResult.endTime + 1)
+
+        const unstakes = await Promise.all(
+          stakes.map(({ lp, tokenId }) =>
+            helpers.unstakeCollectBurnFlow({
+              lp,
+              tokenId,
+              createIncentiveResult,
+            })
+          )
+        )
+
+        /**
+         * The reward distributed to LPs should be:
+         *
+         * totalReward: is 3_000e18
+         *
+         * Incentive Start -> Halfway Through:
+         * 3 LPs, all staking the same amount. Each LP gets roughly (totalReward/2) * (1/3)
+         */
+        const firstHalfRewards = totalReward.div(BN('2'))
+
+        /**
+         * Halfway Through -> Incentive End:
+         * 4 LPs, all providing the same liquidity. Only 3 LPs are staking, so they should
+         * each get 1/4 the liquidity for that time. So That's 1/4 * 1/2 * 3_000e18 per staked LP.
+         * */
+        const secondHalfRewards = totalReward.div(BN('2')).mul('3').div('4')
+        const rewardsEarned = bnSum(unstakes.map((s) => s.balance))
+        expect(rewardsEarned).to.be.closeTo(
+          // @ts-ignore
+          firstHalfRewards.add(secondHalfRewards),
+          BNe(5, 16)
+        )
+
+        await Time.set(createIncentiveResult.claimDeadline + 1)
+        const { amountReturnedToCreator } = await helpers.endIncentiveFlow({
+          createIncentiveResult,
+        })
+
+        expect(amountReturnedToCreator.add(rewardsEarned)).to.eq(totalReward)
+      })
+    })
   })
 
-  describe('when there are different ranges staked', async () => {
+  describe('when there are different ranges staked', () => {
     type TestSubject = {
       createIncentiveResult: HelperTypes.CreateIncentive.Result
       helpers: HelperCommands
@@ -561,9 +638,5 @@ describe('UniswapV3Staker.integration', async () => {
         })
       ).to.be.reverted
     })
-  })
-
-  describe('an unstaked LP adds liquidity', () => {
-    it('decreases rewards based on that increase', async () => {})
   })
 })

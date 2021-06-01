@@ -125,7 +125,6 @@ export class HelperCommands {
    */
   mintDepositStakeFlow: HelperTypes.MintStake.Command = async (params) => {
     // Make sure LP has enough balance
-    const tokensOwner = this.actors.tokensOwner()
     const bal0 = await params.tokensToStake[0].balanceOf(params.lp.address)
     if (bal0 < params.amountsToStake[0])
       await params.tokensToStake[0]
