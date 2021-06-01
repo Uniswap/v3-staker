@@ -613,7 +613,7 @@ describe('UniswapV3Staker.unit', async () => {
       })
     })
 
-    describe.only('#getRewardAmount', async () => {
+    describe('#getRewardAmount', async () => {
       let incentiveId: string
       let stake: ContractParams.Stake
       let stakeParams: ContractParams.UpdateStakeParams
@@ -647,12 +647,7 @@ describe('UniswapV3Staker.unit', async () => {
           .approve(context.staker.address, tokenId, { gasLimit: MAX_GAS_LIMIT })
 
         await context.staker.connect(lpUser0).depositToken(tokenId)
-        const incentiveParams: HelperTypes.CreateIncentive.Args = {
-          rewardToken: context.rewardToken,
-          totalReward,
-          poolAddress: context.poolObj.address,
-          ...timestamps,
-        }
+
         stakeParams = {
           creator: incentiveCreator.address,
           rewardToken: context.rewardToken.address,
@@ -662,16 +657,16 @@ describe('UniswapV3Staker.unit', async () => {
         }
 
         incentiveId = await helpers.getIncentiveId(
-          await helpers.createIncentiveFlow(incentiveParams)
+          await helpers.createIncentiveFlow({
+            rewardToken: context.rewardToken,
+            totalReward,
+            poolAddress: context.poolObj.address,
+            ...timestamps,
+          })
         )
 
         await setTime(timestamps.startTime)
-        await context.staker.connect(lpUser0).stakeToken({
-          creator: incentiveCreator.address,
-          rewardToken: context.rewardToken.address,
-          tokenId,
-          ...timestamps,
-        })
+        await context.staker.connect(lpUser0).stakeToken(stakeParams)
         stake = await context.staker.stakes(tokenId, incentiveId)
       })
 
@@ -680,25 +675,21 @@ describe('UniswapV3Staker.unit', async () => {
 
         await provider.send('evm_mine', [timestamps.startTime + 100])
 
-        const result = await context.staker
+        const { reward, secondsInPeriodX128 } = await context.staker
           .connect(lpUser0)
           .getRewardAmount(stakeParams)
 
-        const position = await context.nft.positions(tokenId)
+        const { tickLower, tickUpper } = await context.nft.positions(tokenId)
+        const {
+          secondsPerLiquidityInsideX128,
+        } = await pool.snapshotCumulativesInside(tickLower, tickUpper)
 
-        const secondsInside = (
-          await pool.snapshotCumulativesInside(
-            position.tickLower,
-            position.tickUpper
-          )
-        ).secondsPerLiquidityInsideX128
-
-        const expectedSecondsInPeriod = secondsInside
+        const expectedSecondsInPeriod = secondsPerLiquidityInsideX128
           .sub(stake.secondsPerLiquidityInitialX128)
           .mul(stake.liquidity)
 
-        expect(result.reward).to.eq(BNe(1, 19))
-        expect(result.secondsInPeriodX128).to.eq(expectedSecondsInPeriod)
+        expect(reward).to.eq(BNe(1, 19))
+        expect(secondsInPeriodX128).to.eq(expectedSecondsInPeriod)
       })
 
       it('returns 0 for ended incentives', async () => {
@@ -709,11 +700,11 @@ describe('UniswapV3Staker.unit', async () => {
           pool: context.pool01,
           ...timestamps,
         })
-        const result = await context.staker
+        const { reward } = await context.staker
           .connect(lpUser0)
           .getRewardAmount(stakeParams)
 
-        expect(result.reward).to.equal(0)
+        expect(reward).to.equal(0)
       })
     })
 
