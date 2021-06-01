@@ -68,7 +68,7 @@
   },
   "scripts": {
     "compile": "hardhat compile",
-    "size-contracts": "hardhat size-contracts",
+    "size-contracts": "hardhat compile && hardhat size-contracts",
     "test": "hardhat test",
     "compile-uniswap": "hardhat compile-uniswap",
     "postinstall": "yarn compile-uniswap",
