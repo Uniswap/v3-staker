@@ -18,15 +18,13 @@ export module ContractParams {
     rewardToken: string
   } & Timestamps
 
-  export type StakeToken = {
+  type UpdateStakeParams = {
     creator: string
     rewardToken: string
     tokenId: number
   } & Timestamps
 
-  export type UnstakeToken = {
-    creator: string
-    rewardToken: string
-    tokenId: number
-  } & Timestamps
+  export type StakeToken = UpdateStakeParams
+
+  export type UnstakeToken = UpdateStakeParams
 }

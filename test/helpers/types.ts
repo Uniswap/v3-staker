@@ -2,7 +2,7 @@ import { BigNumber, Wallet } from 'ethers'
 import { TestERC20 } from '../../typechain'
 
 export module HelperTypes {
-  type CommandFunction<Input, Output> = (input: Input) => Promise<Output>
+  export type CommandFunction<Input, Output> = (input: Input) => Promise<Output>
 
   export module CreateIncentive {
     export type Args = {
@@ -78,6 +78,15 @@ export module HelperTypes {
     }
 
     type Result = { currentTick: number }
+
+    export type Command = CommandFunction<Args, Result>
+  }
+
+  export module GetIncentiveId {
+    type Args = CreateIncentive.Result
+
+    // Returns the incentiveId as bytes32
+    type Result = string
 
     export type Command = CommandFunction<Args, Result>
   }

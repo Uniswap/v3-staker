@@ -94,6 +94,7 @@ describe('UniswapV3Staker.unit', async () => {
       pool: context.poolObj,
       actors,
       provider,
+      testIncentiveId: context.testIncentiveId,
     })
   })
 
@@ -108,224 +109,230 @@ describe('UniswapV3Staker.unit', async () => {
     })
   })
 
-  describe('#createIncentive', async () => {
-    let subject: (
-      params: Partial<ContractParams.CreateIncentive>
-    ) => Promise<any>
+  describe('Incentives', () => {
+    describe('#createIncentive', async () => {
+      let subject: (
+        params: Partial<ContractParams.CreateIncentive>
+      ) => Promise<any>
 
-    beforeEach('setup', async () => {
-      subject = async (
-        params: Partial<ContractParams.CreateIncentive> = {}
-      ) => {
-        await erc20Helper.ensureBalancesAndApprovals(
-          incentiveCreator,
-          params.rewardToken
-            ? await erc20Wrap(params?.rewardToken)
-            : context.rewardToken,
-          totalReward,
-          context.staker.address
-        )
-
-        const { startTime, endTime, claimDeadline } = makeTimestamps(
-          await blockTimestamp()
-        )
-
-        return await context.staker.connect(incentiveCreator).createIncentive({
-          rewardToken: params.rewardToken || context.rewardToken.address,
-          pool: context.pool01,
-          startTime: params.startTime || startTime,
-          endTime: params.endTime || endTime,
-          claimDeadline: params.claimDeadline || claimDeadline,
-          totalReward,
-        })
-      }
-    })
-
-    describe('works and', async () => {
-      it('transfers the right amount of rewardToken', async () => {
-        const balanceBefore = await context.rewardToken.balanceOf(
-          context.staker.address
-        )
-        await subject({
-          totalReward,
-          rewardToken: context.rewardToken.address,
-        })
-        expect(
-          await context.rewardToken.balanceOf(context.staker.address)
-        ).to.eq(balanceBefore.add(totalReward))
-      })
-
-      it('emits an event with valid parameters', async () => {
-        const { startTime, endTime, claimDeadline } = makeTimestamps(
-          await blockTimestamp()
-        )
-        await expect(subject({ startTime, endTime, claimDeadline }))
-          .to.emit(context.staker, 'IncentiveCreated')
-          .withArgs(
-            context.rewardToken.address,
-            context.pool01,
-            startTime,
-            endTime,
-            claimDeadline,
-            totalReward
-          )
-      })
-
-      it('creates an incentive with the correct parameters', async () => {
-        const timestamps = makeTimestamps(await blockTimestamp())
-        await subject(timestamps)
-        const incentiveId = await context.incentiveHelper.getIncentiveId(
-          incentiveCreator.address,
-          context.rewardToken.address,
-          context.pool01,
-          timestamps.startTime,
-          timestamps.endTime,
-          timestamps.claimDeadline
-        )
-
-        const incentive = await context.staker.incentives(incentiveId)
-        expect(incentive.totalRewardUnclaimed).to.equal(totalReward)
-        expect(incentive.totalSecondsClaimedX128).to.equal(BN(0))
-        expect(incentive.rewardToken).to.equal(context.rewardToken.address)
-      })
-
-      it('has gas cost', async () => {
-        await snapshotGasCost(subject({}))
-      })
-    })
-
-    describe('fails when', async () => {
-      it('there is already has an incentive with those params', async () => {
-        const params = await makeTimestamps((await blockTimestamp()) + 10)
-        expect(await subject(params)).to.emit(
-          context.staker,
-          'IncentiveCreated'
-        )
-        await expect(subject(params)).to.be.revertedWith(
-          'incentive already exists'
-        )
-      })
-
-      it('claim deadline is before end time', async () => {
-        const params = await makeTimestamps((await blockTimestamp()) + 10)
-        params.endTime = params.claimDeadline + 100
-        await expect(subject(params)).to.be.revertedWith(
-          'claim deadline before end time'
-        )
-      })
-
-      it('end time is not gte start time', async () => {
-        const params = makeTimestamps((await blockTimestamp()) + 10)
-        params.endTime = params.startTime - 10
-        await expect(subject(params)).to.be.revertedWith(
-          'end time before start'
-        )
-      })
-
-      it('rewardToken is 0 address', async () =>
-        await expect(
-          context.staker.connect(incentiveCreator).createIncentive({
-            rewardToken: constants.AddressZero,
-            pool: context.pool01,
+      beforeEach('setup', async () => {
+        subject = async (
+          params: Partial<ContractParams.CreateIncentive> = {}
+        ) => {
+          await erc20Helper.ensureBalancesAndApprovals(
+            incentiveCreator,
+            params.rewardToken
+              ? await erc20Wrap(params?.rewardToken)
+              : context.rewardToken,
             totalReward,
-            ...makeTimestamps(0),
-          })
-        ).to.be.revertedWith('invalid reward address'))
+            context.staker.address
+          )
 
-      it('totalReward is 0 or an invalid amount', async () =>
-        await expect(
-          context.staker.connect(incentiveCreator).createIncentive({
-            rewardToken: context.rewardToken.address,
-            pool: context.pool01,
-            totalReward: BNe18(0),
-            ...makeTimestamps(0),
-          })
-        ).to.be.revertedWith('invalid reward amount'))
-    })
-  })
+          const { startTime, endTime, claimDeadline } = makeTimestamps(
+            await blockTimestamp()
+          )
 
-  describe('#endIncentive', async () => {
-    let subject: (params: Partial<ContractParams.EndIncentive>) => Promise<any>
-    beforeEach('setup', async () => {
-      timestamps = makeTimestamps(await blockTimestamp())
-
-      await helpers.createIncentiveFlow({
-        ...timestamps,
-        rewardToken: context.rewardToken,
-        poolAddress: context.poolObj.address,
-        totalReward,
+          return await context.staker
+            .connect(incentiveCreator)
+            .createIncentive({
+              rewardToken: params.rewardToken || context.rewardToken.address,
+              pool: context.pool01,
+              startTime: params.startTime || startTime,
+              endTime: params.endTime || endTime,
+              claimDeadline: params.claimDeadline || claimDeadline,
+              totalReward,
+            })
+        }
       })
 
-      subject = async (params: Partial<ContractParams.EndIncentive> = {}) => {
-        return await context.staker.connect(incentiveCreator).endIncentive({
-          rewardToken: params.rewardToken || context.rewardToken.address,
-          pool: context.pool01,
-          startTime: params.startTime || timestamps.startTime,
-          endTime: params.endTime || timestamps.endTime,
-          claimDeadline: params.claimDeadline || timestamps.claimDeadline,
+      describe('works and', async () => {
+        it('transfers the right amount of rewardToken', async () => {
+          const balanceBefore = await context.rewardToken.balanceOf(
+            context.staker.address
+          )
+          await subject({
+            totalReward,
+            rewardToken: context.rewardToken.address,
+          })
+          expect(
+            await context.rewardToken.balanceOf(context.staker.address)
+          ).to.eq(balanceBefore.add(totalReward))
         })
-      }
-    })
 
-    describe('works and', () => {
-      it('emits IncentiveEnded event', async () => {
-        await Time.set(timestamps.claimDeadline + 10)
+        it('emits an event with valid parameters', async () => {
+          const { startTime, endTime, claimDeadline } = makeTimestamps(
+            await blockTimestamp()
+          )
+          await expect(subject({ startTime, endTime, claimDeadline }))
+            .to.emit(context.staker, 'IncentiveCreated')
+            .withArgs(
+              incentiveCreator.address,
+              context.rewardToken.address,
+              context.pool01,
+              startTime,
+              endTime,
+              claimDeadline,
+              totalReward
+            )
+        })
 
-        await expect(subject({}))
-          .to.emit(context.staker, 'IncentiveEnded')
-          .withArgs(
+        it('creates an incentive with the correct parameters', async () => {
+          const timestamps = makeTimestamps(await blockTimestamp())
+          await subject(timestamps)
+          const incentiveId = await context.testIncentiveId.getIncentiveId(
+            incentiveCreator.address,
             context.rewardToken.address,
             context.pool01,
             timestamps.startTime,
-            timestamps.endTime
+            timestamps.endTime,
+            timestamps.claimDeadline
           )
+
+          const incentive = await context.staker.incentives(incentiveId)
+          expect(incentive.totalRewardUnclaimed).to.equal(totalReward)
+          expect(incentive.totalSecondsClaimedX128).to.equal(BN(0))
+          expect(incentive.rewardToken).to.equal(context.rewardToken.address)
+        })
+
+        it('has gas cost', async () => {
+          await snapshotGasCost(subject({}))
+        })
       })
 
-      it('deletes incentives[key]', async () => {
-        const incentiveId = await context.incentiveHelper.getIncentiveId(
-          incentiveCreator.address,
-          context.rewardToken.address,
-          context.pool01,
-          timestamps.startTime,
-          timestamps.endTime,
-          timestamps.claimDeadline
-        )
-        expect(
-          (await context.staker.incentives(incentiveId)).rewardToken
-        ).to.eq(context.rewardToken.address)
+      describe('fails when', async () => {
+        it('there is already has an incentive with those params', async () => {
+          const params = await makeTimestamps((await blockTimestamp()) + 10)
+          expect(await subject(params)).to.emit(
+            context.staker,
+            'IncentiveCreated'
+          )
+          await expect(subject(params)).to.be.revertedWith(
+            'incentive already exists'
+          )
+        })
 
-        await Time.set(timestamps.claimDeadline + 1)
-        await subject({})
-        expect(
-          (await context.staker.incentives(incentiveId)).rewardToken
-        ).to.eq(constants.AddressZero)
-      })
+        it('claim deadline is before end time', async () => {
+          const params = await makeTimestamps((await blockTimestamp()) + 10)
+          params.endTime = params.claimDeadline + 100
+          await expect(subject(params)).to.be.revertedWith(
+            'claim deadline before end time'
+          )
+        })
 
-      it('has gas cost', async () => {
-        await Time.set(timestamps.claimDeadline + 1)
-        await snapshotGasCost(subject({}))
+        it('end time is not gte start time', async () => {
+          const params = makeTimestamps((await blockTimestamp()) + 10)
+          params.endTime = params.startTime - 10
+          await expect(subject(params)).to.be.revertedWith(
+            'end time before start'
+          )
+        })
+
+        it('rewardToken is 0 address', async () =>
+          await expect(
+            context.staker.connect(incentiveCreator).createIncentive({
+              rewardToken: constants.AddressZero,
+              pool: context.pool01,
+              totalReward,
+              ...makeTimestamps(0),
+            })
+          ).to.be.revertedWith('invalid reward address'))
+
+        it('totalReward is 0 or an invalid amount', async () =>
+          await expect(
+            context.staker.connect(incentiveCreator).createIncentive({
+              rewardToken: context.rewardToken.address,
+              pool: context.pool01,
+              totalReward: BNe18(0),
+              ...makeTimestamps(0),
+            })
+          ).to.be.revertedWith('invalid reward amount'))
       })
     })
 
-    describe('fails when', async () => {
-      it('block.timestamp <= claim deadline', async () => {
-        await Time.set(timestamps.claimDeadline - 10)
-        await expect(subject({})).to.be.revertedWith('before claim deadline')
+    describe('#endIncentive', async () => {
+      let subject: (
+        params: Partial<ContractParams.EndIncentive>
+      ) => Promise<any>
+      let createIncentiveResult: HelperTypes.CreateIncentive.Result
+
+      beforeEach('setup', async () => {
+        timestamps = makeTimestamps(await blockTimestamp())
+
+        createIncentiveResult = await helpers.createIncentiveFlow({
+          ...timestamps,
+          rewardToken: context.rewardToken,
+          poolAddress: context.poolObj.address,
+          totalReward,
+        })
+
+        subject = async (params: Partial<ContractParams.EndIncentive> = {}) => {
+          return await context.staker.connect(incentiveCreator).endIncentive({
+            rewardToken: params.rewardToken || context.rewardToken.address,
+            pool: context.pool01,
+            startTime: params.startTime || timestamps.startTime,
+            endTime: params.endTime || timestamps.endTime,
+            claimDeadline: params.claimDeadline || timestamps.claimDeadline,
+          })
+        }
       })
 
-      it('incentive does not exist', async () => {
-        // Adjust the block.timestamp so it is after the claim deadline
-        Time.set(timestamps.claimDeadline + 1)
-        await expect(
-          subject({
-            startTime: (await blockTimestamp()) + 1000,
-          })
-        ).to.be.revertedWith('invalid incentive')
+      describe('works and', () => {
+        it('emits IncentiveEnded event', async () => {
+          await Time.set(timestamps.claimDeadline + 10)
+
+          await expect(subject({}))
+            .to.emit(context.staker, 'IncentiveEnded')
+            .withArgs(
+              incentiveCreator.address,
+              context.rewardToken.address,
+              context.pool01,
+              timestamps.startTime,
+              timestamps.endTime,
+              timestamps.claimDeadline
+            )
+        })
+
+        it('deletes incentives[key]', async () => {
+          const incentiveId = await helpers.getIncentiveId(
+            createIncentiveResult
+          )
+          expect(
+            (await context.staker.incentives(incentiveId)).rewardToken
+          ).to.eq(context.rewardToken.address)
+
+          await Time.set(timestamps.claimDeadline + 1)
+          await subject({})
+          expect(
+            (await context.staker.incentives(incentiveId)).rewardToken
+          ).to.eq(constants.AddressZero)
+        })
+
+        it('has gas cost', async () => {
+          await Time.set(timestamps.claimDeadline + 1)
+          await snapshotGasCost(subject({}))
+        })
+      })
+
+      describe('fails when', async () => {
+        it('block.timestamp <= claim deadline', async () => {
+          await Time.set(timestamps.claimDeadline - 10)
+          await expect(subject({})).to.be.revertedWith('before claim deadline')
+        })
+
+        it('incentive does not exist', async () => {
+          // Adjust the block.timestamp so it is after the claim deadline
+          Time.set(timestamps.claimDeadline + 1)
+          await expect(
+            subject({
+              startTime: (await blockTimestamp()) + 1000,
+            })
+          ).to.be.revertedWith('invalid incentive')
+        })
       })
     })
   })
 
-  describe('Deposit/Withdraw', () => {
+  describe('Deposits', () => {
     /**
      * In these tests, lpUser0 is the one depositing the token.
      */
@@ -427,6 +434,16 @@ describe('UniswapV3Staker.unit', async () => {
           await expect(subject(tokenId, recipient)).to.be.reverted
         })
 
+        it('deletes deposit upon withdrawal', async () => {
+          expect((await context.staker.deposits(tokenId)).owner).to.equal(
+            lpUser0.address
+          )
+          await subject(tokenId, recipient)
+          expect((await context.staker.deposits(tokenId)).owner).to.equal(
+            constants.AddressZero
+          )
+        })
+
         it('has gas cost', async () =>
           await snapshotGasCost(subject(tokenId, recipient)))
       })
@@ -465,13 +482,14 @@ describe('UniswapV3Staker.unit', async () => {
     })
   })
 
-  describe('Stake/Unstake', () => {
+  describe('Stakes', () => {
     /**
      * lpUser0 stakes and unstakes
      */
     let tokenId: string
 
     describe('#stakeToken', () => {
+      let incentiveId: string
       let subject: (_tokenId: string, _actor?: Wallet) => Promise<any>
       let timestamps: ContractParams.Timestamps
 
@@ -512,7 +530,10 @@ describe('UniswapV3Staker.unit', async () => {
           poolAddress: context.poolObj.address,
           ...timestamps,
         }
-        const incentive = await helpers.createIncentiveFlow(incentiveParams)
+
+        incentiveId = await helpers.getIncentiveId(
+          await helpers.createIncentiveFlow(incentiveParams)
+        )
 
         subject = (_tokenId: string, _actor: Wallet = lpUser0) =>
           context.staker.connect(_actor).stakeToken({
@@ -533,19 +554,11 @@ describe('UniswapV3Staker.unit', async () => {
           const { liquidity } = await context.nft.positions(tokenId)
           await expect(subject(tokenId))
             .to.emit(context.staker, 'TokenStaked')
-            .withArgs(tokenId, liquidity)
+            .withArgs(tokenId, liquidity, incentiveId)
         })
 
         it('sets the stake struct properly', async () => {
           const liquidity = (await context.nft.positions(tokenId)).liquidity
-          const incentiveId = await context.incentiveHelper.getIncentiveId(
-            incentiveCreator.address,
-            context.rewardToken.address,
-            context.pool01,
-            timestamps.startTime,
-            timestamps.endTime,
-            timestamps.claimDeadline
-          )
 
           const stakeBefore = await context.staker.stakes(tokenId, incentiveId)
           const nStakesBefore = (await context.staker.deposits(tokenId))
@@ -600,7 +613,93 @@ describe('UniswapV3Staker.unit', async () => {
       })
     })
 
+    describe('#claimReward', () => {
+      let subject: (token: string, to?: string) => Promise<any>
+
+      beforeEach('setup', async () => {
+        const { token0, token1, rewardToken } = context
+        timestamps = makeTimestamps(await blockTimestamp())
+        const tokensToStake = [token0, token1] as [TestERC20, TestERC20]
+
+        await erc20Helper.ensureBalancesAndApprovals(
+          lpUser0,
+          tokensToStake,
+          amountDesired,
+          context.nft.address
+        )
+
+        const createIncentiveResult = await helpers.createIncentiveFlow({
+          rewardToken: context.rewardToken,
+          totalReward,
+          poolAddress: context.poolObj.address,
+          ...timestamps,
+        })
+
+        const { tokenId } = await helpers.mintDepositStakeFlow({
+          lp: lpUser0,
+          tokensToStake,
+          ticks: [
+            getMinTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
+            getMaxTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
+          ],
+          amountsToStake: [amountDesired, amountDesired],
+          createIncentiveResult,
+        })
+
+        await context.staker.connect(lpUser0).unstakeToken({
+          creator: incentiveCreator.address,
+          rewardToken: rewardToken.address,
+          tokenId,
+          ...timestamps,
+        })
+
+        subject = (_token: string, _to: string = lpUser0.address) =>
+          context.staker.connect(lpUser0).claimReward(_token, _to)
+      })
+
+      it('emits RewardClaimed event', async () => {
+        const { rewardToken } = context
+        const claimable = await context.staker.rewards(
+          rewardToken.address,
+          lpUser0.address
+        )
+        await expect(subject(rewardToken.address))
+          .to.emit(context.staker, 'RewardClaimed')
+          .withArgs(lpUser0.address, claimable)
+      })
+
+      it('transfers the correct reward amount to destination address', async () => {
+        const { rewardToken } = context
+        const claimable = await context.staker.rewards(
+          rewardToken.address,
+          lpUser0.address
+        )
+        const balance = await rewardToken.balanceOf(lpUser0.address)
+        await subject(rewardToken.address)
+        expect(await rewardToken.balanceOf(lpUser0.address)).to.equal(
+          balance.add(claimable)
+        )
+      })
+
+      it('sets the claimed reward amount to zero', async () => {
+        const { rewardToken } = context
+        expect(
+          await context.staker.rewards(rewardToken.address, lpUser0.address)
+        ).to.not.equal(0)
+
+        await subject(rewardToken.address)
+
+        expect(
+          await context.staker.rewards(rewardToken.address, lpUser0.address)
+        ).to.equal(0)
+      })
+
+      it('has gas cost', async () =>
+        await snapshotGasCost(subject(context.rewardToken.address)))
+    })
+
     describe('#unstakeToken', () => {
+      let incentiveId: string
       let subject: () => Promise<any>
 
       beforeEach(async () => {
@@ -647,6 +746,8 @@ describe('UniswapV3Staker.unit', async () => {
           ...timestamps,
         })
 
+        incentiveId = await helpers.getIncentiveId(createIncentiveResult)
+
         subject = () =>
           context.staker.connect(lpUser0).unstakeToken({
             creator: incentiveCreator.address,
@@ -671,7 +772,7 @@ describe('UniswapV3Staker.unit', async () => {
         it('emits an unstaked event', async () => {
           await expect(subject())
             .to.emit(context.staker, 'TokenUnstaked')
-            .withArgs(tokenId)
+            .withArgs(tokenId, incentiveId)
         })
 
         it('has gas cost', async () => {
@@ -694,14 +795,6 @@ describe('UniswapV3Staker.unit', async () => {
 
         it('updates the stake struct', async () => {
           const liquidity = (await context.nft.positions(tokenId)).liquidity
-          const incentiveId = await context.incentiveHelper.getIncentiveId(
-            incentiveCreator.address,
-            context.rewardToken.address,
-            context.pool01,
-            timestamps.startTime,
-            timestamps.endTime,
-            timestamps.claimDeadline
-          )
 
           const stakeBefore = await context.staker.stakes(tokenId, incentiveId)
           await subject()
@@ -768,10 +861,8 @@ describe('UniswapV3Staker.unit', async () => {
       })
 
       const stakeParams: ContractParams.StakeToken = incentiveResultToStakeAdapter(
-        {
-          ...incentive,
-          tokenId,
-        }
+        incentive,
+        tokenId
       )
 
       data = ethers.utils.defaultAbiCoder.encode(
@@ -805,7 +896,7 @@ describe('UniswapV3Staker.unit', async () => {
       })
 
       it('properly stakes the deposit in the select incentive', async () => {
-        const incentiveId = await context.incentiveHelper.getIncentiveId(
+        const incentiveId = await context.testIncentiveId.getIncentiveId(
           incentiveCreator.address,
           context.rewardToken.address,
           context.pool01,

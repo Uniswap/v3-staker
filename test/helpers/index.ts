@@ -11,17 +11,17 @@ import {
   arrayWrap,
   log,
 } from '../shared/index'
-import _, { isArray } from 'lodash'
+import _ from 'lodash'
 import {
   TestERC20,
   INonfungiblePositionManager,
   UniswapV3Staker,
   IUniswapV3Pool,
+  TestIncentiveID,
 } from '../../typechain'
 import { HelperTypes } from './types'
 import { ActorFixture } from '../shared/actors'
 import { mintPosition } from '../shared/fixtures'
-import UniswapV3Pool from '@uniswap/v3-core/artifacts/contracts/UniswapV3Pool.sol/UniswapV3Pool.json'
 import { ISwapRouter } from '../../types/ISwapRouter'
 import { ethers } from 'hardhat'
 import { ContractParams } from '../../types/contractParams'
@@ -39,6 +39,7 @@ export class HelperCommands {
   nft: INonfungiblePositionManager
   router: ISwapRouter
   pool: IUniswapV3Pool
+  testIncentiveId: TestIncentiveID
 
   DEFAULT_INCENTIVE_DURATION = 2_000
   DEFAULT_CLAIM_DURATION = 1_000
@@ -50,6 +51,7 @@ export class HelperCommands {
     router,
     pool,
     actors,
+    testIncentiveId,
   }: {
     provider: MockProvider
     staker: UniswapV3Staker
@@ -57,6 +59,7 @@ export class HelperCommands {
     router: ISwapRouter
     pool: IUniswapV3Pool
     actors: ActorFixture
+    testIncentiveId: TestIncentiveID
   }) {
     this.actors = actors
     this.provider = provider
@@ -64,6 +67,7 @@ export class HelperCommands {
     this.nft = nft
     this.router = router
     this.pool = pool
+    this.testIncentiveId = testIncentiveId
   }
 
   /**
@@ -169,13 +173,11 @@ export class HelperCommands {
 
     await this.nft.connect(params.lp).approve(this.staker.address, tokenId)
     await this.staker.connect(params.lp).depositToken(tokenId, maxGas)
-    await this.staker.connect(params.lp).stakeToken({
-      ...incentiveResultToStakeAdapter({
-        ...params.createIncentiveResult,
-        tokenId,
-      }),
-      rewardToken: params.createIncentiveResult.rewardToken.address,
-    })
+    await this.staker
+      .connect(params.lp)
+      .stakeToken(
+        incentiveResultToStakeAdapter(params.createIncentiveResult, tokenId)
+      )
 
     const stakedAt = await blockTimestamp()
 
@@ -189,16 +191,15 @@ export class HelperCommands {
   unstakeCollectBurnFlow: HelperTypes.UnstakeCollectBurn.Command = async (
     params
   ) => {
-    await this.staker.connect(params.lp).unstakeToken(
-      {
-        ...incentiveResultToStakeAdapter({
-          ...params.createIncentiveResult,
-          tokenId: params.tokenId,
-        }),
-        rewardToken: params.createIncentiveResult.rewardToken.address,
-      },
-      maxGas
-    )
+    await this.staker
+      .connect(params.lp)
+      .unstakeToken(
+        incentiveResultToStakeAdapter(
+          params.createIncentiveResult,
+          params.tokenId
+        ),
+        maxGas
+      )
 
     const unstakedAt = await blockTimestamp()
 
@@ -294,6 +295,18 @@ export class HelperCommands {
     return {
       amountReturnedToCreator: amountTransferred,
     }
+  }
+
+  getIncentiveId: HelperTypes.GetIncentiveId.Command = async (params) => {
+    const incentiveId = await this.testIncentiveId.getIncentiveId(
+      params.creatorAddress,
+      params.rewardToken.address,
+      params.poolAddress,
+      params.startTime,
+      params.endTime,
+      params.claimDeadline
+    )
+    return incentiveId
   }
 
   makeTickGoFlow: HelperTypes.MakeTickGo.Command = async (params) => {
@@ -419,13 +432,15 @@ export class ERC20Helper {
 }
 
 type IncentiveAdapterFunc = (
-  params: HelperTypes.CreateIncentive.Result & { tokenId: string }
+  params: HelperTypes.CreateIncentive.Result,
+  tokenId: string
 ) => ContractParams.StakeToken
 
 export const incentiveResultToStakeAdapter: IncentiveAdapterFunc = (
-  params
+  params,
+  tokenId
 ) => ({
-  tokenId: (params.tokenId as any) as number,
+  tokenId: (tokenId as any) as number,
   startTime: params.startTime,
   endTime: params.endTime,
   claimDeadline: params.claimDeadline,
