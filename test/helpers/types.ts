@@ -4,6 +4,27 @@ import { TestERC20 } from '../../typechain'
 export module HelperTypes {
   export type CommandFunction<Input, Output> = (input: Input) => Promise<Output>
 
+  export type Incentive = {
+    totalRewardUnclaimed: BigNumber
+    totalSecondsClaimedX128: BigNumber
+    rewardToken: string
+  }
+
+  export type Stake = {
+    secondsPerLiquidityInitialX128: BigNumber
+    liquidity: BigNumber
+    exists: boolean
+  }
+
+  export type UpdateStakeParams = {
+    creator: string
+    rewardToken: string
+    tokenId: string
+    startTime: number
+    endTime: number
+    claimDeadline: number
+  }
+
   export module CreateIncentive {
     export type Args = {
       rewardToken: TestERC20

@@ -205,17 +205,8 @@ contract UniswapV3Staker is
         );
 
         deposits[params.tokenId].numberOfStakes -= 1;
-
         (address poolAddress, int24 tickLower, int24 tickUpper, ) =
             _getPositionDetails(params.tokenId);
-
-        require(poolAddress != address(0), 'INVALID_POSITION');
-
-        (, uint160 secondsPerLiquidityInsideX128, ) =
-            IUniswapV3Pool(poolAddress).snapshotCumulativesInside(
-                tickLower,
-                tickUpper
-            );
 
         bytes32 incentiveId =
             IncentiveHelper.getIncentiveId(
@@ -233,41 +224,14 @@ contract UniswapV3Staker is
         require(stake.exists == true, 'nonexistent stake');
         require(incentive.rewardToken != address(0), 'incentive not found');
 
-        uint160 secondsInPeriodX128 =
-            uint160(
-                SafeMath.mul(
-                    secondsPerLiquidityInsideX128 -
-                        stake.secondsPerLiquidityInitialX128,
-                    stake.liquidity
-                )
-            );
-
-        // TODO: double-check for overflow risk here
-        uint160 totalSecondsUnclaimedX128 =
-            uint160(
-                SafeMath.mul(
-                    Math.max(params.endTime, block.timestamp) -
-                        params.startTime,
-                    FixedPoint128.Q128
-                ) - incentive.totalSecondsClaimedX128
-            );
-
-        // TODO: Make sure this truncates and not rounds up
-        uint256 rewardRate =
-            FullMath.mulDiv(
-                incentive.totalRewardUnclaimed,
-                FixedPoint128.Q128,
-                totalSecondsUnclaimedX128
-            );
-
-        // TODO: make sure casting is ok here
-        uint128 reward =
-            uint128(
-                FullMath.mulDiv(
-                    secondsInPeriodX128,
-                    rewardRate,
-                    FixedPoint128.Q128
-                )
+        (uint128 reward, uint160 secondsInPeriodX128) =
+            _getRewardAmount(
+                stake,
+                incentive,
+                params,
+                poolAddress,
+                tickLower,
+                tickUpper
             );
 
         incentives[incentiveId].totalSecondsClaimedX128 += secondsInPeriodX128;
@@ -283,8 +247,38 @@ contract UniswapV3Staker is
         );
 
         delete stakes[params.tokenId][incentiveId];
-
         emit TokenUnstaked(params.tokenId, incentiveId);
+    }
+
+    function getRewardAmount(UpdateStakeParams memory params)
+        public
+        view
+        returns (uint128 reward, uint160 secondsInPeriodX128)
+    {
+        (address poolAddress, int24 tickLower, int24 tickUpper, ) =
+            _getPositionDetails(params.tokenId);
+
+        bytes32 incentiveId =
+            IncentiveHelper.getIncentiveId(
+                params.creator,
+                params.rewardToken,
+                poolAddress,
+                params.startTime,
+                params.endTime,
+                params.claimDeadline
+            );
+
+        Incentive memory incentive = incentives[incentiveId];
+        Stake memory stake = stakes[params.tokenId][incentiveId];
+        return
+            _getRewardAmount(
+                stake,
+                incentive,
+                params,
+                poolAddress,
+                tickLower,
+                tickUpper
+            );
     }
 
     /// @inheritdoc IUniswapV3Staker
@@ -337,6 +331,52 @@ contract UniswapV3Staker is
 
         deposits[params.tokenId].numberOfStakes += 1;
         emit TokenStaked(params.tokenId, liquidity, incentiveId);
+    }
+
+    function _getRewardAmount(
+        Stake memory stake,
+        Incentive memory incentive,
+        UpdateStakeParams memory params,
+        address poolAddress,
+        int24 tickLower,
+        int24 tickUpper
+    ) internal view returns (uint128 reward, uint160 secondsInPeriodX128) {
+        (, uint160 secondsPerLiquidityInsideX128, ) =
+            IUniswapV3Pool(poolAddress).snapshotCumulativesInside(
+                tickLower,
+                tickUpper
+            );
+
+        secondsInPeriodX128 = uint160(
+            SafeMath.mul(
+                secondsPerLiquidityInsideX128 -
+                    stake.secondsPerLiquidityInitialX128,
+                stake.liquidity
+            )
+        );
+
+        // TODO: double-check for overflow risk here
+        uint160 totalSecondsUnclaimedX128 =
+            uint160(
+                SafeMath.mul(
+                    Math.max(params.endTime, block.timestamp) -
+                        params.startTime,
+                    FixedPoint128.Q128
+                ) - incentive.totalSecondsClaimedX128
+            );
+
+        // TODO: Make sure this truncates and not rounds up
+        uint256 rewardRate =
+            FullMath.mulDiv(
+                incentive.totalRewardUnclaimed,
+                FixedPoint128.Q128,
+                totalSecondsUnclaimedX128
+            );
+
+        // TODO: make sure casting is ok here
+        reward = uint128(
+            FullMath.mulDiv(secondsInPeriodX128, rewardRate, FixedPoint128.Q128)
+        );
     }
 
     /// @param tokenId The unique identifier of an Uniswap V3 LP token
