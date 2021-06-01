@@ -53,6 +53,7 @@
     "mocha": "^6.2.2",
     "mocha-chai-jest-snapshot": "^1.1.0",
     "prettier": "^2.2.1",
+    "prettier-check": "^2.0.0",
     "prettier-plugin-solidity": "^1.0.0-beta.10",
     "solhint": "^3.2.1",
     "solhint-plugin-prettier": "^0.0.5",
@@ -70,6 +71,7 @@
     "compile-uniswap": "hardhat compile-uniswap",
     "postinstall": "yarn compile-uniswap",
     "test:unit": "TS_NODE_TRANSPILE_ONLY=1 yarn test test/*.unit.spec.ts",
-    "test:integration": "TS_NODE_TRANSPILE_ONLY=1 yarn test test/*.integration.spec.ts"
+    "test:integration": "TS_NODE_TRANSPILE_ONLY=1 yarn test test/*.integration.spec.ts",
+    "prettier:check": "prettier-check contracts/**/*.sol test/**/*.ts types/contractParams.ts"
   }
 }
