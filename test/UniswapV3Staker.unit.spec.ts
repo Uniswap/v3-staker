@@ -606,7 +606,7 @@ describe('UniswapV3Staker.unit', async () => {
         it('you are not the owner of the deposit', async () => {
           await Time.set(timestamps.startTime + 500)
           await expect(subject(tokenId, actors.lpUser2())).to.be.revertedWith(
-            'sender is not deposit owner'
+            'sender is not nft owner'
           )
         })
 

@@ -124,6 +124,7 @@ contract UniswapV3Staker is
         delete incentives[key];
 
         TransferHelper.safeTransfer(
+            /* TODO: should this be incentive.rewardToken? I don't think it matters but just checking */
             params.rewardToken,
             msg.sender,
             incentive.totalRewardUnclaimed
@@ -184,7 +185,7 @@ contract UniswapV3Staker is
     function stakeToken(UpdateStakeParams memory params) external override {
         require(
             deposits[params.tokenId].owner == msg.sender,
-            'sender is not deposit owner'
+            'sender is not nft owner'
         );
 
         _stakeToken(params);
@@ -197,7 +198,7 @@ contract UniswapV3Staker is
     {
         require(
             deposits[params.tokenId].owner == msg.sender,
-            'position is invalid'
+            'sender is not nft owner'
         );
 
         deposits[params.tokenId].numberOfStakes -= 1;
