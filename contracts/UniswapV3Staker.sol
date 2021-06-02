@@ -74,7 +74,10 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
         // totalRewardUnclaimed cannot decrease until params.startTime has passed, meaning this check is safe
         require(incentives[key].totalRewardUnclaimed == 0, 'incentive exists');
 
-        incentives[key] = Incentive({totalRewardUnclaimed: params.totalReward, totalSecondsClaimedX128: 0});
+        incentives[key] = Incentive({
+            totalRewardUnclaimed: params.totalReward,
+            totalSecondsClaimedX128: 0
+        });
 
         // this is effectively a validity check on params.rewardToken
         TransferHelper.safeTransferFrom(
@@ -106,7 +109,7 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
                 params.endTime,
                 params.claimDeadline
             );
-        
+
         uint128 refund = incentives[key].totalRewardUnclaimed;
 
         // if any unclaimed rewards remain, and we're at or past the claim deadline, issue a refund
