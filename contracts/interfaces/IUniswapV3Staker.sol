@@ -85,10 +85,15 @@ interface IUniswapV3Staker {
     /// @param incentiveId The incentive in which the token is staking
     event TokenUnstaked(uint256 tokenId, bytes32 incentiveId);
 
-    /// @notice Event emitted when a reward token has been claimed
+    /// @notice Event emitted when a reward token has been claimed from unstaked tokens
     /// @param to The address where claimed rewards were sent to
     /// @param reward The amount of reward tokens claimed
     event RewardClaimed(address indexed to, uint256 reward);
+
+    /// @notice Event emitted when a reward token has been claimed from a staked token
+    /// @param to The address where claimed rewards were sent to
+    /// @param reward The amount of reward tokens claimed
+    event RewardClaimedFromExistingStake(address indexed to, uint256 reward);
 
     /// @param rewardToken The address of the token being distributed as a reward
     /// @param pool The address of the Uniswap V3 pool

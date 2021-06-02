@@ -222,7 +222,7 @@ contract UniswapV3Staker is
 
         // if incentive still exists
         if (incentive.totalRewardUnclaimed > 0) {
-            (uint128 reward, uint160 secondsInPeriodX128) =
+            (uint128 reward, uint160 secondsInPeriodX128, ) =
                 _getRewardAmount(
                     stake,
                     incentive,
@@ -253,7 +253,7 @@ contract UniswapV3Staker is
     function getRewardAmount(UpdateStakeParams memory params)
         public
         view
-        returns (uint128 reward, uint160 secondsInPeriodX128)
+        returns (uint128 reward)
     {
         (address poolAddress, int24 tickLower, int24 tickUpper, ) =
             _getPositionDetails(params.tokenId);
@@ -270,7 +270,7 @@ contract UniswapV3Staker is
 
         Incentive memory incentive = incentives[incentiveId];
         Stake memory stake = stakes[params.tokenId][incentiveId];
-        return
+        (reward , ,) = 
             _getRewardAmount(
                 stake,
                 incentive,
@@ -279,6 +279,56 @@ contract UniswapV3Staker is
                 tickLower,
                 tickUpper
             );
+    }
+
+    function claimRewardFromExistingStake(
+        UpdateStakeParams memory params,
+        address to
+    ) external {
+        require(
+            deposits[params.tokenId].owner == msg.sender,
+            'sender is not nft owner'
+        );
+
+        (address poolAddress, int24 tickLower, int24 tickUpper, ) =
+            _getPositionDetails(params.tokenId);
+
+        bytes32 incentiveId =
+            IncentiveHelper.getIncentiveId(
+                params.creator,
+                params.rewardToken,
+                poolAddress,
+                params.startTime,
+                params.endTime,
+                params.claimDeadline
+            );
+
+        Incentive memory incentive = incentives[incentiveId];
+        Stake memory stake = stakes[params.tokenId][incentiveId];
+
+        (uint128 reward, uint160 secondsInPeriodX128, uint160 secondsPerLiquidityInsideX128) =
+            _getRewardAmount(
+                stake,
+                incentive,
+                params,
+                poolAddress,
+                tickLower,
+                tickUpper
+            );
+
+        incentives[incentiveId]
+            .totalSecondsClaimedX128 += secondsInPeriodX128;
+
+        // TODO: is SafeMath necessary here? Could we do just a subtraction?
+        incentives[incentiveId].totalRewardUnclaimed = uint128(
+            SafeMath.sub(incentive.totalRewardUnclaimed, reward)
+        );
+
+        stakes[params.tokenId][incentiveId].secondsPerLiquidityInitialX128 =
+            secondsPerLiquidityInsideX128 +
+            1;
+        TransferHelper.safeTransfer(incentive.rewardToken, to, reward);
+        emit RewardClaimedFromExistingStake(to, reward);
     }
 
     /// @inheritdoc IUniswapV3Staker
@@ -344,8 +394,8 @@ contract UniswapV3Staker is
         address poolAddress,
         int24 tickLower,
         int24 tickUpper
-    ) internal view returns (uint128 reward, uint160 secondsInPeriodX128) {
-        (, uint160 secondsPerLiquidityInsideX128, ) =
+    ) internal view returns (uint128 reward, uint160 secondsInPeriodX128, uint160 secondsPerLiquidityInsideX128) {
+        (, secondsPerLiquidityInsideX128, ) =
             IUniswapV3Pool(poolAddress).snapshotCumulativesInside(
                 tickLower,
                 tickUpper

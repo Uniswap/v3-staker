@@ -689,22 +689,12 @@ describe('UniswapV3Staker.unit', async () => {
 
         await provider.send('evm_mine', [timestamps.startTime + 100])
 
-        const { reward, secondsInPeriodX128 } = await context.staker
+        const reward = await context.staker
           .connect(lpUser0)
           .getRewardAmount(stakeParams)
 
-        const { tickLower, tickUpper } = await context.nft.positions(tokenId)
-        const {
-          secondsPerLiquidityInsideX128,
-        } = await pool.snapshotCumulativesInside(tickLower, tickUpper)
-
-        const expectedSecondsInPeriod = secondsPerLiquidityInsideX128
-          .sub(stake.secondsPerLiquidityInitialX128)
-          .mul(stake.liquidity)
-
-        // @ts-ignore
+        // @ts-ignore matcher will accept BigNumber
         expect(reward).to.be.closeTo(BNe(1, 19), BN(1))
-        expect(secondsInPeriodX128).to.eq(expectedSecondsInPeriod)
       })
 
       it('returns 0 for ended incentives', async () => {
@@ -715,7 +705,7 @@ describe('UniswapV3Staker.unit', async () => {
           pool: context.pool01,
           ...timestamps,
         })
-        const { reward } = await context.staker
+        const reward = await context.staker
           .connect(lpUser0)
           .getRewardAmount(stakeParams)
 
@@ -806,6 +796,141 @@ describe('UniswapV3Staker.unit', async () => {
 
       it('has gas cost', async () =>
         await snapshotGasCost(subject(context.rewardToken.address)))
+    })
+
+    describe('#claimRewardFromExistingStake', () => {
+      let subject: (token: string, to?: string) => Promise<any>
+      let timestamps: ContractParams.Timestamps
+      let tokenId: string
+      let incentiveId: string
+
+      beforeEach(async () => {
+        timestamps = makeTimestamps(await blockTimestamp())
+
+        const createIncentiveResult = await helpers.createIncentiveFlow({
+          rewardToken: context.rewardToken,
+          totalReward,
+          poolAddress: context.poolObj.address,
+          ...timestamps,
+        })
+
+        const idGetter = await (
+          await ethers.getContractFactory('TestIncentiveID')
+        ).deploy()
+
+        incentiveId = idGetter.getIncentiveId(
+          createIncentiveResult.creatorAddress,
+          createIncentiveResult.rewardToken.address,
+          createIncentiveResult.poolAddress,
+          createIncentiveResult.startTime,
+          createIncentiveResult.endTime,
+          createIncentiveResult.claimDeadline
+        )
+
+
+        await erc20Helper.ensureBalancesAndApprovals(
+          lpUser0,
+          [context.token0, context.token1],
+          amountDesired,
+          context.nft.address
+        )
+
+        tokenId = await mintPosition(context.nft.connect(lpUser0), {
+          token0: context.token0.address,
+          token1: context.token1.address,
+          fee: FeeAmount.MEDIUM,
+          tickLower: getMinTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
+          tickUpper: getMaxTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
+          recipient: lpUser0.address,
+          amount0Desired: amountDesired,
+          amount1Desired: amountDesired,
+          amount0Min: 0,
+          amount1Min: 0,
+          deadline: (await blockTimestamp()) + 1000,
+        })
+
+        await context.nft
+          .connect(lpUser0)
+          .approve(context.staker.address, tokenId, { gasLimit: MAX_GAS_LIMIT })
+
+        await context.staker.connect(lpUser0).depositToken(tokenId)
+
+        subject = (to: string) =>
+          context.staker.connect(lpUser0).claimRewardFromExistingStake({
+            creator: incentiveCreator.address,
+            rewardToken: context.rewardToken.address,
+            tokenId,
+            ...timestamps,
+          }, to)
+      })
+
+      describe('in a valid scenario', () => {
+        let recipient
+        let expectedReward
+        beforeEach(async () => {
+          await setTime(timestamps.startTime + 100)
+          await context.staker.connect(lpUser0).stakeToken({
+            creator: incentiveCreator.address,
+            rewardToken: context.rewardToken.address,
+            tokenId,
+            ...timestamps,
+          })
+          await setTime(timestamps.startTime + 500)
+          recipient = actors.lpUser2().address
+          expectedReward = BN('40000000000000000000')
+        })
+
+        it('transfers the reward amount to the receipient', async () => {
+          const balanceBefore = await context.rewardToken.balanceOf(recipient)
+          await subject(recipient)
+          const balanceAfter = await context.rewardToken.balanceOf(recipient)
+          expect(balanceAfter).to.eq(balanceBefore.add(expectedReward))
+        })
+
+        it('emits a RewardClaimedFromExistingStake event', async () => {
+          await expect(subject(recipient))
+            .to.emit(context.staker, 'RewardClaimedFromExistingStake')
+            .withArgs(recipient, expectedReward)
+        })
+
+        it('updates the stake appropriately', async () => {
+          const stakeBefore = await context.staker.stakes(tokenId, incentiveId)
+          const secondsInitialBefore = stakeBefore.secondsPerLiquidityInitialX128
+          const liquidityBefore = stakeBefore.liquidity
+
+          await subject(recipient)
+
+          const stakeAfter = await context.staker.stakes(tokenId, incentiveId)
+          const secondsInitialAfter = stakeAfter.secondsPerLiquidityInitialX128
+          const liquidityAfter = stakeAfter.liquidity
+
+          expect(secondsInitialBefore).to.be.lt(secondsInitialAfter)
+          expect(liquidityBefore).to.equal(liquidityAfter)
+          expect(stakeBefore.exists).to.equal(stakeAfter.exists)
+        })
+
+        it('updates the incentive appropriately', async () => {
+          const incentivePrev = await context.staker.incentives(incentiveId)
+          const rewardsUnclaimedPrev = incentivePrev.totalRewardUnclaimed
+          const secondsClaimedPrev = incentivePrev.totalSecondsClaimedX128
+
+          await subject(recipient)
+
+          const incentiveCurrent = await context.staker.incentives(incentiveId)
+          const rewardsUnclaimedCurrent = incentiveCurrent.totalRewardUnclaimed
+          const secondsClaimedCurrent = incentiveCurrent.totalSecondsClaimedX128
+
+          expect(rewardsUnclaimedPrev.sub(rewardsUnclaimedCurrent)).to.eq(expectedReward)
+          expect(secondsClaimedPrev).to.equal(0)
+          expect(secondsClaimedCurrent).to.equal(BN('136112946768375385385350000000000000000000'))
+        })
+      })
+
+      describe('in an invalid scenario', () => {
+        it('reverts if stake does not exist', async () => {
+
+        })
+      })
     })
 
     describe('#unstakeToken', () => {
