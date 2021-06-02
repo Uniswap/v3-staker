@@ -19,7 +19,6 @@ import '@uniswap/v3-periphery/contracts/base/Multicall.sol';
 import '@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol';
 import '@openzeppelin/contracts/math/Math.sol';
 import '@openzeppelin/contracts/math/SafeMath.sol';
-import '@openzeppelin/contracts/utils/ReentrancyGuard.sol';
 
 /**
 @title Uniswap V3 canonical staking interface
@@ -27,7 +26,6 @@ import '@openzeppelin/contracts/utils/ReentrancyGuard.sol';
 contract UniswapV3Staker is
     IUniswapV3Staker,
     IERC721Receiver,
-    ReentrancyGuard,
     Multicall
 {
     IUniswapV3Factory public immutable factory;
@@ -106,7 +104,6 @@ contract UniswapV3Staker is
     function endIncentive(EndIncentiveParams memory params)
         external
         override
-        nonReentrant
     {
         require(
             block.timestamp > params.claimDeadline,
@@ -197,7 +194,6 @@ contract UniswapV3Staker is
     function unstakeToken(UpdateStakeParams memory params)
         external
         override
-        nonReentrant
     {
         require(
             deposits[params.tokenId].owner == msg.sender,
