@@ -856,7 +856,7 @@ describe('UniswapV3Staker.unit', async () => {
           await ethers.getContractFactory('TestIncentiveID')
         ).deploy()
 
-        incentiveId = idGetter.getIncentiveId(
+        incentiveId = await idGetter.getIncentiveId(
           createIncentiveResult.creatorAddress,
           createIncentiveResult.rewardToken.address,
           createIncentiveResult.poolAddress,
@@ -947,10 +947,16 @@ describe('UniswapV3Staker.unit', async () => {
           expect(rewardAfter).to.eq(rewardBefore.add(expectedReward))
         })
 
-        it('emits a RewardClaimedFromExistingStake event', async () => {
+        it('emits a StakeUpdated event', async () => {
+          const stakeBefore = await context.staker.stakes(tokenId, incentiveId)
           await expect(subject())
             .to.emit(context.staker, 'StakeUpdated')
-            .withArgs(expectedReward)
+            .withArgs(
+              tokenId,
+              stakeBefore.liquidity.mul(2),
+              incentiveId,
+              expectedReward
+            )
         })
 
         it('updates the stake appropriately', async () => {
@@ -986,8 +992,10 @@ describe('UniswapV3Staker.unit', async () => {
             expectedReward
           )
           expect(secondsClaimedPrev).to.equal(0)
-          expect(secondsClaimedCurrent).to.equal(
-            BN('68907179301490038851330000000000000000000')
+          expect(secondsClaimedCurrent).to.be.closeTo(
+            // @ts-ignore
+            BN('68907179301490038851320000000000000000000'),
+            BN(1)
           )
         })
 
