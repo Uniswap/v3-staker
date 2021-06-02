@@ -26,8 +26,8 @@ export const createTimeMachine = (provider: MockProvider): TimeSetters => {
     },
 
     setAndMine: async (timestamp: number) => {
-      await provider.send('evm_increaseTime', [timestamp])
-      await ethers.provider.send('evm_increaseTime', [timestamp])
+      await provider.send('evm_setNextBlockTimestamp', [timestamp])
+      await ethers.provider.send('evm_setNextBlockTimestamp', [timestamp])
       await provider.send('evm_mine', [])
     },
   }

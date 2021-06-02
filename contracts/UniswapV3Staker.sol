@@ -55,7 +55,8 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
     {
         require(
             params.startTime < params.endTime &&
-                params.endTime < params.claimDeadline,
+                params.endTime < params.claimDeadline &&
+                block.timestamp < params.startTime,
             'timestamps invalid'
         );
 

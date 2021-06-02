@@ -214,30 +214,31 @@ describe('UniswapV3Staker.unit', async () => {
           it('current time is after start time', async () => {
             const params = makeTimestamps(
               await blockTimestamp(),
-              10_000,
-              20_000
+              100_000,
+              200_000
             )
 
             // Go to after the start time
             await Time.setAndMine(params.startTime + 100)
-            expect(await blockTimestamp()).to.be.greaterThan(
+
+            const now = await blockTimestamp()
+            expect(now).to.be.greaterThan(
               params.startTime,
               'test setup: before start time'
+            )
+
+            expect(now).to.be.lessThan(
+              params.endTime,
+              'test setup: after end time'
+            )
+
+            expect(now, 'test setup: after claim deadline').to.be.lessThan(
+              params.claimDeadline
             )
 
             await expect(subject(params)).to.be.revertedWith(
               ERR_TIMESTAMPS_INVALID
             )
-
-            expect(await blockTimestamp()).to.be.lessThan(
-              params.endTime,
-              'test setup: after end time'
-            )
-
-            expect(
-              await blockTimestamp(),
-              'test setup: after claim deadline'
-            ).to.be.lessThan(params.claimDeadline)
           })
 
           it('claim deadline is before end time', async () => {
@@ -265,28 +266,34 @@ describe('UniswapV3Staker.unit', async () => {
           })
         })
 
-        describe('invalid reward', async () => {
+        describe('invalid reward', () => {
           const ERR_REWARD_INVALID = 'reward invalid'
 
-          it('rewardToken is 0 address', async () =>
+          it('rewardToken is 0 address', async () => {
+            const now = await blockTimestamp()
+
             await expect(
               context.staker.connect(incentiveCreator).createIncentive({
                 rewardToken: constants.AddressZero,
                 pool: context.pool01,
                 totalReward,
-                ...makeTimestamps(0),
+                ...makeTimestamps(now + 100, 1_000, 2_000),
               })
-            ).to.be.revertedWith(ERR_REWARD_INVALID))
+            ).to.be.revertedWith(ERR_REWARD_INVALID)
+          })
 
-          it('totalReward is 0 or an invalid amount', async () =>
+          it('totalReward is 0 or an invalid amount', async () => {
+            const now = await blockTimestamp()
+
             await expect(
               context.staker.connect(incentiveCreator).createIncentive({
                 rewardToken: context.rewardToken.address,
                 pool: context.pool01,
                 totalReward: BNe18(0),
-                ...makeTimestamps(0),
+                ...makeTimestamps(now + 100, 1_000, 2_000),
               })
-            ).to.be.revertedWith(ERR_REWARD_INVALID))
+            ).to.be.revertedWith(ERR_REWARD_INVALID)
+          })
         })
       })
     })
