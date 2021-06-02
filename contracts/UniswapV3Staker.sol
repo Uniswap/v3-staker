@@ -24,8 +24,10 @@ import '@openzeppelin/contracts/math/SafeMath.sol';
 @title Uniswap V3 canonical staking interface
 */
 contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
-    IUniswapV3Factory public immutable factory;
-    INonfungiblePositionManager public immutable nonfungiblePositionManager;
+    IUniswapV3Factory public immutable override factory;
+    INonfungiblePositionManager
+        public immutable
+        override nonfungiblePositionManager;
 
     /// @dev bytes32 refers to the return value of IncentiveHelper.getIncentiveId
     mapping(bytes32 => Incentive) public incentives;
