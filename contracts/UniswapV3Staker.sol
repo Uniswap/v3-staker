@@ -298,8 +298,12 @@ contract UniswapV3Staker is
         require(params.startTime <= block.timestamp, 'incentive not started');
         require(params.endTime > block.timestamp, 'incentive ended');
 
-        (address poolAddress, int24 tickLower, int24 tickUpper, ) =
-            _getPositionDetails(params.tokenId);
+        (
+            address poolAddress,
+            int24 tickLower,
+            int24 tickUpper,
+            uint128 liquidity
+        ) = _getPositionDetails(params.tokenId);
 
         bytes32 incentiveId =
             IncentiveHelper.getIncentiveId(
@@ -325,7 +329,7 @@ contract UniswapV3Staker is
                 tickLower,
                 tickUpper
             );
-        (, , , uint128 liquidity) = _getPositionDetails(params.tokenId);
+
         stakes[params.tokenId][incentiveId] = Stake(
             secondsPerLiquidityInsideX128,
             liquidity,
