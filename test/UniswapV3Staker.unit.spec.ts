@@ -815,7 +815,6 @@ describe('UniswapV3Staker.unit', async () => {
           createIncentiveResult.claimDeadline
         )
 
-
         await erc20Helper.ensureBalancesAndApprovals(
           lpUser0,
           [context.token0, context.token1],
@@ -886,9 +885,15 @@ describe('UniswapV3Staker.unit', async () => {
         })
 
         it('adjusts rewards amount for staker', async () => {
-          const rewardBefore = await context.staker.rewards(context.rewardToken.address, lpUser0.address)
+          const rewardBefore = await context.staker.rewards(
+            context.rewardToken.address,
+            lpUser0.address
+          )
           await subject()
-          const rewardAfter = await context.staker.rewards(context.rewardToken.address, lpUser0.address)
+          const rewardAfter = await context.staker.rewards(
+            context.rewardToken.address,
+            lpUser0.address
+          )
           expect(rewardAfter).to.eq(rewardBefore.add(expectedReward))
         })
 
@@ -900,7 +905,8 @@ describe('UniswapV3Staker.unit', async () => {
 
         it('updates the stake appropriately', async () => {
           const stakeBefore = await context.staker.stakes(tokenId, incentiveId)
-          const secondsInitialBefore = stakeBefore.secondsPerLiquidityInitialX128
+          const secondsInitialBefore =
+            stakeBefore.secondsPerLiquidityInitialX128
           const liquidityBefore = stakeBefore.liquidity
 
           await subject()
@@ -926,9 +932,13 @@ describe('UniswapV3Staker.unit', async () => {
           const rewardsUnclaimedCurrent = incentiveCurrent.totalRewardUnclaimed
           const secondsClaimedCurrent = incentiveCurrent.totalSecondsClaimedX128
 
-          expect(rewardsUnclaimedPrev.sub(rewardsUnclaimedCurrent)).to.eq(expectedReward)
+          expect(rewardsUnclaimedPrev.sub(rewardsUnclaimedCurrent)).to.eq(
+            expectedReward
+          )
           expect(secondsClaimedPrev).to.equal(0)
-          expect(secondsClaimedCurrent).to.equal(BN('68907179301490038851330000000000000000000'))
+          expect(secondsClaimedCurrent).to.equal(
+            BN('68907179301490038851330000000000000000000')
+          )
         })
 
         it('has gas cost', async () => {
@@ -936,40 +946,38 @@ describe('UniswapV3Staker.unit', async () => {
         })
 
         it('has equivalent multicall operation gas cost', async () => {
-          const unstakeTx = context.staker.connect(lpUser0).interface.encodeFunctionData(
-            'unstakeToken',
-            [
-              {
-                creator: incentiveCreator.address,
-                rewardToken: context.rewardToken.address,
-                tokenId,
-                ...timestamps,
-              },
-            ]
-          )
-
-          const claimTx = context.staker.connect(lpUser0).interface.encodeFunctionData(
-            'claimReward',
-            [
-                context.rewardToken.address,
-                lpUser0.address,
-            ]
-          )
-
-          const stakeTx = context.staker.connect(lpUser0).interface.encodeFunctionData(
-            'stakeToken',
-            [
-              {
-                creator: incentiveCreator.address,
-                rewardToken: context.rewardToken.address,
-                tokenId,
-                ...timestamps,
-              },
-            ]
-          )
-          await snapshotGasCost(context.staker
+          const unstakeTx = context.staker
             .connect(lpUser0)
-            .multicall([unstakeTx, claimTx, stakeTx], maxGas)
+            .interface.encodeFunctionData('unstakeToken', [
+              {
+                creator: incentiveCreator.address,
+                rewardToken: context.rewardToken.address,
+                tokenId,
+                ...timestamps,
+              },
+            ])
+
+          const claimTx = context.staker
+            .connect(lpUser0)
+            .interface.encodeFunctionData('claimReward', [
+              context.rewardToken.address,
+              lpUser0.address,
+            ])
+
+          const stakeTx = context.staker
+            .connect(lpUser0)
+            .interface.encodeFunctionData('stakeToken', [
+              {
+                creator: incentiveCreator.address,
+                rewardToken: context.rewardToken.address,
+                tokenId,
+                ...timestamps,
+              },
+            ])
+          await snapshotGasCost(
+            context.staker
+              .connect(lpUser0)
+              .multicall([unstakeTx, claimTx, stakeTx], maxGas)
           )
         })
       })
