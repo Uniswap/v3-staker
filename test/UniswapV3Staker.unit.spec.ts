@@ -924,6 +924,10 @@ describe('UniswapV3Staker.unit', async () => {
           expect(secondsClaimedPrev).to.equal(0)
           expect(secondsClaimedCurrent).to.equal(BN('136112946768375385385350000000000000000000'))
         })
+
+        it('has gas cost', async () => {
+          await snapshotGasCost(subject(recipient))
+        })
       })
 
       describe('in an invalid scenario', () => {
