@@ -97,25 +97,27 @@ interface IUniswapV3Staker {
     /// @param claimDeadline Time after which LPs can no longer claim rewards (and incentiveCreator can end the incentive and receive unclaimed rewards)
     /// @param totalReward The total amount of reward tokens to be distributed
     struct CreateIncentiveParams {
-        address pool;
         address rewardToken;
-        uint128 totalReward;
+        address pool;
         uint64 startTime;
         uint64 endTime;
         uint64 claimDeadline;
+        uint128 totalReward;
     }
 
     /// @notice Creates a new liquidity mining incentive program.
     function createIncentive(CreateIncentiveParams memory params) external;
 
+    /// @param creator The address that created this incentive
     /// @param pool The address of the Uniswap V3 pool
     /// @param rewardToken The address of the token being distributed as a reward
     /// @param startTime The time when the incentive program begins
     /// @param endTime The time when rewards stop accruing
-    /// @param claimDeadline
+    /// @param claimDeadline Time after which LPs can no longer claim rewards (and incentiveCreator can end the incentive and receive unclaimed rewards)
     struct EndIncentiveParams {
-        address pool;
+        address creator;
         address rewardToken;
+        address pool;
         uint64 startTime;
         uint64 endTime;
         uint64 claimDeadline;

@@ -2,16 +2,16 @@
 
 exports[`UniswapV3Staker.unit #onERC721Received on successful transfer with staking data has gas cost 1`] = `196304`;
 
-exports[`UniswapV3Staker.unit Deposits #depositToken works and has gas cost 1`] = `96861`;
+exports[`UniswapV3Staker.unit Deposits #depositToken works and has gas cost 1`] = `96817`;
 
-exports[`UniswapV3Staker.unit Deposits #withdrawToken works and has gas cost 1`] = `74159`;
+exports[`UniswapV3Staker.unit Deposits #withdrawToken works and has gas cost 1`] = `74092`;
 
-exports[`UniswapV3Staker.unit Incentives #createIncentive works and has gas cost 1`] = `82682`;
+exports[`UniswapV3Staker.unit Incentives #createIncentive works and has gas cost 1`] = `82666`;
 
-exports[`UniswapV3Staker.unit Incentives #endIncentive works and has gas cost 1`] = `36171`;
+exports[`UniswapV3Staker.unit Incentives #endIncentive works and has gas cost 1`] = `36384`;
 
-exports[`UniswapV3Staker.unit Stakes #claimReward has gas cost 1`] = `46922`;
+exports[`UniswapV3Staker.unit Stakes #claimReward has gas cost 1`] = `46877`;
 
-exports[`UniswapV3Staker.unit Stakes #stakeToken works and has gas cost 1`] = `117083`;
+exports[`UniswapV3Staker.unit Stakes #stakeToken works and has gas cost 1`] = `117127`;
 
-exports[`UniswapV3Staker.unit Stakes #unstakeToken works and has gas cost 1`] = `103052`;
+exports[`UniswapV3Staker.unit Stakes #unstakeToken works and has gas cost 1`] = `103007`;

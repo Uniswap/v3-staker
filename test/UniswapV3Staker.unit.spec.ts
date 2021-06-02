@@ -23,7 +23,6 @@ import {
   erc20Wrap,
   makeTimestamps,
   maxGas,
-  setTime,
 } from './shared'
 import { createFixtureLoader, provider } from './shared/provider'
 import {
@@ -281,6 +280,7 @@ describe('UniswapV3Staker.unit', async () => {
 
         subject = async (params: Partial<ContractParams.EndIncentive> = {}) => {
           return await context.staker.connect(incentiveCreator).endIncentive({
+            creator: incentiveCreator.address,
             rewardToken: params.rewardToken || context.rewardToken.address,
             pool: context.pool01,
             startTime: params.startTime || timestamps.startTime,
@@ -679,7 +679,7 @@ describe('UniswapV3Staker.unit', async () => {
           })
         )
 
-        await setTime(timestamps.startTime)
+        await Time.set(timestamps.startTime)
         await context.staker.connect(lpUser0).stakeToken(stakeParams)
         stake = await context.staker.stakes(tokenId, incentiveId)
       })
@@ -708,9 +708,10 @@ describe('UniswapV3Staker.unit', async () => {
       })
 
       it('returns 0 for ended incentives', async () => {
-        await setTime(timestamps.claimDeadline + 1)
+        await Time.set(timestamps.claimDeadline + 1)
 
         await context.staker.connect(incentiveCreator).endIncentive({
+          creator: incentiveCreator.address,
           rewardToken: context.rewardToken.address,
           pool: context.pool01,
           ...timestamps,
@@ -921,6 +922,7 @@ describe('UniswapV3Staker.unit', async () => {
           beforeEach(async () => {
             Time.set(timestamps.claimDeadline + 1)
             await context.staker.connect(incentiveCreator).endIncentive({
+              creator: incentiveCreator.address,
               rewardToken: context.rewardToken.address,
               pool: context.pool01,
               ...timestamps,

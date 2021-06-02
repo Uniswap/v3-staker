@@ -14,6 +14,16 @@ import {
 } from '@ethersproject/abstract-provider'
 import { constants } from 'ethers'
 
+import bn from 'bignumber.js'
+
+import { expect, use } from 'chai'
+import { solidity } from 'ethereum-waffle'
+import { jestSnapshotPlugin } from 'mocha-chai-jest-snapshot'
+
+import { IUniswapV3Pool, TestERC20 } from '../../typechain'
+import { isArray, isString } from 'lodash'
+import { ethers } from 'hardhat'
+
 export const { MaxUint256 } = constants
 
 export const blockTimestamp = async () => {
@@ -24,17 +34,7 @@ export const blockTimestamp = async () => {
   return block.timestamp
 }
 
-export const setTime = async (blockTimestamp) => {
-  return await provider.send('evm_setNextBlockTimestamp', [blockTimestamp])
-}
-
-import bn from 'bignumber.js'
-
 bn.config({ EXPONENTIAL_AT: 999999, DECIMAL_PLACES: 40 })
-
-import { expect, use } from 'chai'
-import { solidity } from 'ethereum-waffle'
-import { jestSnapshotPlugin } from 'mocha-chai-jest-snapshot'
 
 use(solidity)
 use(jestSnapshotPlugin())
@@ -124,10 +124,6 @@ export const maxGas = {
   gasLimit: MAX_GAS_LIMIT,
 }
 export const days = (n: number) => 86_400 * n
-
-import { IUniswapV3Pool, TestERC20 } from '../../typechain'
-import { isArray, isString } from 'lodash'
-import { ethers } from 'hardhat'
 
 export const getSlot0 = async (pool: IUniswapV3Pool) => {
   if (!pool.signer) {

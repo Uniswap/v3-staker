@@ -54,8 +54,8 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
         override
     {
         require(
-            params.claimDeadline >= params.endTime &&
-                params.endTime >= params.startTime,
+            params.startTime < params.endTime &&
+                params.endTime < params.claimDeadline,
             'timestamps invalid'
         );
 
@@ -99,12 +99,12 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
     /// @inheritdoc IUniswapV3Staker
     function endIncentive(EndIncentiveParams memory params) external override {
         require(
-            block.timestamp > params.claimDeadline,
+            params.claimDeadline <= block.timestamp,
             'before claim deadline'
         );
         bytes32 key =
             IncentiveHelper.getIncentiveId(
-                msg.sender,
+                params.creator,
                 params.rewardToken,
                 params.pool,
                 params.startTime,
@@ -117,14 +117,13 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
         delete incentives[key];
 
         TransferHelper.safeTransfer(
-            /* TODO: should this be incentive.rewardToken? I don't think it matters but just checking */
             params.rewardToken,
-            msg.sender,
+            params.creator,
             incentive.totalRewardUnclaimed
         );
 
         emit IncentiveEnded(
-            msg.sender,
+            params.creator,
             params.rewardToken,
             params.pool,
             params.startTime,
@@ -284,7 +283,7 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
 
     function _stakeToken(UpdateStakeParams memory params) internal {
         require(params.startTime <= block.timestamp, 'incentive not started');
-        require(params.endTime > block.timestamp, 'incentive ended');
+        require(block.timestamp < params.endTime, 'incentive ended');
 
         (
             address poolAddress,
