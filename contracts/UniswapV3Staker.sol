@@ -270,16 +270,19 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
         );
     }
 
-    function claimRewardFromExistingStake(
-        UpdateStakeParams memory params,
-        address to
+    function updateStake(
+        UpdateStakeParams memory params
     ) external {
         require(
             deposits[params.tokenId].owner == msg.sender,
             'sender is not nft owner'
         );
+        require(
+            block.timestamp < params.endTime,
+            'incentive has ended'
+        );
 
-        (address poolAddress, int24 tickLower, int24 tickUpper, ) =
+        (address poolAddress, int24 tickLower, int24 tickUpper, uint128 liquidity) =
             _getPositionDetails(params.tokenId);
 
         bytes32 incentiveId =
@@ -317,12 +320,14 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
         incentives[incentiveId].totalRewardUnclaimed = uint128(
             SafeMath.sub(incentive.totalRewardUnclaimed, reward)
         );
-
         stakes[params.tokenId][incentiveId].secondsPerLiquidityInitialX128 =
             secondsPerLiquidityInsideX128 +
             1;
-        TransferHelper.safeTransfer(incentive.rewardToken, to, reward);
-        emit RewardClaimedFromExistingStake(to, reward);
+        stakes[params.tokenId][incentiveId].liquidity = liquidity;
+        rewards[incentive.rewardToken][msg.sender] = uint128(
+            SafeMath.add(rewards[incentive.rewardToken][msg.sender], reward)
+        );
+        emit StakeUpdated(reward);
     }
 
     /// @inheritdoc IUniswapV3Staker
