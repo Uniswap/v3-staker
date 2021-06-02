@@ -23,13 +23,11 @@ import '@openzeppelin/contracts/math/SafeMath.sol';
 /**
 @title Uniswap V3 canonical staking interface
 */
-contract UniswapV3Staker is
-    IUniswapV3Staker,
-    IERC721Receiver,
-    Multicall
-{
-    IUniswapV3Factory public immutable factory;
-    INonfungiblePositionManager public immutable nonfungiblePositionManager;
+contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
+    IUniswapV3Factory public immutable override factory;
+    INonfungiblePositionManager
+        public immutable
+        override nonfungiblePositionManager;
 
     /// @dev bytes32 refers to the return value of IncentiveHelper.getIncentiveId
     mapping(bytes32 => Incentive) public incentives;
@@ -101,10 +99,7 @@ contract UniswapV3Staker is
     }
 
     /// @inheritdoc IUniswapV3Staker
-    function endIncentive(EndIncentiveParams memory params)
-        external
-        override
-    {
+    function endIncentive(EndIncentiveParams memory params) external override {
         require(
             block.timestamp > params.claimDeadline,
             'before claim deadline'
@@ -192,10 +187,7 @@ contract UniswapV3Staker is
     }
 
     /// @inheritdoc IUniswapV3Staker
-    function unstakeToken(UpdateStakeParams memory params)
-        external
-        override
-    {
+    function unstakeToken(UpdateStakeParams memory params) external override {
         require(
             deposits[params.tokenId].owner == msg.sender,
             'sender is not nft owner'

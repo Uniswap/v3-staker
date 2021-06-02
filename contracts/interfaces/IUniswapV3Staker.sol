@@ -2,12 +2,18 @@
 pragma solidity =0.7.6;
 pragma abicoder v2;
 
+import '@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol';
+import '@uniswap/v3-periphery/contracts/interfaces/INonfungiblePositionManager.sol';
+
+/// @title Uniswap V3 Staker Interface
+/// @notice Allows staking nonfungible liquidity tokens in exchange for reward tokens
 interface IUniswapV3Staker {
-    /// @notice Represents a Staking incentive.
-    /// @param totalRewardUnclaimed The amount of rewards not yet claimed by users
-    /// @param totalSecondsClaimedX128 Total seconds of liquidity claimed, represented as a UQ64.96.
+    /// @notice Represents a staking incentive
+    /// @param totalRewardUnclaimed The amount of reward token not yet claimed by users
+    /// @param totalSecondsClaimedX128 Total liquidity-seconds claimed, represented as a UQ32.128
     /// @param rewardToken The address of the token being distributed as a reward
     struct Incentive {
+        // TODO: the total number of bits here is 448, which can fit in two slots
         uint128 totalRewardUnclaimed;
         uint160 totalSecondsClaimedX128;
         address rewardToken;
@@ -15,19 +21,22 @@ interface IUniswapV3Staker {
 
     /// @notice Represents the deposit of a liquidity NFT
     /// @param owner The owner of the LP token
-    /// @param numberOfStakes Counter to keep track of whether the deposit has been staked.
+    /// @param numberOfStakes Counter to keep track of how many incentives for which the liquidity is staked
     struct Deposit {
         address owner;
+        // TODO: can be uint96
         uint32 numberOfStakes;
     }
 
     /// @notice Represents a staked liquidity NFT
-    /// @param secondsPerLiquidityInitialX128 secondsPerLiquidity represented as a UQ64.96
+    /// @param secondsPerLiquidityInitialX128 secondsPerLiquidity represented as a UQ32.128
     /// @param liquidity The amount of liquidity staked
     /// @param exists Used to for truthiness checks
     struct Stake {
         uint160 secondsPerLiquidityInitialX128;
+        // TODO: can we clarify why this is stored in each stake and not the deposit
         uint128 liquidity;
+        // TODO: why do we care if it exists? liquidity = 0 should be enough?
         bool exists;
     }
 
@@ -104,6 +113,15 @@ interface IUniswapV3Staker {
         uint32 endTime;
         uint32 claimDeadline;
     }
+
+    /// @notice Returns the address of the Uniswap V3 Factory
+    function factory() external view returns (IUniswapV3Factory);
+
+    /// @notice Returns the nonfungible position manager with which this staking contract is compatible
+    function nonfungiblePositionManager()
+        external
+        view
+        returns (INonfungiblePositionManager);
 
     /// @notice Creates a new liquidity mining incentive program.
     function createIncentive(CreateIncentiveParams memory params) external;
