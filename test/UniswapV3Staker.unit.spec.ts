@@ -587,7 +587,7 @@ describe('UniswapV3Staker.unit', async () => {
           expect(stakeAfter.liquidity).to.eq(liquidity)
           expect(stakeAfter.exists).to.be.true
           expect((await context.staker.deposits(tokenId)).numberOfStakes).to.eq(
-            nStakesBefore + 1
+            nStakesBefore.add(1)
           )
         })
 
@@ -877,7 +877,7 @@ describe('UniswapV3Staker.unit', async () => {
           const { numberOfStakes: stakesPost } = await context.staker.deposits(
             tokenId
           )
-          expect(stakesPre).to.not.equal(stakesPost - 1)
+          expect(stakesPre).to.not.equal(stakesPost.sub(1))
         })
 
         it('emits an unstaked event', async () => {
