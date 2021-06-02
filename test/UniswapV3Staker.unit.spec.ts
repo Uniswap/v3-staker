@@ -942,10 +942,13 @@ describe('UniswapV3Staker.unit', async () => {
             expectedReward
           )
           expect(secondsClaimedPrev).to.equal(0)
-          expect(secondsClaimedCurrent).to.be.closeTo(
-            // @ts-ignore
+
+          // calculation is sometimes off by one
+          expect(secondsClaimedCurrent).to.be.gte(
             BN('68907179301490038851320000000000000000000'),
-            BN(1)
+          )
+          expect(secondsClaimedCurrent).to.be.lte(
+            BN('68907179301490038851330000000000000000000'),
           )
         })
 
@@ -992,7 +995,7 @@ describe('UniswapV3Staker.unit', async () => {
 
       describe('in an invalid scenario', () => {
         it('reverts if stake does not exist', async () => {
-          expect(subject()).to.be.revertedWith('nonexistent stake')
+          await expect(subject()).to.be.revertedWith('nonexistent stake')
         })
       })
     })
