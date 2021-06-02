@@ -26,11 +26,8 @@
   },
   "dependencies": {
     "@openzeppelin/contracts": "3.4.1-solc-0.7-2",
-    "@uniswap/lib": "^4.0.1-alpha",
-    "@uniswap/v2-core": "1.0.1",
     "@uniswap/v3-core": "1.0.0",
-    "@uniswap/v3-periphery": "^1.0.1",
-    "base64-sol": "1.0.1"
+    "@uniswap/v3-periphery": "^1.0.1"
   },
   "devDependencies": {
     "@nomiclabs/hardhat-ethers": "^2.0.2",
@@ -49,7 +46,6 @@
     "ethers": "^5.0.8",
     "hardhat": "^2.2.0",
     "hardhat-contract-sizer": "^2.0.3",
-    "is-svg": "^4.3.1",
     "lodash": "^4.17.21",
     "mocha": "^6.2.2",
     "mocha-chai-jest-snapshot": "^1.1.0",
@@ -74,6 +70,6 @@
     "postinstall": "yarn compile-uniswap",
     "test:unit": "TS_NODE_TRANSPILE_ONLY=1 yarn test test/*.unit.spec.ts",
     "test:integration": "TS_NODE_TRANSPILE_ONLY=1 yarn test test/*.integration.spec.ts",
-    "prettier:check": "prettier-check contracts/**/*.sol test/**/*.ts types/contractParams.ts"
+    "prettier:check": "prettier-check contracts/*.sol contracts/**/*.sol test/*.ts test/**/*.ts types/*.ts"
   }
 }

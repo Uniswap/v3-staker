@@ -268,6 +268,7 @@ export class HelperCommands {
             'claimDeadline',
           ]),
           {
+            creator: params.createIncentiveResult.creatorAddress,
             rewardToken: rewardToken.address,
             pool: params.createIncentiveResult.poolAddress,
           }

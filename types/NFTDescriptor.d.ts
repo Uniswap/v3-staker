@@ -9,275 +9,275 @@ import {
   BigNumber,
   BigNumberish,
   PopulatedTransaction,
-} from "ethers";
+} from 'ethers'
 import {
   Contract,
   ContractTransaction,
   CallOverrides,
-} from "@ethersproject/contracts";
-import { BytesLike } from "@ethersproject/bytes";
-import { Listener, Provider } from "@ethersproject/providers";
-import { FunctionFragment, EventFragment, Result } from "@ethersproject/abi";
+} from '@ethersproject/contracts'
+import { BytesLike } from '@ethersproject/bytes'
+import { Listener, Provider } from '@ethersproject/providers'
+import { FunctionFragment, EventFragment, Result } from '@ethersproject/abi'
 
 interface NFTDescriptorInterface extends ethers.utils.Interface {
   functions: {
-    "constructTokenURI(tuple)": FunctionFragment;
-  };
+    'constructTokenURI(tuple)': FunctionFragment
+  }
 
   encodeFunctionData(
-    functionFragment: "constructTokenURI",
+    functionFragment: 'constructTokenURI',
     values: [
       {
-        tokenId: BigNumberish;
-        quoteTokenAddress: string;
-        baseTokenAddress: string;
-        quoteTokenSymbol: string;
-        baseTokenSymbol: string;
-        quoteTokenDecimals: BigNumberish;
-        baseTokenDecimals: BigNumberish;
-        flipRatio: boolean;
-        tickLower: BigNumberish;
-        tickUpper: BigNumberish;
-        tickCurrent: BigNumberish;
-        tickSpacing: BigNumberish;
-        fee: BigNumberish;
-        poolAddress: string;
+        tokenId: BigNumberish
+        quoteTokenAddress: string
+        baseTokenAddress: string
+        quoteTokenSymbol: string
+        baseTokenSymbol: string
+        quoteTokenDecimals: BigNumberish
+        baseTokenDecimals: BigNumberish
+        flipRatio: boolean
+        tickLower: BigNumberish
+        tickUpper: BigNumberish
+        tickCurrent: BigNumberish
+        tickSpacing: BigNumberish
+        fee: BigNumberish
+        poolAddress: string
       }
     ]
-  ): string;
+  ): string
 
   decodeFunctionResult(
-    functionFragment: "constructTokenURI",
+    functionFragment: 'constructTokenURI',
     data: BytesLike
-  ): Result;
+  ): Result
 
-  events: {};
+  events: {}
 }
 
 export class NFTDescriptor extends Contract {
-  connect(signerOrProvider: Signer | Provider | string): this;
-  attach(addressOrName: string): this;
-  deployed(): Promise<this>;
+  connect(signerOrProvider: Signer | Provider | string): this
+  attach(addressOrName: string): this
+  deployed(): Promise<this>
 
-  on(event: EventFilter | string, listener: Listener): this;
-  once(event: EventFilter | string, listener: Listener): this;
-  addListener(eventName: EventFilter | string, listener: Listener): this;
-  removeAllListeners(eventName: EventFilter | string): this;
-  removeListener(eventName: any, listener: Listener): this;
+  on(event: EventFilter | string, listener: Listener): this
+  once(event: EventFilter | string, listener: Listener): this
+  addListener(eventName: EventFilter | string, listener: Listener): this
+  removeAllListeners(eventName: EventFilter | string): this
+  removeListener(eventName: any, listener: Listener): this
 
-  interface: NFTDescriptorInterface;
+  interface: NFTDescriptorInterface
 
   functions: {
     constructTokenURI(
       params: {
-        tokenId: BigNumberish;
-        quoteTokenAddress: string;
-        baseTokenAddress: string;
-        quoteTokenSymbol: string;
-        baseTokenSymbol: string;
-        quoteTokenDecimals: BigNumberish;
-        baseTokenDecimals: BigNumberish;
-        flipRatio: boolean;
-        tickLower: BigNumberish;
-        tickUpper: BigNumberish;
-        tickCurrent: BigNumberish;
-        tickSpacing: BigNumberish;
-        fee: BigNumberish;
-        poolAddress: string;
+        tokenId: BigNumberish
+        quoteTokenAddress: string
+        baseTokenAddress: string
+        quoteTokenSymbol: string
+        baseTokenSymbol: string
+        quoteTokenDecimals: BigNumberish
+        baseTokenDecimals: BigNumberish
+        flipRatio: boolean
+        tickLower: BigNumberish
+        tickUpper: BigNumberish
+        tickCurrent: BigNumberish
+        tickSpacing: BigNumberish
+        fee: BigNumberish
+        poolAddress: string
       },
       overrides?: CallOverrides
     ): Promise<{
-      0: string;
-    }>;
+      0: string
+    }>
 
-    "constructTokenURI(tuple)"(
+    'constructTokenURI(tuple)'(
       params: {
-        tokenId: BigNumberish;
-        quoteTokenAddress: string;
-        baseTokenAddress: string;
-        quoteTokenSymbol: string;
-        baseTokenSymbol: string;
-        quoteTokenDecimals: BigNumberish;
-        baseTokenDecimals: BigNumberish;
-        flipRatio: boolean;
-        tickLower: BigNumberish;
-        tickUpper: BigNumberish;
-        tickCurrent: BigNumberish;
-        tickSpacing: BigNumberish;
-        fee: BigNumberish;
-        poolAddress: string;
+        tokenId: BigNumberish
+        quoteTokenAddress: string
+        baseTokenAddress: string
+        quoteTokenSymbol: string
+        baseTokenSymbol: string
+        quoteTokenDecimals: BigNumberish
+        baseTokenDecimals: BigNumberish
+        flipRatio: boolean
+        tickLower: BigNumberish
+        tickUpper: BigNumberish
+        tickCurrent: BigNumberish
+        tickSpacing: BigNumberish
+        fee: BigNumberish
+        poolAddress: string
       },
       overrides?: CallOverrides
     ): Promise<{
-      0: string;
-    }>;
-  };
+      0: string
+    }>
+  }
 
   constructTokenURI(
     params: {
-      tokenId: BigNumberish;
-      quoteTokenAddress: string;
-      baseTokenAddress: string;
-      quoteTokenSymbol: string;
-      baseTokenSymbol: string;
-      quoteTokenDecimals: BigNumberish;
-      baseTokenDecimals: BigNumberish;
-      flipRatio: boolean;
-      tickLower: BigNumberish;
-      tickUpper: BigNumberish;
-      tickCurrent: BigNumberish;
-      tickSpacing: BigNumberish;
-      fee: BigNumberish;
-      poolAddress: string;
+      tokenId: BigNumberish
+      quoteTokenAddress: string
+      baseTokenAddress: string
+      quoteTokenSymbol: string
+      baseTokenSymbol: string
+      quoteTokenDecimals: BigNumberish
+      baseTokenDecimals: BigNumberish
+      flipRatio: boolean
+      tickLower: BigNumberish
+      tickUpper: BigNumberish
+      tickCurrent: BigNumberish
+      tickSpacing: BigNumberish
+      fee: BigNumberish
+      poolAddress: string
     },
     overrides?: CallOverrides
-  ): Promise<string>;
+  ): Promise<string>
 
-  "constructTokenURI(tuple)"(
+  'constructTokenURI(tuple)'(
     params: {
-      tokenId: BigNumberish;
-      quoteTokenAddress: string;
-      baseTokenAddress: string;
-      quoteTokenSymbol: string;
-      baseTokenSymbol: string;
-      quoteTokenDecimals: BigNumberish;
-      baseTokenDecimals: BigNumberish;
-      flipRatio: boolean;
-      tickLower: BigNumberish;
-      tickUpper: BigNumberish;
-      tickCurrent: BigNumberish;
-      tickSpacing: BigNumberish;
-      fee: BigNumberish;
-      poolAddress: string;
+      tokenId: BigNumberish
+      quoteTokenAddress: string
+      baseTokenAddress: string
+      quoteTokenSymbol: string
+      baseTokenSymbol: string
+      quoteTokenDecimals: BigNumberish
+      baseTokenDecimals: BigNumberish
+      flipRatio: boolean
+      tickLower: BigNumberish
+      tickUpper: BigNumberish
+      tickCurrent: BigNumberish
+      tickSpacing: BigNumberish
+      fee: BigNumberish
+      poolAddress: string
     },
     overrides?: CallOverrides
-  ): Promise<string>;
+  ): Promise<string>
 
   callStatic: {
     constructTokenURI(
       params: {
-        tokenId: BigNumberish;
-        quoteTokenAddress: string;
-        baseTokenAddress: string;
-        quoteTokenSymbol: string;
-        baseTokenSymbol: string;
-        quoteTokenDecimals: BigNumberish;
-        baseTokenDecimals: BigNumberish;
-        flipRatio: boolean;
-        tickLower: BigNumberish;
-        tickUpper: BigNumberish;
-        tickCurrent: BigNumberish;
-        tickSpacing: BigNumberish;
-        fee: BigNumberish;
-        poolAddress: string;
+        tokenId: BigNumberish
+        quoteTokenAddress: string
+        baseTokenAddress: string
+        quoteTokenSymbol: string
+        baseTokenSymbol: string
+        quoteTokenDecimals: BigNumberish
+        baseTokenDecimals: BigNumberish
+        flipRatio: boolean
+        tickLower: BigNumberish
+        tickUpper: BigNumberish
+        tickCurrent: BigNumberish
+        tickSpacing: BigNumberish
+        fee: BigNumberish
+        poolAddress: string
       },
       overrides?: CallOverrides
-    ): Promise<string>;
+    ): Promise<string>
 
-    "constructTokenURI(tuple)"(
+    'constructTokenURI(tuple)'(
       params: {
-        tokenId: BigNumberish;
-        quoteTokenAddress: string;
-        baseTokenAddress: string;
-        quoteTokenSymbol: string;
-        baseTokenSymbol: string;
-        quoteTokenDecimals: BigNumberish;
-        baseTokenDecimals: BigNumberish;
-        flipRatio: boolean;
-        tickLower: BigNumberish;
-        tickUpper: BigNumberish;
-        tickCurrent: BigNumberish;
-        tickSpacing: BigNumberish;
-        fee: BigNumberish;
-        poolAddress: string;
+        tokenId: BigNumberish
+        quoteTokenAddress: string
+        baseTokenAddress: string
+        quoteTokenSymbol: string
+        baseTokenSymbol: string
+        quoteTokenDecimals: BigNumberish
+        baseTokenDecimals: BigNumberish
+        flipRatio: boolean
+        tickLower: BigNumberish
+        tickUpper: BigNumberish
+        tickCurrent: BigNumberish
+        tickSpacing: BigNumberish
+        fee: BigNumberish
+        poolAddress: string
       },
       overrides?: CallOverrides
-    ): Promise<string>;
-  };
+    ): Promise<string>
+  }
 
-  filters: {};
+  filters: {}
 
   estimateGas: {
     constructTokenURI(
       params: {
-        tokenId: BigNumberish;
-        quoteTokenAddress: string;
-        baseTokenAddress: string;
-        quoteTokenSymbol: string;
-        baseTokenSymbol: string;
-        quoteTokenDecimals: BigNumberish;
-        baseTokenDecimals: BigNumberish;
-        flipRatio: boolean;
-        tickLower: BigNumberish;
-        tickUpper: BigNumberish;
-        tickCurrent: BigNumberish;
-        tickSpacing: BigNumberish;
-        fee: BigNumberish;
-        poolAddress: string;
+        tokenId: BigNumberish
+        quoteTokenAddress: string
+        baseTokenAddress: string
+        quoteTokenSymbol: string
+        baseTokenSymbol: string
+        quoteTokenDecimals: BigNumberish
+        baseTokenDecimals: BigNumberish
+        flipRatio: boolean
+        tickLower: BigNumberish
+        tickUpper: BigNumberish
+        tickCurrent: BigNumberish
+        tickSpacing: BigNumberish
+        fee: BigNumberish
+        poolAddress: string
       },
       overrides?: CallOverrides
-    ): Promise<BigNumber>;
+    ): Promise<BigNumber>
 
-    "constructTokenURI(tuple)"(
+    'constructTokenURI(tuple)'(
       params: {
-        tokenId: BigNumberish;
-        quoteTokenAddress: string;
-        baseTokenAddress: string;
-        quoteTokenSymbol: string;
-        baseTokenSymbol: string;
-        quoteTokenDecimals: BigNumberish;
-        baseTokenDecimals: BigNumberish;
-        flipRatio: boolean;
-        tickLower: BigNumberish;
-        tickUpper: BigNumberish;
-        tickCurrent: BigNumberish;
-        tickSpacing: BigNumberish;
-        fee: BigNumberish;
-        poolAddress: string;
+        tokenId: BigNumberish
+        quoteTokenAddress: string
+        baseTokenAddress: string
+        quoteTokenSymbol: string
+        baseTokenSymbol: string
+        quoteTokenDecimals: BigNumberish
+        baseTokenDecimals: BigNumberish
+        flipRatio: boolean
+        tickLower: BigNumberish
+        tickUpper: BigNumberish
+        tickCurrent: BigNumberish
+        tickSpacing: BigNumberish
+        fee: BigNumberish
+        poolAddress: string
       },
       overrides?: CallOverrides
-    ): Promise<BigNumber>;
-  };
+    ): Promise<BigNumber>
+  }
 
   populateTransaction: {
     constructTokenURI(
       params: {
-        tokenId: BigNumberish;
-        quoteTokenAddress: string;
-        baseTokenAddress: string;
-        quoteTokenSymbol: string;
-        baseTokenSymbol: string;
-        quoteTokenDecimals: BigNumberish;
-        baseTokenDecimals: BigNumberish;
-        flipRatio: boolean;
-        tickLower: BigNumberish;
-        tickUpper: BigNumberish;
-        tickCurrent: BigNumberish;
-        tickSpacing: BigNumberish;
-        fee: BigNumberish;
-        poolAddress: string;
+        tokenId: BigNumberish
+        quoteTokenAddress: string
+        baseTokenAddress: string
+        quoteTokenSymbol: string
+        baseTokenSymbol: string
+        quoteTokenDecimals: BigNumberish
+        baseTokenDecimals: BigNumberish
+        flipRatio: boolean
+        tickLower: BigNumberish
+        tickUpper: BigNumberish
+        tickCurrent: BigNumberish
+        tickSpacing: BigNumberish
+        fee: BigNumberish
+        poolAddress: string
       },
       overrides?: CallOverrides
-    ): Promise<PopulatedTransaction>;
+    ): Promise<PopulatedTransaction>
 
-    "constructTokenURI(tuple)"(
+    'constructTokenURI(tuple)'(
       params: {
-        tokenId: BigNumberish;
-        quoteTokenAddress: string;
-        baseTokenAddress: string;
-        quoteTokenSymbol: string;
-        baseTokenSymbol: string;
-        quoteTokenDecimals: BigNumberish;
-        baseTokenDecimals: BigNumberish;
-        flipRatio: boolean;
-        tickLower: BigNumberish;
-        tickUpper: BigNumberish;
-        tickCurrent: BigNumberish;
-        tickSpacing: BigNumberish;
-        fee: BigNumberish;
-        poolAddress: string;
+        tokenId: BigNumberish
+        quoteTokenAddress: string
+        baseTokenAddress: string
+        quoteTokenSymbol: string
+        baseTokenSymbol: string
+        quoteTokenDecimals: BigNumberish
+        baseTokenDecimals: BigNumberish
+        flipRatio: boolean
+        tickLower: BigNumberish
+        tickUpper: BigNumberish
+        tickCurrent: BigNumberish
+        tickSpacing: BigNumberish
+        fee: BigNumberish
+        poolAddress: string
       },
       overrides?: CallOverrides
-    ): Promise<PopulatedTransaction>;
-  };
+    ): Promise<PopulatedTransaction>
+  }
 }
