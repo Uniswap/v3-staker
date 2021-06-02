@@ -688,7 +688,8 @@ describe('UniswapV3Staker.unit', async () => {
           .sub(stake.secondsPerLiquidityInitialX128)
           .mul(stake.liquidity)
 
-        expect(reward).to.eq(BNe(1, 19))
+        // @ts-ignore
+        expect(reward).to.be.closeTo(BNe(1, 19), BN(1))
         expect(secondsInPeriodX128).to.eq(expectedSecondsInPeriod)
       })
 
