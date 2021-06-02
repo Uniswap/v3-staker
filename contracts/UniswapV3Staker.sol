@@ -223,7 +223,7 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
 
         // if incentive still exists
         if (incentive.totalRewardUnclaimed > 0) {
-            (uint256 reward, uint160 secondsInPeriodX128) =
+            (uint256 reward, uint160 secondsInPeriodX128, ) =
                 _getRewardAmount(
                     stake,
                     incentive,
@@ -268,7 +268,7 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
     function getRewardAmount(UpdateStakeParams memory params)
         public
         view
-        returns (uint256 reward, uint160 secondsInPeriodX128)
+        returns (uint256 reward)
     {
         (IUniswapV3Pool pool, int24 tickLower, int24 tickUpper, ) =
             _getPositionDetails(params.tokenId);
@@ -287,58 +287,13 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
 
         Incentive memory incentive = incentives[incentiveId];
         Stake memory stake = stakes[params.tokenId][incentiveId];
-        return
-            _getRewardAmount(
-                stake,
-                incentive,
-                params,
-                pool,
-                tickLower,
-                tickUpper
-            );
-    }
-
-    function _getRewardAmount(
-        Stake memory stake,
-        Incentive memory incentive,
-        UpdateStakeParams memory params,
-        IUniswapV3Pool pool,
-        int24 tickLower,
-        int24 tickUpper
-    ) private view returns (uint256 reward, uint160 secondsInPeriodX128) {
-        (, uint160 secondsPerLiquidityInsideX128, ) =
-            pool.snapshotCumulativesInside(tickLower, tickUpper);
-
-        secondsInPeriodX128 = uint160(
-            SafeMath.mul(
-                secondsPerLiquidityInsideX128 -
-                    stake.secondsPerLiquidityInitialX128,
-                stake.liquidity
-            )
-        );
-
-        // TODO: double-check for overflow risk here
-        uint160 totalSecondsUnclaimedX128 =
-            uint160(
-                SafeMath.mul(
-                    Math.max(params.endTime, block.timestamp) -
-                        params.startTime,
-                    FixedPoint128.Q128
-                ) - incentive.totalSecondsClaimedX128
-            );
-
-        // TODO: Make sure this truncates and not rounds up
-        uint256 rewardRate =
-            FullMath.mulDiv(
-                incentive.totalRewardUnclaimed,
-                FixedPoint128.Q128,
-                totalSecondsUnclaimedX128
-            );
-
-        reward = FullMath.mulDiv(
-            secondsInPeriodX128,
-            rewardRate,
-            FixedPoint128.Q128
+        (reward, , ) = _getRewardAmount(
+            stake,
+            incentive,
+            params,
+            pool,
+            tickLower,
+            tickUpper
         );
     }
 
@@ -385,6 +340,60 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
         });
 
         emit TokenStaked(params.tokenId, liquidity, incentiveId);
+    }
+
+    function _getRewardAmount(
+        Stake memory stake,
+        Incentive memory incentive,
+        UpdateStakeParams memory params,
+        IUniswapV3Pool pool,
+        int24 tickLower,
+        int24 tickUpper
+    )
+        private
+        view
+        returns (
+            uint256 reward,
+            uint160 secondsInPeriodX128,
+            uint160 secondsPerLiquidityInsideX128
+        )
+    {
+        (, secondsPerLiquidityInsideX128, ) = pool.snapshotCumulativesInside(
+            tickLower,
+            tickUpper
+        );
+
+        secondsInPeriodX128 = uint160(
+            SafeMath.mul(
+                secondsPerLiquidityInsideX128 -
+                    stake.secondsPerLiquidityInitialX128,
+                stake.liquidity
+            )
+        );
+
+        // TODO: double-check for overflow risk here
+        uint160 totalSecondsUnclaimedX128 =
+            uint160(
+                SafeMath.mul(
+                    Math.max(params.endTime, block.timestamp) -
+                        params.startTime,
+                    FixedPoint128.Q128
+                ) - incentive.totalSecondsClaimedX128
+            );
+
+        // TODO: Make sure this truncates and not rounds up
+        uint256 rewardRate =
+            FullMath.mulDiv(
+                incentive.totalRewardUnclaimed,
+                FixedPoint128.Q128,
+                totalSecondsUnclaimedX128
+            );
+
+        reward = FullMath.mulDiv(
+            secondsInPeriodX128,
+            rewardRate,
+            FixedPoint128.Q128
+        );
     }
 
     /// @param tokenId The unique identifier of an Uniswap V3 LP token
