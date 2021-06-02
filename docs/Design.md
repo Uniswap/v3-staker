@@ -1,4 +1,4 @@
-# Uniswap v3 Staker
+# Uniswap V3 Staker
 
 There is a canonical position staking contract, Staker.
 
@@ -24,6 +24,48 @@ struct Stake {
 
 ```
 
+State:
+
+```solidity
+IUniswapV3Factory public immutable factory;
+INonfungiblePositionManager public immutable nonfungiblePositionManager;
+
+/// @dev bytes32 refers to the return value of IncentiveHelper.getIncentiveId
+mapping(bytes32 => Incentive) public incentives;
+
+/// @dev deposits[tokenId] => Deposit
+mapping(uint256 => Deposit) public deposits;
+
+/// @dev stakes[tokenId][incentiveHash] => Stake
+mapping(uint256 => mapping(bytes32 => Stake)) public stakes;
+
+/// @dev rewards[rewardToken][msg.sender] => uint256
+mapping(address => mapping(address => uint256)) public rewards;
+```
+
+Params:
+
+```solidity
+struct CreateIncentiveParams {
+  address rewardToken;
+  address pool;
+  uint64 startTime;
+  uint64 endTime;
+  uint64 claimDeadline;
+  uint128 totalReward;
+}
+
+struct EndIncentiveParams {
+  address creator;
+  address rewardToken;
+  address pool;
+  uint64 startTime;
+  uint64 endTime;
+  uint64 claimDeadline;
+}
+
+```
+
 ## Incentives
 
 ### `createIncentive(CreateIncentiveParams memory params)`
@@ -33,8 +75,7 @@ struct Stake {
 **Check:**
 
 - Incentive with these params does not already exist
-- Transfers `params.totalReward` from `msg.sender` to self.
-- Timestamps: `params.claimDeadline >= params.endTime >= params.startTime`
+- Timestamps: `params.claimDeadline >= params.endTime >= params.startTime`, `block.timestamp < params.startTime`
 - Incentive with this ID does not already exist. See `getIncentiveId`.
 
 **Effects:**
@@ -43,6 +84,8 @@ struct Stake {
 
 **Interaction:**
 
+- Transfers `params.totalReward` from `msg.sender` to self.
+  - Make sure there is a check here and it fails if the transfer fails
 - Emits `IncentiveCreated`
 
 ### `endIncentive(EndIncentiveParams memory params)`
@@ -58,63 +101,22 @@ struct Stake {
 **Effects:**
 
 - deletes `incentives[key]` (This is a new change)
-- safeTransfers `totalRewardUnclaimed` of `rewardToken` to the incentive creator `msg.sender`
 
 **Interactions:**
 
+- safeTransfers `totalRewardUnclaimed` of `rewardToken` to the incentive creator `msg.sender`
 - emits `IncentiveEnded`
 
 ## Deposit/Withdraw Token
 
 ### `depositToken(uint256 tokenId)`
 
-Effects:
+**Interactions**
 
 - `nonfungiblePositionManager.safeTransferFrom(sender, this, tokenId)`
+  - This transfer triggers the onERC721Received hook
 
-### `withdrawToken(uint256 tokenId, address to)`
-
-TODO
-
-## Stake/Unstake/Rewards
-
-### `stakeToken`
-
-**Check:**
-
-- `deposits[params.tokenId].owner == msg.sender`
-- Make sure incentive actually exists (incentive.rewardToken != address(0))
-- Make sure token not already staked
-
-### `claimReward`
-
-TODO
-
-### `unstakeToken`
-
-To unstake an NFT, you call `unstakeToken`, which takes all the same arguments as `stake`, as well as a `to` address.
-
-- It checks that you are the owner of the Deposit, and decrements `numberOfStakes` by 1.
-- It checks that there exists a `Stake` for the provided key (with exists=true). It then deletes the `Stake` object.
-
-It tries to transfer `reward` of `Incentive.token` to the `to`. Note: it must be possible to unstake even if this transfer would fail (lest somebody be stuck with an NFT they can't withdraw)!
-
-`totalRewardsUnclaimed` is decremented by `reward`. `totalSecondsClaimed` is incremented by `seconds`.
-
-### `getRewardAmount`
-
-- It computes `secondsInPeriodX128` by computing :
-  - `secondsPerLiquidityInRangeX96` using the Uniswap v3 core contract and subtracting `secondsPerLiquidityInRangeInitialX96`.
-  - Multiplying that by `stake.liquidity` to get the total seconds in the period
-- Note that X128 means it's a `UQ32X128`.
-
-- It computes `rewardRate` for the Incentive casting `incentive.totalRewardUnclaimed` as a Q128, then dividing it by `totalSecondsUnclaimedX128`.
-
-- `reward` is then calculated as `secondsInPeriodX128` times the `rewardRate`, scaled down to a regular uint128.
-
-## Misc
-
-### `onERC721Received`
+### `onERC721Received(address, address from, uint256 tokenId, bytes calldata data)`
 
 **Check:**
 
@@ -124,4 +126,73 @@ It tries to transfer `reward` of `Incentive.token` to the `to`. Note: it must be
 
 - if `data.length>0`, stakes the token as well
 
+### `withdrawToken(uint256 tokenId, address to)`
+
+**Checks**
+
+- Check that a Deposit exists for the token and that `msg.sender` is the `owner` on that Deposit.
+- Check that `numberOfStakes` on that Deposit is 0.
+
+**Effects**
+
+- Delete the Deposit `delete deposits[tokenId]`.
+
+**Interactions**
+
+- `safeTransferFrom` the token to `to`.
+- emit `TokenWithdrawn(token, to)`
+
+## Stake/Unstake/Rewards
+
+### `stakeToken`
+
+**Check:**
+
+- `deposits[params.tokenId].owner == msg.sender`
+- Make sure incentive actually exists and has reward that could be claimed (incentive.rewardToken != address(0))
+  - Check if this check can check totalRewardUnclaimed instead
+- Make sure token not already staked
+
+### `claimReward`
+
+**Interactions**
+
+-`msg.sender` to withdraw all of their reward balance in a specific token to a specified `to` address.
+
+- emit RewardClaimed(to, reward)
+
+### `unstakeToken`
+
+To unstake an NFT, you call `unstakeToken`, which takes all the same arguments as `stake`.
+
+**Checks**
+
+- It checks that you are the owner of the Deposit
+- It checks that there exists a `Stake` for the provided key (with exists=true).
+
+**Effects**
+
+- Deletes the Stake.
+- Decrements `numberOfStakes` for the Deposit by 1.
+- `totalRewardsUnclaimed` is decremented by `reward`.
+- `totalSecondsClaimed` is incremented by `seconds`.
+- Increments `rewards[rewardToken][msg.sender]` by the amount given by `getRewardAmount`.
+
+### `_getRewardAmount`
+
+- It computes `secondsInPeriodX128` for a given Stake, by:
+  - using`snapshotCumulativesInside` from the Uniswap v3 core contract to get `secondsPerLiquidityInRangeX128`, and subtracting `secondsPerLiquidityInRangeInitialX128`.
+  - Multiplying that by `stake.liquidity` to get the total seconds accrued by the liquidity in that period
+- Note that X128 means it's a `UQ32X128`.
+
+- It computes `totalSecondsUnclaimed` by taking `max(endTime, block.timestamp) - startTime`, casting it as a Q128, and subtracting `totalSecondsClaimedX128`.
+
+- It computes `rewardRate` for the Incentive casting `incentive.totalRewardUnclaimed` as a Q128, then dividing it by `totalSecondsUnclaimedX128`.
+
+- `reward` is then calculated as `secondsInPeriodX128` times the `rewardRate`, scaled down to a regular uint128.
+
+## Misc
+
 #### `getIncentiveId(address incentiveCreator, address rewardToken, address pool, uint32 startTime, uint32 endTime, uint32 claimDeadline): bytes32`
+
+- Hashes all the immutable parameters of the incentive together to get the canonical ID for the incentive
