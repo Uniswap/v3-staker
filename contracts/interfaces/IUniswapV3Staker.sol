@@ -18,7 +18,7 @@ interface IUniswapV3Staker {
     /// @param numberOfStakes Counter to keep track of whether the deposit has been staked.
     struct Deposit {
         address owner;
-        uint32 numberOfStakes;
+        uint96 numberOfStakes;
     }
 
     /// @notice Represents a staked liquidity NFT

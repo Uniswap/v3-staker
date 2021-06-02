@@ -4,7 +4,7 @@ exports[`UniswapV3Staker.unit #onERC721Received on successful transfer with stak
 
 exports[`UniswapV3Staker.unit Deposits #depositToken works and has gas cost 1`] = `96861`;
 
-exports[`UniswapV3Staker.unit Deposits #withdrawToken works and has gas cost 1`] = `74265`;
+exports[`UniswapV3Staker.unit Deposits #withdrawToken works and has gas cost 1`] = `74159`;
 
 exports[`UniswapV3Staker.unit Incentives #createIncentive works and has gas cost 1`] = `82682`;
 
