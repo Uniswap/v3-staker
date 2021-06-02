@@ -38,7 +38,8 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
     /// @dev stakes[tokenId][incentiveHash] => Stake
     mapping(uint256 => mapping(bytes32 => Stake)) public stakes;
 
-    /// @dev rewards[rewardToken][msg.sender] => uint128
+    /// @dev rewards[rewardToken][owner] => uint128
+    /// TODO: make rewards uint256
     mapping(address => mapping(address => uint128)) public rewards;
 
     /// @param _factory the Uniswap V3 factory
@@ -220,6 +221,7 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
         Incentive memory incentive = incentives[incentiveId];
         Stake memory stake = stakes[params.tokenId][incentiveId];
 
+        // TODO: replace with liquidity != 0
         require(stake.exists == true, 'nonexistent stake');
 
         // if incentive still exists
@@ -284,6 +286,7 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
     }
 
     /// @inheritdoc IUniswapV3Staker
+    /// TODO: allow specifying an amount
     function claimReward(address rewardToken, address to) external override {
         uint128 reward = rewards[rewardToken][msg.sender];
         rewards[rewardToken][msg.sender] = 0;
@@ -325,7 +328,6 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
             stakes[params.tokenId][incentiveId].exists != true,
             'incentive already staked'
         );
-        // TODO: require deposit exists
 
         (, uint160 secondsPerLiquidityInsideX128, ) =
             IUniswapV3Pool(poolAddress).snapshotCumulativesInside(
@@ -377,6 +379,7 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
             );
 
         // TODO: Make sure this truncates and not rounds up
+        // TODO: review math--why is this not a fixed point?
         uint256 rewardRate =
             FullMath.mulDiv(
                 incentive.totalRewardUnclaimed,
