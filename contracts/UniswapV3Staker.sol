@@ -55,6 +55,7 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
         external
         override
     {
+        // TODO: check that the start time is in future
         require(
             params.claimDeadline >= params.endTime &&
                 params.endTime >= params.startTime,
@@ -85,6 +86,8 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
             params.totalReward
         );
 
+        // TODO: use the named parameter constructor
+        // TODO: move this above the safeTransferFrom to avoid reentrancy
         incentives[key] = Incentive(params.totalReward, 0, params.rewardToken);
 
         emit IncentiveCreated(
@@ -101,11 +104,13 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
     /// @inheritdoc IUniswapV3Staker
     function endIncentive(EndIncentiveParams memory params) external override {
         require(
+            // TODO: this is not safe if block.timestamp is a uint256 and params.claimDeadline is a uint32
             block.timestamp > params.claimDeadline,
             'before claim deadline'
         );
         bytes32 key =
             IncentiveHelper.getIncentiveId(
+                // TODO: take owner from calldata instead of msg.sender, allow anyone to call it
                 msg.sender,
                 params.rewardToken,
                 params.pool,
@@ -115,7 +120,9 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
             );
 
         Incentive memory incentive = incentives[key];
+        // TODO: totalRewardUnclaimed non-zero
         require(incentive.rewardToken != address(0), 'invalid incentive');
+        // TODO: do we need delete? 2 diff states, perfectly claimed vs. unperfectly claimed
         delete incentives[key];
 
         TransferHelper.safeTransfer(
@@ -136,6 +143,8 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
     }
 
     /// @inheritdoc IUniswapV3Staker
+    /// TODO: consider removing depositToken, since we don't have self permit and onERC721Received covers all use cases
+    ///     also does not
     function depositToken(uint256 tokenId) external override {
         nonfungiblePositionManager.safeTransferFrom(
             msg.sender,
@@ -160,6 +169,7 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
         emit TokenDeposited(tokenId, from);
 
         if (data.length > 0) {
+            // TODO: this would be better if it could be any arbitrary call, treated as if the owner of the token called
             _stakeToken(abi.decode(data, (UpdateStakeParams)));
         }
         return this.onERC721Received.selector;
@@ -284,6 +294,7 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
     }
 
     function _stakeToken(UpdateStakeParams memory params) internal {
+        /// TODO: same block.timestamp width problems as above
         require(params.startTime <= block.timestamp, 'incentive not started');
         require(params.endTime > block.timestamp, 'incentive ended');
 
@@ -304,14 +315,17 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
                 params.claimDeadline
             );
 
+        // TODO: should be total rewards unclaimed
         require(
             incentives[incentiveId].rewardToken != address(0),
             'non-existent incentive'
         );
+        // TODO: switch to liquidity == 0
         require(
             stakes[params.tokenId][incentiveId].exists != true,
             'incentive already staked'
         );
+        // TODO: require deposit exists
 
         (, uint160 secondsPerLiquidityInsideX128, ) =
             IUniswapV3Pool(poolAddress).snapshotCumulativesInside(
@@ -319,6 +333,7 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
                 tickUpper
             );
 
+        // TODO: use named constructor
         stakes[params.tokenId][incentiveId] = Stake(
             secondsPerLiquidityInsideX128,
             liquidity,

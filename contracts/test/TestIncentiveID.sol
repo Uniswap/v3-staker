@@ -5,6 +5,7 @@ import '../libraries/IncentiveHelper.sol';
 /// @dev Test contract for getIncentiveId
 contract TestIncentiveID {
     function getIncentiveId(
+        // TODO: wrap these in a struct, reuse the struct elsewhere
         address creator,
         address rewardToken,
         address pool,

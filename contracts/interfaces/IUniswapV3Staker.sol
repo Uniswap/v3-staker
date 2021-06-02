@@ -16,6 +16,7 @@ interface IUniswapV3Staker {
         // TODO: the total number of bits here is 448, which can fit in two slots
         uint128 totalRewardUnclaimed;
         uint160 totalSecondsClaimedX128;
+        // TODO: we probably don't need this
         address rewardToken;
     }
 
@@ -113,6 +114,7 @@ interface IUniswapV3Staker {
         address pool;
         address rewardToken;
         uint128 totalReward;
+        // TODO: should these be uint64s?
         uint32 startTime;
         uint32 endTime;
         uint32 claimDeadline;
