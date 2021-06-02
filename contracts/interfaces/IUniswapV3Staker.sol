@@ -5,12 +5,10 @@ pragma abicoder v2;
 interface IUniswapV3Staker {
     /// @notice Represents a Staking incentive.
     /// @param totalRewardUnclaimed The amount of rewards not yet claimed by users
-    /// @param totalSecondsClaimedX128 Total seconds of liquidity claimed, represented as a UQ64.96.
-    /// @param rewardToken The address of the token being distributed as a reward
+    /// @param totalSecondsClaimedX128 Total liquidity-seconds claimed, represented as a UQ32.128
     struct Incentive {
         uint128 totalRewardUnclaimed;
         uint160 totalSecondsClaimedX128;
-        address rewardToken;
     }
 
     /// @notice Represents the deposit of a liquidity NFT
@@ -48,21 +46,10 @@ interface IUniswapV3Staker {
         uint128 totalReward
     );
 
-    /// @notice Event emitted when a liquidity mining incentive has ended
-    /// @param creator The address that created this incentive
-    /// @param rewardToken The address of the token being distributed as a reward
-    /// @param pool The address of the Uniswap V3 pool
-    /// @param startTime The time when the incentive program begins
-    /// @param endTime The time when rewards stop accruing
-    /// @param claimDeadline Time after which LPs can no longer claim rewards (and incentiveCreator can end the incentive and receive unclaimed rewards)
-    event IncentiveEnded(
-        address creator,
-        address indexed rewardToken,
-        address indexed pool,
-        uint64 startTime,
-        uint64 endTime,
-        uint64 claimDeadline
-    );
+    /// @notice Event that can be emitted when a liquidity mining incentive has ended
+    /// @param incentiveId The incentive which is ending
+    /// @param refund The amount of reward tokens refunded
+    event IncentiveEnded(bytes32 incentiveId, uint256 refund);
 
     /// @notice Event emitted when a Uniswap V3 LP token has been deposited
     /// @param tokenId The unique identifier of an Uniswap V3 LP token

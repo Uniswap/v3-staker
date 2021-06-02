@@ -53,16 +53,12 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
         external
         override
     {
+        require(params.totalReward > 0, 'reward invalid');
         require(
             params.startTime < params.endTime &&
                 params.endTime < params.claimDeadline &&
                 block.timestamp < params.startTime,
             'timestamps invalid'
-        );
-
-        require(
-            params.rewardToken != address(0) && params.totalReward > 0,
-            'reward invalid'
         );
 
         bytes32 key =
@@ -75,16 +71,18 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
                 params.claimDeadline
             );
 
-        require(incentives[key].rewardToken == address(0), 'incentive exists');
+        // totalRewardUnclaimed cannot decrease until params.startTime has passed, meaning this check is safe
+        require(incentives[key].totalRewardUnclaimed == 0, 'incentive exists');
 
+        incentives[key] = Incentive({totalRewardUnclaimed: params.totalReward, totalSecondsClaimedX128: 0});
+
+        // this is effectively a validity check on params.rewardToken
         TransferHelper.safeTransferFrom(
             params.rewardToken,
             msg.sender,
             address(this),
             params.totalReward
         );
-
-        incentives[key] = Incentive(params.totalReward, 0, params.rewardToken);
 
         emit IncentiveCreated(
             msg.sender,
@@ -99,10 +97,6 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
 
     /// @inheritdoc IUniswapV3Staker
     function endIncentive(EndIncentiveParams memory params) external override {
-        require(
-            params.claimDeadline <= block.timestamp,
-            'before claim deadline'
-        );
         bytes32 key =
             IncentiveHelper.getIncentiveId(
                 params.creator,
@@ -112,25 +106,20 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
                 params.endTime,
                 params.claimDeadline
             );
+        
+        uint128 refund = incentives[key].totalRewardUnclaimed;
 
-        Incentive memory incentive = incentives[key];
-        require(incentive.rewardToken != address(0), 'invalid incentive');
-        delete incentives[key];
+        // if any unclaimed rewards remain, and we're at or past the claim deadline, issue a refund
+        if (refund > 0 && params.claimDeadline <= block.timestamp) {
+            incentives[key].totalRewardUnclaimed = 0;
+            TransferHelper.safeTransfer(
+                params.rewardToken,
+                params.creator,
+                refund
+            );
 
-        TransferHelper.safeTransfer(
-            params.rewardToken,
-            params.creator,
-            incentive.totalRewardUnclaimed
-        );
-
-        emit IncentiveEnded(
-            params.creator,
-            params.rewardToken,
-            params.pool,
-            params.startTime,
-            params.endTime,
-            params.claimDeadline
-        );
+            emit IncentiveEnded(key, refund);
+        }
     }
 
     /// @inheritdoc IUniswapV3Staker
@@ -154,7 +143,7 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
             'not a univ3 nft'
         );
 
-        deposits[tokenId] = Deposit(from, 0);
+        deposits[tokenId] = Deposit({owner: from, numberOfStakes: 0});
         emit TokenDeposited(tokenId, from);
 
         if (data.length > 0) {
@@ -231,8 +220,8 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
             );
 
             // Makes rewards available to claimReward
-            rewards[incentive.rewardToken][msg.sender] = SafeMath.add(
-                rewards[incentive.rewardToken][msg.sender],
+            rewards[params.rewardToken][msg.sender] = SafeMath.add(
+                rewards[params.rewardToken][msg.sender],
                 reward
             );
         }
@@ -304,7 +293,7 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
             );
 
         require(
-            incentives[incentiveId].rewardToken != address(0),
+            incentives[incentiveId].totalRewardUnclaimed > 0,
             'non-existent incentive'
         );
         require(
@@ -318,11 +307,11 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
                 tickUpper
             );
 
-        stakes[params.tokenId][incentiveId] = Stake(
-            secondsPerLiquidityInsideX128,
-            liquidity,
-            true
-        );
+        stakes[params.tokenId][incentiveId] = Stake({
+            secondsPerLiquidityInitialX128: secondsPerLiquidityInsideX128,
+            liquidity: liquidity,
+            exists: true
+        });
 
         deposits[params.tokenId].numberOfStakes += 1;
         emit TokenStaked(params.tokenId, liquidity, incentiveId);

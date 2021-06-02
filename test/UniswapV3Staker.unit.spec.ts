@@ -190,7 +190,6 @@ describe('UniswapV3Staker.unit', async () => {
           const incentive = await context.staker.incentives(incentiveId)
           expect(incentive.totalRewardUnclaimed).to.equal(totalReward)
           expect(incentive.totalSecondsClaimedX128).to.equal(BN(0))
-          expect(incentive.rewardToken).to.equal(context.rewardToken.address)
         })
 
         it('has gas cost', async () => {
@@ -269,19 +268,6 @@ describe('UniswapV3Staker.unit', async () => {
         describe('invalid reward', () => {
           const ERR_REWARD_INVALID = 'reward invalid'
 
-          it('rewardToken is 0 address', async () => {
-            const now = await blockTimestamp()
-
-            await expect(
-              context.staker.connect(incentiveCreator).createIncentive({
-                rewardToken: constants.AddressZero,
-                pool: context.pool01,
-                totalReward,
-                ...makeTimestamps(now, 1_000, 2_000),
-              })
-            ).to.be.revertedWith(ERR_REWARD_INVALID)
-          })
-
           it('totalReward is 0 or an invalid amount', async () => {
             const now = await blockTimestamp()
 
@@ -330,16 +316,13 @@ describe('UniswapV3Staker.unit', async () => {
         it('emits IncentiveEnded event', async () => {
           await Time.set(timestamps.claimDeadline + 10)
 
+          const incentiveId = await helpers.getIncentiveId(
+            createIncentiveResult
+          )
+
           await expect(subject({}))
             .to.emit(context.staker, 'IncentiveEnded')
-            .withArgs(
-              incentiveCreator.address,
-              context.rewardToken.address,
-              context.pool01,
-              timestamps.startTime,
-              timestamps.endTime,
-              timestamps.claimDeadline
-            )
+            .withArgs(incentiveId, '100000000000000000000')
         })
 
         it('deletes incentives[key]', async () => {
@@ -347,14 +330,14 @@ describe('UniswapV3Staker.unit', async () => {
             createIncentiveResult
           )
           expect(
-            (await context.staker.incentives(incentiveId)).rewardToken
-          ).to.eq(context.rewardToken.address)
+            (await context.staker.incentives(incentiveId)).totalRewardUnclaimed
+          ).to.be.gt(0)
 
           await Time.set(timestamps.claimDeadline + 1)
           await subject({})
           expect(
-            (await context.staker.incentives(incentiveId)).rewardToken
-          ).to.eq(constants.AddressZero)
+            (await context.staker.incentives(incentiveId)).totalRewardUnclaimed
+          ).to.eq(0)
         })
 
         it('has gas cost', async () => {
@@ -363,10 +346,13 @@ describe('UniswapV3Staker.unit', async () => {
         })
       })
 
-      describe('fails when', async () => {
+      describe('no-op when', async () => {
         it('block.timestamp <= claim deadline', async () => {
           await Time.set(timestamps.claimDeadline - 10)
-          await expect(subject({})).to.be.revertedWith('before claim deadline')
+          await expect(subject({})).to.not.emit(
+            context.staker,
+            'IncentiveEnded'
+          )
         })
 
         it('incentive does not exist', async () => {
@@ -376,7 +362,7 @@ describe('UniswapV3Staker.unit', async () => {
             subject({
               startTime: (await blockTimestamp()) + 1000,
             })
-          ).to.be.revertedWith('invalid incentive')
+          ).to.not.emit(context.staker, 'IncentiveEnded')
         })
       })
     })
