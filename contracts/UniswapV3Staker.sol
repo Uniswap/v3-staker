@@ -58,12 +58,15 @@ contract UniswapV3Staker is
         override
     {
         require(
-            params.claimDeadline >= params.endTime,
-            'claim deadline before end time'
+            params.claimDeadline >= params.endTime &&
+                params.endTime >= params.startTime,
+            'timestamps invalid'
         );
-        require(params.endTime > params.startTime, 'end time before start');
-        require(params.rewardToken != address(0), 'invalid reward address');
-        require(params.totalReward > 0, 'invalid reward amount');
+
+        require(
+            params.rewardToken != address(0) && params.totalReward > 0,
+            'reward invalid'
+        );
 
         bytes32 key =
             IncentiveHelper.getIncentiveId(
@@ -75,10 +78,7 @@ contract UniswapV3Staker is
                 params.claimDeadline
             );
 
-        require(
-            incentives[key].rewardToken == address(0),
-            'incentive already exists'
-        );
+        require(incentives[key].rewardToken == address(0), 'incentive exists');
 
         TransferHelper.safeTransferFrom(
             params.rewardToken,
@@ -124,6 +124,7 @@ contract UniswapV3Staker is
         delete incentives[key];
 
         TransferHelper.safeTransfer(
+            /* TODO: should this be incentive.rewardToken? I don't think it matters but just checking */
             params.rewardToken,
             msg.sender,
             incentive.totalRewardUnclaimed
@@ -184,7 +185,7 @@ contract UniswapV3Staker is
     function stakeToken(UpdateStakeParams memory params) external override {
         require(
             deposits[params.tokenId].owner == msg.sender,
-            'sender is not deposit owner'
+            'sender is not nft owner'
         );
 
         _stakeToken(params);
@@ -197,7 +198,7 @@ contract UniswapV3Staker is
     {
         require(
             deposits[params.tokenId].owner == msg.sender,
-            'position is invalid'
+            'sender is not nft owner'
         );
 
         deposits[params.tokenId].numberOfStakes -= 1;

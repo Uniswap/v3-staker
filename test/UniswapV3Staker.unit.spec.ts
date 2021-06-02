@@ -206,46 +206,60 @@ describe('UniswapV3Staker.unit', async () => {
             context.staker,
             'IncentiveCreated'
           )
-          await expect(subject(params)).to.be.revertedWith(
-            'incentive already exists'
-          )
+          await expect(subject(params)).to.be.revertedWith('incentive exists')
         })
 
-        it('claim deadline is before end time', async () => {
-          const params = await makeTimestamps((await blockTimestamp()) + 10)
-          params.endTime = params.claimDeadline + 100
-          await expect(subject(params)).to.be.revertedWith(
-            'claim deadline before end time'
-          )
+        describe('invalid timestamps', async () => {
+          const ERR_TIMESTAMPS_INVALID = 'timestamps invalid'
+
+          it('claim deadline is before end time', async () => {
+            const params = await makeTimestamps((await blockTimestamp()) + 10)
+            params.endTime = params.claimDeadline + 100
+            await expect(subject(params)).to.be.revertedWith(
+              ERR_TIMESTAMPS_INVALID
+            )
+          })
+
+          it('claim deadline is before start time', async () => {
+            const params = await makeTimestamps((await blockTimestamp()) + 10)
+            params.claimDeadline = params.startTime - 10
+            await expect(subject(params)).to.be.revertedWith(
+              ERR_TIMESTAMPS_INVALID
+            )
+          })
+
+          it('end time is before start time', async () => {
+            const params = makeTimestamps((await blockTimestamp()) + 10)
+            params.endTime = params.startTime - 10
+            await expect(subject(params)).to.be.revertedWith(
+              ERR_TIMESTAMPS_INVALID
+            )
+          })
         })
 
-        it('end time is not gte start time', async () => {
-          const params = makeTimestamps((await blockTimestamp()) + 10)
-          params.endTime = params.startTime - 10
-          await expect(subject(params)).to.be.revertedWith(
-            'end time before start'
-          )
+        describe('invalid reward', async () => {
+          const ERR_REWARD_INVALID = 'reward invalid'
+
+          it('rewardToken is 0 address', async () =>
+            await expect(
+              context.staker.connect(incentiveCreator).createIncentive({
+                rewardToken: constants.AddressZero,
+                pool: context.pool01,
+                totalReward,
+                ...makeTimestamps(0),
+              })
+            ).to.be.revertedWith(ERR_REWARD_INVALID))
+
+          it('totalReward is 0 or an invalid amount', async () =>
+            await expect(
+              context.staker.connect(incentiveCreator).createIncentive({
+                rewardToken: context.rewardToken.address,
+                pool: context.pool01,
+                totalReward: BNe18(0),
+                ...makeTimestamps(0),
+              })
+            ).to.be.revertedWith(ERR_REWARD_INVALID))
         })
-
-        it('rewardToken is 0 address', async () =>
-          await expect(
-            context.staker.connect(incentiveCreator).createIncentive({
-              rewardToken: constants.AddressZero,
-              pool: context.pool01,
-              totalReward,
-              ...makeTimestamps(0),
-            })
-          ).to.be.revertedWith('invalid reward address'))
-
-        it('totalReward is 0 or an invalid amount', async () =>
-          await expect(
-            context.staker.connect(incentiveCreator).createIncentive({
-              rewardToken: context.rewardToken.address,
-              pool: context.pool01,
-              totalReward: BNe18(0),
-              ...makeTimestamps(0),
-            })
-          ).to.be.revertedWith('invalid reward amount'))
       })
     })
 
@@ -592,7 +606,7 @@ describe('UniswapV3Staker.unit', async () => {
         it('you are not the owner of the deposit', async () => {
           await Time.set(timestamps.startTime + 500)
           await expect(subject(tokenId, actors.lpUser2())).to.be.revertedWith(
-            'sender is not deposit owner'
+            'sender is not nft owner'
           )
         })
 
