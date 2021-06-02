@@ -42,9 +42,9 @@ interface IUniswapV3Staker {
         address creator,
         address indexed rewardToken,
         address indexed pool,
-        uint32 startTime,
-        uint32 endTime,
-        uint32 claimDeadline,
+        uint64 startTime,
+        uint64 endTime,
+        uint64 claimDeadline,
         uint128 totalReward
     );
 
@@ -59,9 +59,9 @@ interface IUniswapV3Staker {
         address creator,
         address indexed rewardToken,
         address indexed pool,
-        uint32 startTime,
-        uint32 endTime,
-        uint32 claimDeadline
+        uint64 startTime,
+        uint64 endTime,
+        uint64 claimDeadline
     );
 
     /// @notice Event emitted when a Uniswap V3 LP token has been deposited
@@ -100,9 +100,9 @@ interface IUniswapV3Staker {
         address pool;
         address rewardToken;
         uint128 totalReward;
-        uint32 startTime;
-        uint32 endTime;
-        uint32 claimDeadline;
+        uint64 startTime;
+        uint64 endTime;
+        uint64 claimDeadline;
     }
 
     /// @notice Creates a new liquidity mining incentive program.
@@ -116,9 +116,9 @@ interface IUniswapV3Staker {
     struct EndIncentiveParams {
         address pool;
         address rewardToken;
-        uint32 claimDeadline;
-        uint32 endTime;
-        uint32 startTime;
+        uint64 startTime;
+        uint64 endTime;
+        uint64 claimDeadline;
     }
 
     /// @notice Deposits a Uniswap V3 LP token `tokenId` from `msg.sender` to this contract
@@ -143,9 +143,9 @@ interface IUniswapV3Staker {
         address creator;
         address rewardToken;
         uint256 tokenId;
-        uint32 startTime;
-        uint32 endTime;
-        uint32 claimDeadline;
+        uint64 startTime;
+        uint64 endTime;
+        uint64 claimDeadline;
     }
 
     /// @notice Stakes a Uniswap V3 LP token

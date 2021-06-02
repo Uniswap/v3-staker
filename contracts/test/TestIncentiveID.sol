@@ -8,9 +8,9 @@ contract TestIncentiveID {
         address creator,
         address rewardToken,
         address pool,
-        uint32 startTime,
-        uint32 endTime,
-        uint32 claimDeadline
+        uint64 startTime,
+        uint64 endTime,
+        uint64 claimDeadline
     ) public pure returns (bytes32) {
         return
             IncentiveHelper.getIncentiveId(
