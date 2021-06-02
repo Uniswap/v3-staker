@@ -231,8 +231,10 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
             );
 
             // Makes rewards available to claimReward
-            rewards[incentive.rewardToken][msg.sender] =
-                SafeMath.add(rewards[incentive.rewardToken][msg.sender], reward);
+            rewards[incentive.rewardToken][msg.sender] = SafeMath.add(
+                rewards[incentive.rewardToken][msg.sender],
+                reward
+            );
         }
 
         delete stakes[params.tokenId][incentiveId];
