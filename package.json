@@ -70,6 +70,6 @@
     "postinstall": "yarn compile-uniswap",
     "test:unit": "TS_NODE_TRANSPILE_ONLY=1 yarn test test/*.unit.spec.ts",
     "test:integration": "TS_NODE_TRANSPILE_ONLY=1 yarn test test/*.integration.spec.ts",
-    "prettier:check": "prettier-check contracts/**/*.sol test/**/*.ts types/contractParams.ts"
+    "prettier:check": "prettier-check contracts/*.sol contracts/**/*.sol test/*.ts test/**/*.ts types/*.ts"
   }
 }
