@@ -919,6 +919,7 @@ describe('UniswapV3Staker.unit', async () => {
             )
             await subject()
             const stakeAfter = await context.staker.stakes(tokenId, incentiveId)
+
             expect(stakeBefore.secondsPerLiquidityInitialX128).to.gt(0)
             expect(stakeBefore.liquidity).to.gt(0)
             expect(stakeBefore.exists).to.be.true
@@ -939,9 +940,12 @@ describe('UniswapV3Staker.unit', async () => {
 
           it('does not write to incentive', async () => {
             await subject()
-            const incentive = await context.staker.incentives(incentiveId)
-            expect(incentive.totalSecondsClaimedX128).to.eq(0)
-            expect(incentive.totalSecondsClaimedX128).to.eq(0)
+            const {
+              totalRewardUnclaimed,
+              totalSecondsClaimedX128,
+            } = await context.staker.incentives(incentiveId)
+            expect(totalRewardUnclaimed).to.eq(0)
+            expect(totalSecondsClaimedX128).to.eq(0)
           })
         })
 
