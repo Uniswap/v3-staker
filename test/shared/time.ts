@@ -4,7 +4,11 @@ import { log } from './logging'
 
 type TimeSetterFunction = (timestamp: number) => Promise<any>
 
-type TimeSetters = { set: TimeSetterFunction; step: TimeSetterFunction }
+type TimeSetters = {
+  set: TimeSetterFunction
+  step: TimeSetterFunction
+  setAndMine: TimeSetterFunction
+}
 
 export const createTimeMachine = (provider: MockProvider): TimeSetters => {
   return {
@@ -19,6 +23,12 @@ export const createTimeMachine = (provider: MockProvider): TimeSetters => {
       log.debug(`🕒 increaseTime(${interval})`)
       await provider.send('evm_increaseTime', [interval])
       await ethers.provider.send('evm_increaseTime', [interval])
+    },
+
+    setAndMine: async (timestamp: number) => {
+      await provider.send('evm_increaseTime', [timestamp])
+      await ethers.provider.send('evm_increaseTime', [timestamp])
+      await provider.send('evm_mine', [])
     },
   }
 }

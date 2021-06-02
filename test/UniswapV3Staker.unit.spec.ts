@@ -198,9 +198,9 @@ describe('UniswapV3Staker.unit', async () => {
         })
       })
 
-      describe('fails when', async () => {
+      describe('fails when', () => {
         it('there is already has an incentive with those params', async () => {
-          const params = await makeTimestamps((await blockTimestamp()) + 10)
+          const params = makeTimestamps((await blockTimestamp()) + 10)
           expect(await subject(params)).to.emit(
             context.staker,
             'IncentiveCreated'
@@ -208,11 +208,40 @@ describe('UniswapV3Staker.unit', async () => {
           await expect(subject(params)).to.be.revertedWith('incentive exists')
         })
 
-        describe('invalid timestamps', async () => {
+        describe('invalid timestamps', () => {
           const ERR_TIMESTAMPS_INVALID = 'timestamps invalid'
 
+          it('current time is after start time', async () => {
+            const params = makeTimestamps(
+              await blockTimestamp(),
+              10_000,
+              20_000
+            )
+
+            // Go to after the start time
+            await Time.setAndMine(params.startTime + 100)
+            expect(await blockTimestamp()).to.be.greaterThan(
+              params.startTime,
+              'test setup: before start time'
+            )
+
+            await expect(subject(params)).to.be.revertedWith(
+              ERR_TIMESTAMPS_INVALID
+            )
+
+            expect(await blockTimestamp()).to.be.lessThan(
+              params.endTime,
+              'test setup: after end time'
+            )
+
+            expect(
+              await blockTimestamp(),
+              'test setup: after claim deadline'
+            ).to.be.lessThan(params.claimDeadline)
+          })
+
           it('claim deadline is before end time', async () => {
-            const params = await makeTimestamps((await blockTimestamp()) + 10)
+            const params = makeTimestamps((await blockTimestamp()) + 10)
             params.endTime = params.claimDeadline + 100
             await expect(subject(params)).to.be.revertedWith(
               ERR_TIMESTAMPS_INVALID
@@ -220,7 +249,7 @@ describe('UniswapV3Staker.unit', async () => {
           })
 
           it('claim deadline is before start time', async () => {
-            const params = await makeTimestamps((await blockTimestamp()) + 10)
+            const params = makeTimestamps((await blockTimestamp()) + 10)
             params.claimDeadline = params.startTime - 10
             await expect(subject(params)).to.be.revertedWith(
               ERR_TIMESTAMPS_INVALID
