@@ -222,29 +222,32 @@ contract UniswapV3Staker is
         Stake memory stake = stakes[params.tokenId][incentiveId];
 
         require(stake.exists == true, 'nonexistent stake');
-        require(incentive.rewardToken != address(0), 'incentive not found');
 
-        (uint128 reward, uint160 secondsInPeriodX128) =
-            _getRewardAmount(
-                stake,
-                incentive,
-                params,
-                poolAddress,
-                tickLower,
-                tickUpper
+        // if incentive still exists
+        if (incentive.totalRewardUnclaimed > 0) {
+            (uint128 reward, uint160 secondsInPeriodX128) =
+                _getRewardAmount(
+                    stake,
+                    incentive,
+                    params,
+                    poolAddress,
+                    tickLower,
+                    tickUpper
+                );
+
+            incentives[incentiveId]
+                .totalSecondsClaimedX128 += secondsInPeriodX128;
+
+            // TODO: is SafeMath necessary here? Could we do just a subtraction?
+            incentives[incentiveId].totalRewardUnclaimed = uint128(
+                SafeMath.sub(incentive.totalRewardUnclaimed, reward)
             );
 
-        incentives[incentiveId].totalSecondsClaimedX128 += secondsInPeriodX128;
-
-        // TODO: is SafeMath necessary here? Could we do just a subtraction?
-        incentives[incentiveId].totalRewardUnclaimed = uint128(
-            SafeMath.sub(incentive.totalRewardUnclaimed, reward)
-        );
-
-        // Makes rewards available to claimReward
-        rewards[incentive.rewardToken][msg.sender] = uint128(
-            SafeMath.add(rewards[incentive.rewardToken][msg.sender], reward)
-        );
+            // Makes rewards available to claimReward
+            rewards[incentive.rewardToken][msg.sender] = uint128(
+                SafeMath.add(rewards[incentive.rewardToken][msg.sender], reward)
+            );
+        }
 
         delete stakes[params.tokenId][incentiveId];
         emit TokenUnstaked(params.tokenId, incentiveId);
