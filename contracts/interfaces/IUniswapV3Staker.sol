@@ -99,6 +99,11 @@ interface IUniswapV3Staker {
     /// @param params Incentive details
     function endIncentive(IncentiveParams memory params) external;
 
+    /// @notice Withdraws a Uniswap V3 LP token `tokenId` from this contract to the recipient `to`
+    /// @param tokenId The unique identifier of an Uniswap V3 LP token
+    /// @param to The address where the LP token will be sent
+    function withdrawToken(uint256 tokenId, address to) external;
+
     /// @param rewardToken The token being distributed as a reward
     /// @param tokenId The ID of the staked NFT
     /// @param startTime The time when the incentive program begins
@@ -113,6 +118,12 @@ interface IUniswapV3Staker {
         uint256 claimDeadline;
         address beneficiary;
     }
+
+    /// @notice Stakes a Uniswap V3 LP token
+    function stakeToken(UpdateStakeParams memory params) external;
+
+    /// @notice Unstakes a Uniswap V3 LP token
+    function unstakeToken(UpdateStakeParams memory params) external;
 
     /// @notice Transfers accrued `rewardToken` rewards from the contarct to the recipient `to`
     /// @param rewardToken The token being distributed as a reward
@@ -169,63 +180,15 @@ interface IUniswapV3Staker {
 
     /// @notice Event emitted when an existing stake has been updated
     /// @param rewardClaimed The amount of reward tokens claimed from update
-    event StakeUpdated(uint128 rewardClaimed);
+    event StakeUpdated(
+        uint256 indexed tokenId,
+        uint128 liquidity,
+        bytes32 incentiveId,
+        uint256 rewardClaimed
+    );
 
     /// @notice Event emitted when a reward token has been claimed from unstaked tokens
     /// @param to The address where claimed rewards were sent to
     /// @param reward The amount of reward tokens claimed
     event RewardClaimed(address indexed to, uint256 reward);
-
-    /// @notice Event emitted when a reward token has been claimed from a staked token
-    /// @param to The address where claimed rewards were sent to
-    /// @param reward The amount of reward tokens claimed
-    event RewardClaimedFromExistingStake(address indexed to, uint256 reward);
-    /// @param rewardToken The address of the token being distributed as a reward
-    /// @param pool The address of the Uniswap V3 pool
-    /// @param startTime The time when the incentive program begins
-    /// @param endTime The time when rewards stop accruing
-    /// @param claimDeadline Time after which LPs can no longer claim rewards (and incentiveCreator can end the incentive and receive unclaimed rewards)
-    /// @param totalReward The total amount of reward tokens to be distributed
-    struct CreateIncentiveParams {
-        address pool;
-        address rewardToken;
-        uint128 totalReward;
-        uint32 startTime;
-        uint32 endTime;
-        uint32 claimDeadline;
-    }
-
-    /// @notice Creates a new liquidity mining incentive program.
-    function createIncentive(CreateIncentiveParams memory params) external;
-
-    /// @param pool The address of the Uniswap V3 pool
-    /// @param rewardToken The address of the token being distributed as a reward
-    /// @param startTime The time when the incentive program begins
-    /// @param endTime The time when rewards stop accruing
-    /// @param claimDeadline
-    struct EndIncentiveParams {
-        address pool;
-        address rewardToken;
-        uint32 claimDeadline;
-        uint32 endTime;
-        uint32 startTime;
-    }
-
-    /// @notice Deposits a Uniswap V3 LP token `tokenId` from `msg.sender` to this contract
-    /// @param tokenId The unique identifier of an Uniswap V3 LP token
-    function depositToken(uint256 tokenId) external;
-
-    /// @notice Withdraws a Uniswap V3 LP token `tokenId` from this contract to the recipient `to`
-    /// @param tokenId The unique identifier of an Uniswap V3 LP token
-    /// @param to The address where the LP token will be sent
-    function withdrawToken(uint256 tokenId, address to) external;
-
-    /// @notice Deletes an incentive whose claimDeadline has passed.
-    function endIncentive(EndIncentiveParams memory params) external;
-
-    /// @notice Stakes a Uniswap V3 LP token
-    function stakeToken(UpdateStakeParams memory params) external;
-
-    /// @notice Unstakes a Uniswap V3 LP token
-    function unstakeToken(UpdateStakeParams memory params) external;
 }
