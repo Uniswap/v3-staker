@@ -316,8 +316,6 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
             );
 
         incentives[incentiveId].totalSecondsClaimedX128 += secondsInPeriodX128;
-
-        // TODO: is SafeMath necessary here? Could we do just a subtraction?
         incentives[incentiveId].totalRewardUnclaimed = uint128(
             SafeMath.sub(incentive.totalRewardUnclaimed, reward)
         );
