@@ -271,20 +271,19 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
         );
     }
 
-    function updateStake(
-        UpdateStakeParams memory params
-    ) external {
+    function updateStake(UpdateStakeParams memory params) external {
         require(
             deposits[params.tokenId].owner == msg.sender,
             'sender is not nft owner'
         );
-        require(
-            block.timestamp < params.endTime,
-            'incentive has ended'
-        );
+        require(block.timestamp < params.endTime, 'incentive has ended');
 
-        (address poolAddress, int24 tickLower, int24 tickUpper, uint128 liquidity) =
-            _getPositionDetails(params.tokenId);
+        (
+            address poolAddress,
+            int24 tickLower,
+            int24 tickUpper,
+            uint128 liquidity
+        ) = _getPositionDetails(params.tokenId);
 
         bytes32 incentiveId =
             IncentiveHelper.getIncentiveId(
