@@ -156,7 +156,7 @@ export const makeTimestamps = (
   duration: number = 1_000,
   claimDuration: number = 1_000
 ) => ({
-  startTime: n,
-  endTime: n + duration,
-  claimDeadline: n + duration + claimDuration,
+  startTime: n + 100,
+  endTime: n + 100 + duration,
+  claimDeadline: n + 100 + duration + claimDuration,
 })
