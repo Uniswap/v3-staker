@@ -23,11 +23,7 @@ import '@openzeppelin/contracts/math/SafeMath.sol';
 /**
 @title Uniswap V3 canonical staking interface
 */
-contract UniswapV3Staker is
-    IUniswapV3Staker,
-    IERC721Receiver,
-    Multicall
-{
+contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
     IUniswapV3Factory public immutable factory;
     INonfungiblePositionManager public immutable nonfungiblePositionManager;
 
@@ -101,10 +97,7 @@ contract UniswapV3Staker is
     }
 
     /// @inheritdoc IUniswapV3Staker
-    function endIncentive(EndIncentiveParams memory params)
-        external
-        override
-    {
+    function endIncentive(EndIncentiveParams memory params) external override {
         require(
             block.timestamp > params.claimDeadline,
             'before claim deadline'
@@ -192,10 +185,7 @@ contract UniswapV3Staker is
     }
 
     /// @inheritdoc IUniswapV3Staker
-    function unstakeToken(UpdateStakeParams memory params)
-        external
-        override
-    {
+    function unstakeToken(UpdateStakeParams memory params) external override {
         require(
             deposits[params.tokenId].owner == msg.sender,
             'sender is not nft owner'
@@ -270,15 +260,14 @@ contract UniswapV3Staker is
 
         Incentive memory incentive = incentives[incentiveId];
         Stake memory stake = stakes[params.tokenId][incentiveId];
-        (reward , ,) =
-            _getRewardAmount(
-                stake,
-                incentive,
-                params,
-                poolAddress,
-                tickLower,
-                tickUpper
-            );
+        (reward, , ) = _getRewardAmount(
+            stake,
+            incentive,
+            params,
+            poolAddress,
+            tickLower,
+            tickUpper
+        );
     }
 
     function claimRewardFromExistingStake(
@@ -308,7 +297,11 @@ contract UniswapV3Staker is
 
         require(stake.exists == true, 'nonexistent stake');
 
-        (uint128 reward, uint160 secondsInPeriodX128, uint160 secondsPerLiquidityInsideX128) =
+        (
+            uint128 reward,
+            uint160 secondsInPeriodX128,
+            uint160 secondsPerLiquidityInsideX128
+        ) =
             _getRewardAmount(
                 stake,
                 incentive,
@@ -318,8 +311,7 @@ contract UniswapV3Staker is
                 tickUpper
             );
 
-        incentives[incentiveId]
-            .totalSecondsClaimedX128 += secondsInPeriodX128;
+        incentives[incentiveId].totalSecondsClaimedX128 += secondsInPeriodX128;
 
         // TODO: is SafeMath necessary here? Could we do just a subtraction?
         incentives[incentiveId].totalRewardUnclaimed = uint128(
@@ -396,12 +388,17 @@ contract UniswapV3Staker is
         address poolAddress,
         int24 tickLower,
         int24 tickUpper
-    ) internal view returns (uint128 reward, uint160 secondsInPeriodX128, uint160 secondsPerLiquidityInsideX128) {
-        (, secondsPerLiquidityInsideX128, ) =
-            IUniswapV3Pool(poolAddress).snapshotCumulativesInside(
-                tickLower,
-                tickUpper
-            );
+    )
+        internal
+        view
+        returns (
+            uint128 reward,
+            uint160 secondsInPeriodX128,
+            uint160 secondsPerLiquidityInsideX128
+        )
+    {
+        (, secondsPerLiquidityInsideX128, ) = IUniswapV3Pool(poolAddress)
+            .snapshotCumulativesInside(tickLower, tickUpper);
 
         secondsInPeriodX128 = uint160(
             SafeMath.mul(
