@@ -75,6 +75,8 @@ Effects:
 **Check:**
 
 - `deposits[params.tokenId].owner == msg.sender`
+- Make sure incentive actually exists
+- Make sure token not already staked
 
 ### unstakeToken
 
