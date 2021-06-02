@@ -1,36 +1,98 @@
-# Uniswap liquidity mining
-
-## Uniswap v3 Staker
+# Uniswap v3 Staker
 
 There is a canonical position staking contract, Staker.
 
-### create
+## Data Structures
 
-`create` is used to create a liquidity mining incentive program.
-
-`function create(address rewardToken, address pair, uint32 startTime, uint32 claimDeadline, uint128 totalReward)`
-
-This function creates an Incentive. The key used to look up an Incentive is the hash of its immutable properties: `keccak256(abi.encode(creator, rewardToken, pair, startTime, claimDeadline))`.
-
-```
-mapping (bytes32 => Incentive) incentive
-
+```solidity
 struct Incentive {
-    uint128 totalRewardUnclaimed;
-    uint160 totalSecondsClaimedX128;
-    uint32 endTime;
+  uint128 totalRewardUnclaimed;
+  uint160 totalSecondsClaimedX128;
+  address rewardToken;
 }
+
+struct Deposit {
+  address owner;
+  uint32 numberOfStakes;
+}
+
+struct Stake {
+  uint160 secondsPerLiquidityInitialX128;
+  uint128 liquidity;
+  bool exists;
+}
+
 ```
 
-`creator` is `msg.sender`. `token`, `startTime`, `endTime`, `claimDeadline` are specified by the caller. In the Incentive struct, `totalRewardUnclaimed` is initialized to `totalReward`, and `totalSecondsClaimedX96` is initalized to 0.
+## API (Core)
 
-The contract transfers `totalRewardsUnclaimed` of`token` from the caller to itself.
+### `createIncentive(CreateIncentiveParams memory params)`
 
-`claimDeadline` must be no earlier than `endTime`, which must be later than `startTime`.
+`createIncentive` creates a liquidity mining incentive program. The key used to look up an Incentive is the hash of its immutable properties, see `getIncentiveId`.
 
-### end
+**Check:**
 
-`function end(address token, uint32 startTime, uint32 endTime, uint32 claimDeadline, uint128 totalReward)` can be called by a `creator` to delete an Incentive whose `claimDeadline` has passed, transferring `totalRewardsUnclaimed` of `token` back to `creator`.
+- Incentive with these params does not already exist
+- Transfers `params.totalReward` from `msg.sender` to self.
+- Timestamps: `params.claimDeadline >= params.endTime >= params.startTime`
+- Incentive with this ID does not already exist. See `getIncentiveId`.
+
+**Effects:**
+
+- Sets `incentives[key] = Incentive(totalRewardUnclaimed=totalReward, totalSecondsClaimedX128=0, rewardToken=rewardToken)`
+
+**Interaction:**
+
+- Emits `IncentiveCreated`
+
+### `endIncentive(EndIncentiveParams memory params)`
+
+`endIncentive` can be called by a `creator` to delete an Incentive whose `claimDeadline` has passed, transferring `totalRewardUnclaimed` of `rewardToken` back to `creator`.
+
+**Check:**
+
+- Implicit check: the caller is incentiveCreator since it gets passed to getIncentiveId
+- `block.timestamp` > `params.claimDeadline`
+- Incentive exists (incentive.rewardToken != address(0))
+
+**Effects:**
+
+- deletes `incentives[key]` (This is a new change)
+- safeTransfers `totalRewardUnclaimed` of `rewardToken` to the incentive creator `msg.sender`
+
+**Interactions:**
+
+- emits `IncentiveEnded`
+
+### `depositToken(uint256 tokenId)`
+
+Effects:
+
+`nonfungiblePositionManager.safeTransferFrom(sender, this, tokenId)`
+
+### `stakeToken`
+
+**Check:**
+
+- `deposits[params.tokenId].owner == msg.sender`
+
+### unstakeToken
+
+## Others
+
+### `onERC721Received`
+
+**Check:**
+
+- Make sure sender is univ3 nft
+
+**Effects:**
+
+- if `data.length>0`, stakes the token as well
+
+### getRewardAmount
+
+### claimReward
 
 ### totalSecondsUnclaimed
 
@@ -103,3 +165,5 @@ The function checks that the caller is the owner and that `numberOfStakes` is 0.
 The contract transfers the NFT to `to`.
 
 (TBD: use safeTransfer?)
+
+## `getIncentiveId(address incentiveCreator, address rewardToken, address pool, uint32 startTime, uint32 endTime, uint32 claimDeadline): bytes32`
