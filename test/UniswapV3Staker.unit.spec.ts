@@ -1,7 +1,7 @@
 import { constants, BigNumberish, Wallet } from 'ethers'
 import { LoadFixtureFunction } from './types'
 import { ethers } from 'hardhat'
-import { UniswapV3Staker, IUniswapV3Pool, TestERC20 } from '../typechain'
+import { UniswapV3Staker, TestERC20 } from '../typechain'
 import {
   uniswapFixture,
   mintPosition,
@@ -34,7 +34,6 @@ import {
 import { ContractParams } from '../types/contractParams'
 import { createTimeMachine } from './shared/time'
 import { HelperTypes } from './helpers/types'
-import _ from 'lodash'
 
 let loadFixture: LoadFixtureFunction
 
@@ -605,10 +604,8 @@ describe('UniswapV3Staker.unit', async () => {
 
           expect(stakeBefore.secondsPerLiquidityInitialX128).to.eq(0)
           expect(stakeBefore.liquidity).to.eq(0)
-          expect(stakeBefore.exists).to.be.false
           expect(stakeAfter.secondsPerLiquidityInitialX128).to.be.gt(0)
           expect(stakeAfter.liquidity).to.eq(liquidity)
-          expect(stakeAfter.exists).to.be.true
           expect((await context.staker.deposits(tokenId)).numberOfStakes).to.eq(
             nStakesBefore.add(1)
           )
@@ -936,10 +933,8 @@ describe('UniswapV3Staker.unit', async () => {
 
           expect(stakeBefore.secondsPerLiquidityInitialX128).to.gt(0)
           expect(stakeBefore.liquidity).to.gt(0)
-          expect(stakeBefore.exists).to.be.true
           expect(stakeAfter.secondsPerLiquidityInitialX128).to.eq(0)
           expect(stakeAfter.liquidity).to.eq(0)
-          expect(stakeAfter.exists).to.be.false
         })
 
         describe('when creator has terminated the incentive and collected remaining rewards', () => {
@@ -963,10 +958,8 @@ describe('UniswapV3Staker.unit', async () => {
 
             expect(stakeBefore.secondsPerLiquidityInitialX128).to.gt(0)
             expect(stakeBefore.liquidity).to.gt(0)
-            expect(stakeBefore.exists).to.be.true
             expect(stakeAfter.secondsPerLiquidityInitialX128).to.eq(0)
             expect(stakeAfter.liquidity).to.eq(0)
-            expect(stakeAfter.exists).to.be.false
           })
 
           it('accrues 0 rewards to the recipient', async () => {
@@ -1108,9 +1101,7 @@ describe('UniswapV3Staker.unit', async () => {
           (await context.staker.deposits(tokenId)).numberOfStakes
         ).to.equal(1)
         expect(stakeBefore.secondsPerLiquidityInitialX128).to.equal(0)
-        expect(stakeBefore.exists).to.be.false
         expect(stakeAfter.secondsPerLiquidityInitialX128).to.be.gt(0)
-        expect(stakeAfter.exists).to.be.true
       })
 
       it('has gas cost', async () => {

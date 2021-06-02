@@ -202,7 +202,7 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
         Incentive memory incentive = incentives[incentiveId];
         Stake memory stake = stakes[params.tokenId][incentiveId];
 
-        require(stake.exists == true, 'nonexistent stake');
+        require(stake.liquidity != 0, 'nonexistent stake');
 
         // if incentive still exists
         if (incentive.totalRewardUnclaimed > 0) {
@@ -302,7 +302,7 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
             'non-existent incentive'
         );
         require(
-            stakes[params.tokenId][incentiveId].exists != true,
+            stakes[params.tokenId][incentiveId].liquidity == 0,
             'incentive already staked'
         );
 
@@ -314,8 +314,7 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
 
         stakes[params.tokenId][incentiveId] = Stake({
             secondsPerLiquidityInitialX128: secondsPerLiquidityInsideX128,
-            liquidity: liquidity,
-            exists: true
+            liquidity: liquidity
         });
 
         deposits[params.tokenId].numberOfStakes += 1;

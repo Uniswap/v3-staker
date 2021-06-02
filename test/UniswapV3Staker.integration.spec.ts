@@ -1,24 +1,18 @@
-import { ethers, waffle } from 'hardhat'
 import { TestContext, LoadFixtureFunction } from './types'
-import { IUniswapV3Pool, TestERC20 } from '../typechain'
+import { TestERC20 } from '../typechain'
 import {
   BigNumber,
   blockTimestamp,
   BN,
   BNe18,
-  encodePath,
   expect,
   FeeAmount,
   getMaxTick,
   getMinTick,
-  maxGas,
-  MaxUint256,
-  poolFactory,
   TICK_SPACINGS,
   uniswapFixture,
   log,
   days,
-  divE18,
   ratioE18,
   bnSum,
   getCurrentTick,
@@ -34,7 +28,6 @@ import {
 import { createFixtureLoader, provider } from './shared/provider'
 import { ActorFixture } from './shared/actors'
 import { Fixture } from 'ethereum-waffle'
-import _ from 'lodash'
 import { HelperTypes } from './helpers/types'
 import { Wallet } from '@ethersproject/wallet'
 

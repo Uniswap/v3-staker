@@ -9,7 +9,6 @@ import {
   MaxUint256,
   encodePath,
   arrayWrap,
-  log,
 } from '../shared/index'
 import _ from 'lodash'
 import {
