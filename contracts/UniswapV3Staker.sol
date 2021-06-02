@@ -223,7 +223,7 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
 
         // if incentive still exists
         if (incentive.totalRewardUnclaimed > 0) {
-            (uint256 reward, uint160 secondsInPeriodX128) =
+            (uint128 reward, uint160 secondsInPeriodX128) =
                 _getRewardAmount(
                     stake,
                     incentive,
@@ -287,12 +287,111 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
 
         Incentive memory incentive = incentives[incentiveId];
         Stake memory stake = stakes[params.tokenId][incentiveId];
-        return
+        (reward, , ) = _getRewardAmount(
+            stake,
+            incentive,
+            params,
+            pool,
+            tickLower,
+            tickUpper
+        );
+    }
+
+    function claimRewardFromExistingStake(
+        UpdateStakeParams memory params,
+        address to
+    ) external {
+        require(
+            deposits[params.tokenId].owner == msg.sender,
+            'sender is not nft owner'
+        );
+
+        (address poolAddress, int24 tickLower, int24 tickUpper, ) =
+            _getPositionDetails(params.tokenId);
+
+        bytes32 incentiveId =
+            IncentiveHelper.getIncentiveId(
+                params.creator,
+                params.rewardToken,
+                poolAddress,
+                params.startTime,
+                params.endTime,
+                params.claimDeadline
+            );
+
+        Incentive memory incentive = incentives[incentiveId];
+        Stake memory stake = stakes[params.tokenId][incentiveId];
+
+        (
+            uint128 reward,
+            uint160 secondsInPeriodX128,
+            uint160 secondsPerLiquidityInsideX128
+        ) =
             _getRewardAmount(
                 stake,
                 incentive,
                 params,
-                pool,
+                poolAddress,
+                tickLower,
+                tickUpper
+            );
+
+        incentives[incentiveId].totalSecondsClaimedX128 += secondsInPeriodX128;
+
+        // TODO: is SafeMath necessary here? Could we do just a subtraction?
+        incentives[incentiveId].totalRewardUnclaimed = uint128(
+            SafeMath.sub(incentive.totalRewardUnclaimed, reward)
+        );
+
+        stakes[params.tokenId][incentiveId].secondsPerLiquidityInitialX128 =
+            secondsPerLiquidityInsideX128 +
+            1;
+        TransferHelper.safeTransfer(incentive.rewardToken, to, reward);
+        emit RewardClaimedFromExistingStake(to, reward);
+    }
+
+    /// @inheritdoc IUniswapV3Staker
+    function claimReward(address rewardToken, address to) external override {
+        uint128 reward = rewards[rewardToken][msg.sender];
+        rewards[rewardToken][msg.sender] = 0;
+
+        TransferHelper.safeTransfer(rewardToken, to, reward);
+
+        emit RewardClaimed(to, reward);
+    }
+
+    function _stakeToken(UpdateStakeParams memory params) internal {
+        require(params.startTime <= block.timestamp, 'incentive not started');
+        require(params.endTime > block.timestamp, 'incentive ended');
+
+        (
+            address poolAddress,
+            int24 tickLower,
+            int24 tickUpper,
+            uint128 liquidity
+        ) = _getPositionDetails(params.tokenId);
+
+        bytes32 incentiveId =
+            IncentiveHelper.getIncentiveId(
+                params.creator,
+                params.rewardToken,
+                poolAddress,
+                params.startTime,
+                params.endTime,
+                params.claimDeadline
+            );
+
+        require(
+            incentives[incentiveId].rewardToken != address(0),
+            'non-existent incentive'
+        );
+        require(
+            stakes[params.tokenId][incentiveId].exists != true,
+            'incentive already staked'
+        );
+
+        (, uint160 secondsPerLiquidityInsideX128, ) =
+            IUniswapV3Pool(poolAddress).snapshotCumulativesInside(
                 tickLower,
                 tickUpper
             );
