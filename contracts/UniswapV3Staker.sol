@@ -297,7 +297,76 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
         );
     }
 
-    function _stakeToken(UpdateStakeParams memory params) private {
+    function updateStake(UpdateStakeParams memory params) external {
+        require(
+            deposits[params.tokenId].owner == msg.sender,
+            'sender is not nft owner'
+        );
+        require(block.timestamp < params.endTime, 'incentive has ended');
+
+        (
+            address poolAddress,
+            int24 tickLower,
+            int24 tickUpper,
+            uint128 liquidity
+        ) = _getPositionDetails(params.tokenId);
+
+        bytes32 incentiveId =
+            IncentiveHelper.getIncentiveId(
+                params.creator,
+                params.rewardToken,
+                poolAddress,
+                params.startTime,
+                params.endTime,
+                params.claimDeadline
+            );
+
+        Incentive memory incentive = incentives[incentiveId];
+        Stake memory stake = stakes[params.tokenId][incentiveId];
+
+        require(stake.exists == true, 'nonexistent stake');
+
+        (
+            uint128 reward,
+            uint160 secondsInPeriodX128,
+            uint160 secondsPerLiquidityInsideX128
+        ) =
+            _getRewardAmount(
+                stake,
+                incentive,
+                params,
+                poolAddress,
+                tickLower,
+                tickUpper
+            );
+
+        incentives[incentiveId].totalSecondsClaimedX128 += secondsInPeriodX128;
+
+        // TODO: is SafeMath necessary here? Could we do just a subtraction?
+        incentives[incentiveId].totalRewardUnclaimed = uint128(
+            SafeMath.sub(incentive.totalRewardUnclaimed, reward)
+        );
+        stakes[params.tokenId][incentiveId].secondsPerLiquidityInitialX128 =
+            secondsPerLiquidityInsideX128 +
+            1;
+        stakes[params.tokenId][incentiveId].liquidity = liquidity;
+        rewards[incentive.rewardToken][msg.sender] = uint128(
+            SafeMath.add(rewards[incentive.rewardToken][msg.sender], reward)
+        );
+        emit StakeUpdated(reward);
+    }
+
+    /// @inheritdoc IUniswapV3Staker
+    function claimReward(address rewardToken, address to) external override {
+        uint128 reward = rewards[rewardToken][msg.sender];
+        rewards[rewardToken][msg.sender] = 0;
+
+        TransferHelper.safeTransfer(rewardToken, to, reward);
+
+        emit RewardClaimed(to, reward);
+    }
+
+    function _stakeToken(UpdateStakeParams memory params) internal {
         require(params.startTime <= block.timestamp, 'incentive not started');
         require(block.timestamp < params.endTime, 'incentive ended');
 
