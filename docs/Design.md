@@ -24,7 +24,7 @@ struct Stake {
 
 ```
 
-## API (Core)
+## Incentives
 
 ### `createIncentive(CreateIncentiveParams memory params)`
 
@@ -64,23 +64,55 @@ struct Stake {
 
 - emits `IncentiveEnded`
 
+## Deposit/Withdraw Token
+
 ### `depositToken(uint256 tokenId)`
 
 Effects:
 
-`nonfungiblePositionManager.safeTransferFrom(sender, this, tokenId)`
+- `nonfungiblePositionManager.safeTransferFrom(sender, this, tokenId)`
+
+### `withdrawToken(uint256 tokenId, address to)`
+
+TODO
+
+## Stake/Unstake/Rewards
 
 ### `stakeToken`
 
 **Check:**
 
 - `deposits[params.tokenId].owner == msg.sender`
-- Make sure incentive actually exists
+- Make sure incentive actually exists (incentive.rewardToken != address(0))
 - Make sure token not already staked
 
-### unstakeToken
+### `claimReward`
 
-## Others
+TODO
+
+### `unstakeToken`
+
+To unstake an NFT, you call `unstakeToken`, which takes all the same arguments as `stake`, as well as a `to` address.
+
+- It checks that you are the owner of the Deposit, and decrements `numberOfStakes` by 1.
+- It checks that there exists a `Stake` for the provided key (with exists=true). It then deletes the `Stake` object.
+
+It tries to transfer `reward` of `Incentive.token` to the `to`. Note: it must be possible to unstake even if this transfer would fail (lest somebody be stuck with an NFT they can't withdraw)!
+
+`totalRewardsUnclaimed` is decremented by `reward`. `totalSecondsClaimed` is incremented by `seconds`.
+
+### `getRewardAmount`
+
+- It computes `secondsInPeriodX128` by computing :
+  - `secondsPerLiquidityInRangeX96` using the Uniswap v3 core contract and subtracting `secondsPerLiquidityInRangeInitialX96`.
+  - Multiplying that by `stake.liquidity` to get the total seconds in the period
+- Note that X128 means it's a `UQ32X128`.
+
+- It computes `rewardRate` for the Incentive casting `incentive.totalRewardUnclaimed` as a Q128, then dividing it by `totalSecondsUnclaimedX128`.
+
+- `reward` is then calculated as `secondsInPeriodX128` times the `rewardRate`, scaled down to a regular uint128.
+
+## Misc
 
 ### `onERC721Received`
 
@@ -92,80 +124,4 @@ Effects:
 
 - if `data.length>0`, stakes the token as well
 
-### getRewardAmount
-
-### claimReward
-
-### totalSecondsUnclaimed
-
-`totalSecondsUnclaimed` is computed as `(max(endTime, block.timestamp) - startTime - totalSecondsClaimed)`.
-
-### rewardRate
-
-`rewardRate` is computed as `totalRewardUnclaimed / totalSecondsUnclaimed`.
-
-This means that as soon as the Incentive ends, the reward rate begins to decrease as additional seconds are added.
-
-### deposit
-
-To deposit an NFT, you call `deposit` on the Staker contract, which transfers the NFT to itself and creates a Deposit for the newly added NFT. The `deposits` mapping is keyed with the NFT's token contract and token ID:
-
-```
-mapping (address => mapping (uint256 => Deposit)) deposits;
-
-struct Deposit {
-    address owner;
-    uint32 numberOfStakes;
-}
-```
-
-`numberOfStakes` is initialized to zero.
-
-### stake
-
-To stake an NFT in a particular Incentive, you call `stake(tokenContract, tokenId, creator, token, startTime, endTime, claimDeadline)`.
-
-This looks up your Deposit, checks that you are the owner, and increments numberOfStakes.
-
-It then creates a stake in the `stakes` mapping. `stakes` is a mapping from the token contract, token ID, and incentive ID to the information about that stake.
-
-```
-mapping (address => mapping (uint256 => mapping (bytes32 => Stake)))
-
-
-struct Stake {
-    uint160 secondsPerLiquidityInitialX128
-}
-```
-
-`uint160 secondsPerLiquidityInitialX128` is a QU32.128.
-
-### unstake
-
-To unstake an NFT, you call `unstake`, which takes all the same arguments as `stake`, as well as a `to` address.
-
-It checks that you are the owner of the Deposit, and decrements `numberOfStakes` by 1.
-
-It checks that there exists a `Stake` for the provided key (with non-zero secondsPerLiquidityInitialX96). It zeroes out that Stake.
-
-It computes `secondsPerLiquidityInPeriodX96` by computing `secondsPerLiquidityInRangeX96` using the Uniswap v3 core contract and subtracting `secondsPerLiquidityInRangeInitialX96`.
-
-It looks at the `liquidity` on the NFT itself and multiplies that by `secondsPerLiquidityInRangeX96` to get `secondsX96`.
-
-It computes [reward rate](#rewardRate) for the Incentive and multiplies that by `secondsX96` to get `reward`.
-
-It tries to transfer `reward` of `Incentive.token` to the `to`. Note: it must be possible to unstake even if this transfer would fail (lest somebody be stuck with an NFT they can't withdraw)!
-
-`totalRewardsUnclaimed` is decremented by `reward`. `totalSecondsClaimed` is incremented by `seconds`.
-
-### withdraw
-
-To withdraw an NFT, you call `withdraw(tokenContract, tokenId, to)`.
-
-The function checks that the caller is the owner and that `numberOfStakes` is 0.
-
-The contract transfers the NFT to `to`.
-
-(TBD: use safeTransfer?)
-
-## `getIncentiveId(address incentiveCreator, address rewardToken, address pool, uint32 startTime, uint32 endTime, uint32 claimDeadline): bytes32`
+#### `getIncentiveId(address incentiveCreator, address rewardToken, address pool, uint32 startTime, uint32 endTime, uint32 claimDeadline): bytes32`
