@@ -36,8 +36,8 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
     /// @dev stakes[tokenId][incentiveHash] => Stake
     mapping(uint256 => mapping(bytes32 => Stake)) public stakes;
 
-    /// @dev rewards[rewardToken][msg.sender] => uint128
-    mapping(address => mapping(address => uint128)) public rewards;
+    /// @dev rewards[rewardToken][msg.sender] => uint256
+    mapping(address => mapping(address => uint256)) public rewards;
 
     /// @param _factory the Uniswap V3 factory
     /// @param _nonfungiblePositionManager the NFT position manager contract address
@@ -231,9 +231,8 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
             );
 
             // Makes rewards available to claimReward
-            rewards[incentive.rewardToken][msg.sender] = uint128(
-                SafeMath.add(rewards[incentive.rewardToken][msg.sender], reward)
-            );
+            rewards[incentive.rewardToken][msg.sender] =
+                SafeMath.add(rewards[incentive.rewardToken][msg.sender], reward);
         }
 
         delete stakes[params.tokenId][incentiveId];
@@ -273,7 +272,7 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
 
     /// @inheritdoc IUniswapV3Staker
     function claimReward(address rewardToken, address to) external override {
-        uint128 reward = rewards[rewardToken][msg.sender];
+        uint256 reward = rewards[rewardToken][msg.sender];
         rewards[rewardToken][msg.sender] = 0;
 
         TransferHelper.safeTransfer(rewardToken, to, reward);
