@@ -945,10 +945,10 @@ describe('UniswapV3Staker.unit', async () => {
 
           // calculation is sometimes off by one
           expect(secondsClaimedCurrent).to.be.gte(
-            BN('68907179301490038851320000000000000000000'),
+            BN('68907179301490038851320000000000000000000')
           )
           expect(secondsClaimedCurrent).to.be.lte(
-            BN('68907179301490038851330000000000000000000'),
+            BN('68907179301490038851330000000000000000000')
           )
         })
 
