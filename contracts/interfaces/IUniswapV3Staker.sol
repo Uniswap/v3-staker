@@ -76,23 +76,27 @@ interface IUniswapV3Staker {
     /// @notice Event emitted when a Uniswap V3 LP token has been deposited
     /// @param tokenId The unique identifier of an Uniswap V3 LP token
     /// @param owner The owner of the LP token
-    event TokenDeposited(uint256 tokenId, address indexed owner);
+    event TokenDeposited(uint256 indexed tokenId, address indexed owner);
 
     /// @notice Event emitted when a Uniswap V3 LP token has been withdrawn
     /// @param tokenId The unique identifier of an Uniswap V3 LP token
     /// @param to The address that the token will be withdawn to
-    event TokenWithdrawn(uint256 tokenId, address to);
+    event TokenWithdrawn(uint256 indexed tokenId, address to);
 
     /// @notice Event emitted when a Uniswap V3 LP token has been staked
     /// @param tokenId The unique identifier of an Uniswap V3 LP token
     /// @param liquidity The amount of liquidity staked
     /// @param incentiveId The incentive in which the token is staking
-    event TokenStaked(uint256 tokenId, uint128 liquidity, bytes32 incentiveId);
+    event TokenStaked(
+        uint256 indexed tokenId,
+        uint128 liquidity,
+        bytes32 incentiveId
+    );
 
     /// @notice Event emitted when a Uniswap V3 LP token has been unstaked
     /// @param tokenId The unique identifier of an Uniswap V3 LP token
     /// @param incentiveId The incentive in which the token is staking
-    event TokenUnstaked(uint256 tokenId, bytes32 incentiveId);
+    event TokenUnstaked(uint256 indexed tokenId, bytes32 incentiveId);
 
     /// @notice Event emitted when a reward token has been claimed
     /// @param to The address where claimed rewards were sent to
