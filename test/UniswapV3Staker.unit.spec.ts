@@ -109,7 +109,7 @@ describe('UniswapV3Staker.unit', async () => {
   })
 
   describe('Incentives', () => {
-    describe('#createIncentive', async () => {
+    describe('#createIncentive', () => {
       let subject: (
         params: Partial<ContractParams.CreateIncentive>
       ) => Promise<any>
@@ -144,7 +144,7 @@ describe('UniswapV3Staker.unit', async () => {
         }
       })
 
-      describe('works and', async () => {
+      describe('works and', () => {
         it('transfers the right amount of rewardToken', async () => {
           const balanceBefore = await context.rewardToken.balanceOf(
             context.staker.address
@@ -198,9 +198,9 @@ describe('UniswapV3Staker.unit', async () => {
         })
       })
 
-      describe('fails when', async () => {
+      describe('fails when', () => {
         it('there is already has an incentive with those params', async () => {
-          const params = await makeTimestamps((await blockTimestamp()) + 10)
+          const params = makeTimestamps(await blockTimestamp())
           expect(await subject(params)).to.emit(
             context.staker,
             'IncentiveCreated'
@@ -208,11 +208,41 @@ describe('UniswapV3Staker.unit', async () => {
           await expect(subject(params)).to.be.revertedWith('incentive exists')
         })
 
-        describe('invalid timestamps', async () => {
+        describe('invalid timestamps', () => {
           const ERR_TIMESTAMPS_INVALID = 'timestamps invalid'
 
+          it('current time is after start time', async () => {
+            const params = makeTimestamps(
+              await blockTimestamp(),
+              100_000,
+              200_000
+            )
+
+            // Go to after the start time
+            await Time.setAndMine(params.startTime + 100)
+
+            const now = await blockTimestamp()
+            expect(now).to.be.greaterThan(
+              params.startTime,
+              'test setup: before start time'
+            )
+
+            expect(now).to.be.lessThan(
+              params.endTime,
+              'test setup: after end time'
+            )
+
+            expect(now, 'test setup: after claim deadline').to.be.lessThan(
+              params.claimDeadline
+            )
+
+            await expect(subject(params)).to.be.revertedWith(
+              ERR_TIMESTAMPS_INVALID
+            )
+          })
+
           it('claim deadline is before end time', async () => {
-            const params = await makeTimestamps((await blockTimestamp()) + 10)
+            const params = makeTimestamps(await blockTimestamp())
             params.endTime = params.claimDeadline + 100
             await expect(subject(params)).to.be.revertedWith(
               ERR_TIMESTAMPS_INVALID
@@ -220,7 +250,7 @@ describe('UniswapV3Staker.unit', async () => {
           })
 
           it('claim deadline is before start time', async () => {
-            const params = await makeTimestamps((await blockTimestamp()) + 10)
+            const params = makeTimestamps(await blockTimestamp())
             params.claimDeadline = params.startTime - 10
             await expect(subject(params)).to.be.revertedWith(
               ERR_TIMESTAMPS_INVALID
@@ -228,7 +258,7 @@ describe('UniswapV3Staker.unit', async () => {
           })
 
           it('end time is before start time', async () => {
-            const params = makeTimestamps((await blockTimestamp()) + 10)
+            const params = makeTimestamps(await blockTimestamp())
             params.endTime = params.startTime - 10
             await expect(subject(params)).to.be.revertedWith(
               ERR_TIMESTAMPS_INVALID
@@ -236,28 +266,34 @@ describe('UniswapV3Staker.unit', async () => {
           })
         })
 
-        describe('invalid reward', async () => {
+        describe('invalid reward', () => {
           const ERR_REWARD_INVALID = 'reward invalid'
 
-          it('rewardToken is 0 address', async () =>
+          it('rewardToken is 0 address', async () => {
+            const now = await blockTimestamp()
+
             await expect(
               context.staker.connect(incentiveCreator).createIncentive({
                 rewardToken: constants.AddressZero,
                 pool: context.pool01,
                 totalReward,
-                ...makeTimestamps(0),
+                ...makeTimestamps(now, 1_000, 2_000),
               })
-            ).to.be.revertedWith(ERR_REWARD_INVALID))
+            ).to.be.revertedWith(ERR_REWARD_INVALID)
+          })
 
-          it('totalReward is 0 or an invalid amount', async () =>
+          it('totalReward is 0 or an invalid amount', async () => {
+            const now = await blockTimestamp()
+
             await expect(
               context.staker.connect(incentiveCreator).createIncentive({
                 rewardToken: context.rewardToken.address,
                 pool: context.pool01,
                 totalReward: BNe18(0),
-                ...makeTimestamps(0),
+                ...makeTimestamps(now, 1_000, 2_000),
               })
-            ).to.be.revertedWith(ERR_REWARD_INVALID))
+            ).to.be.revertedWith(ERR_REWARD_INVALID)
+          })
         })
       })
     })
@@ -473,14 +509,15 @@ describe('UniswapV3Staker.unit', async () => {
         })
 
         it('number of stakes is not 0', async () => {
+          const timestamps = makeTimestamps(await blockTimestamp())
           const incentiveParams: HelperTypes.CreateIncentive.Args = {
             rewardToken: context.rewardToken,
             totalReward,
             poolAddress: context.poolObj.address,
-            ...makeTimestamps(await blockTimestamp()),
+            ...timestamps,
           }
           const incentive = await helpers.createIncentiveFlow(incentiveParams)
-
+          await Time.setAndMine(timestamps.startTime + 1)
           await context.staker.connect(lpUser0).stakeToken({
             ...incentive,
             rewardToken: incentive.rewardToken.address,
@@ -745,7 +782,7 @@ describe('UniswapV3Staker.unit', async () => {
           poolAddress: context.poolObj.address,
           ...timestamps,
         })
-
+        await Time.setAndMine(timestamps.startTime + 1)
         const { tokenId } = await helpers.mintDepositStakeFlow({
           lp: lpUser0,
           tokensToStake,
@@ -851,6 +888,7 @@ describe('UniswapV3Staker.unit', async () => {
 
         await context.staker.connect(lpUser0).depositToken(tokenId)
 
+        await Time.setAndMine(timestamps.startTime + 1)
         await context.staker.connect(lpUser0).stakeToken({
           creator: incentiveCreator.address,
           rewardToken: context.rewardToken.address,
@@ -869,7 +907,7 @@ describe('UniswapV3Staker.unit', async () => {
           })
       })
 
-      describe('works and', async () => {
+      describe('works and', () => {
         it('decrements numberOfStakes by 1', async () => {
           const { numberOfStakes: stakesPre } = await context.staker.deposits(
             tokenId
@@ -1191,7 +1229,7 @@ describe('UniswapV3Staker.unit', async () => {
             pool: context.pool01,
             rewardToken: context.rewardToken.address,
             totalReward,
-            ...makeTimestamps(currentTime),
+            ...makeTimestamps(currentTime + 100),
           },
         ]
       )
