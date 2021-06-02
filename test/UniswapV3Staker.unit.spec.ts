@@ -928,11 +928,49 @@ describe('UniswapV3Staker.unit', async () => {
         it('has gas cost', async () => {
           await snapshotGasCost(subject(recipient))
         })
+
+        it('has equivalent multicall operation gas cost', async () => {
+          const unstakeTx = context.staker.connect(lpUser0).interface.encodeFunctionData(
+            'unstakeToken',
+            [
+              {
+                creator: incentiveCreator.address,
+                rewardToken: context.rewardToken.address,
+                tokenId,
+                ...timestamps,
+              },
+            ]
+          )
+
+          const claimTx = context.staker.connect(lpUser0).interface.encodeFunctionData(
+            'claimReward',
+            [
+                context.rewardToken.address,
+                lpUser0.address,
+            ]
+          )
+
+          const stakeTx = context.staker.connect(lpUser0).interface.encodeFunctionData(
+            'stakeToken',
+            [
+              {
+                creator: incentiveCreator.address,
+                rewardToken: context.rewardToken.address,
+                tokenId,
+                ...timestamps,
+              },
+            ]
+          )
+          await snapshotGasCost(context.staker
+            .connect(lpUser0)
+            .multicall([unstakeTx, claimTx, stakeTx], maxGas)
+          )
+        })
       })
 
       describe('in an invalid scenario', () => {
         it('reverts if stake does not exist', async () => {
-
+          expect(subject(lpUser0.address)).to.be.revertedWith('nonexistent stake')
         })
       })
     })

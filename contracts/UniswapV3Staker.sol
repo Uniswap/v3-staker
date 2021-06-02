@@ -270,7 +270,7 @@ contract UniswapV3Staker is
 
         Incentive memory incentive = incentives[incentiveId];
         Stake memory stake = stakes[params.tokenId][incentiveId];
-        (reward , ,) = 
+        (reward , ,) =
             _getRewardAmount(
                 stake,
                 incentive,
@@ -305,6 +305,8 @@ contract UniswapV3Staker is
 
         Incentive memory incentive = incentives[incentiveId];
         Stake memory stake = stakes[params.tokenId][incentiveId];
+
+        require(stake.exists == true, 'nonexistent stake');
 
         (uint128 reward, uint160 secondsInPeriodX128, uint160 secondsPerLiquidityInsideX128) =
             _getRewardAmount(
