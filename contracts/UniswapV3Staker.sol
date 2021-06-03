@@ -323,7 +323,11 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
                 totalSecondsUnclaimedX128
             );
 
-        reward = FullMath.mulDiv(secondsInPeriodX128, rewardRate, FixedPoint128.Q128);
+        reward = FullMath.mulDiv(
+            secondsInPeriodX128,
+            rewardRate,
+            FixedPoint128.Q128
+        );
     }
 
     function _stakeToken(UpdateStakeParams memory params) private {
