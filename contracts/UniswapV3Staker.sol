@@ -396,39 +396,35 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
         private
         view
         returns (
-            IUniswapV3Pool,
-            int24,
-            int24,
-            uint128
+            IUniswapV3Pool pool,
+            int24 tickLower,
+            int24 tickUpper,
+            uint128 liquidity
         )
     {
+        address token0;
+        address token1;
+        uint24 fee;
         (
             ,
             ,
-            address token0,
-            address token1,
-            uint24 fee,
-            int24 tickLower,
-            int24 tickUpper,
-            uint128 liquidity,
+            token0,
+            token1,
+            fee,
+            tickLower,
+            tickUpper,
+            liquidity,
             ,
             ,
             ,
 
         ) = nonfungiblePositionManager.positions(tokenId);
 
-        PoolAddress.PoolKey memory poolKey =
-            PoolAddress.getPoolKey(token0, token1, fee);
-
-        // Could do this via factory.getPool or locally via PoolAddress.
-        // TODO: what happens if this is null
-        return (
-            IUniswapV3Pool(
-                PoolAddress.computeAddress(address(factory), poolKey)
-            ),
-            tickLower,
-            tickUpper,
-            liquidity
+        pool = IUniswapV3Pool(
+            PoolAddress.computeAddress(
+                address(factory),
+                PoolAddress.PoolKey({token0: token0, token1: token1, fee: fee})
+            )
         );
     }
 }
