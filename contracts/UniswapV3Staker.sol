@@ -55,12 +55,23 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
         external
         override
     {
-        require(params.totalReward > 0, 'reward invalid');
+        require(params.totalReward > 0, 'reward must be greater than 0');
         require(
-            params.startTime < params.endTime &&
-                params.endTime < params.claimDeadline &&
-                block.timestamp < params.startTime,
-            'timestamps invalid'
+            params.startTime < params.endTime,
+            'start time must be before end time'
+        );
+        require(
+            params.endTime <= params.claimDeadline,
+            'end time must be at or before claim deadline'
+        );
+        require(
+            params.startTime >= block.timestamp,
+            'start time must be now or in the future'
+        );
+        // seconds per liquidity is not reliable over periods greater than 2**32-1 seconds
+        require(
+            params.claimDeadline - params.startTime <= type(uint32).max,
+            'total duration of incentive must be less than 2**32 - 1'
         );
 
         bytes32 key =
@@ -74,7 +85,10 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
             );
 
         // totalRewardUnclaimed cannot decrease until params.startTime has passed, meaning this check is safe
-        require(incentives[key].totalRewardUnclaimed == 0, 'incentive exists');
+        require(
+            incentives[key].totalRewardUnclaimed == 0,
+            'incentive already exists'
+        );
 
         incentives[key] = Incentive({
             totalRewardUnclaimed: params.totalReward,

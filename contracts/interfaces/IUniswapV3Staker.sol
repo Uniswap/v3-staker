@@ -44,9 +44,9 @@ interface IUniswapV3Staker {
         address creator,
         address indexed rewardToken,
         address indexed pool,
-        uint64 startTime,
-        uint64 endTime,
-        uint64 claimDeadline,
+        uint256 startTime,
+        uint256 endTime,
+        uint256 claimDeadline,
         uint128 totalReward
     );
 
@@ -94,9 +94,9 @@ interface IUniswapV3Staker {
     struct CreateIncentiveParams {
         address rewardToken;
         address pool;
-        uint64 startTime;
-        uint64 endTime;
-        uint64 claimDeadline;
+        uint256 startTime;
+        uint256 endTime;
+        uint256 claimDeadline;
         uint128 totalReward;
     }
 
@@ -122,9 +122,9 @@ interface IUniswapV3Staker {
         address creator;
         address rewardToken;
         address pool;
-        uint64 startTime;
-        uint64 endTime;
-        uint64 claimDeadline;
+        uint256 startTime;
+        uint256 endTime;
+        uint256 claimDeadline;
     }
 
     /// @notice Deposits a Uniswap V3 LP token `tokenId` from `msg.sender` to this contract
@@ -149,9 +149,9 @@ interface IUniswapV3Staker {
         address creator;
         address rewardToken;
         uint256 tokenId;
-        uint64 startTime;
-        uint64 endTime;
-        uint64 claimDeadline;
+        uint256 startTime;
+        uint256 endTime;
+        uint256 claimDeadline;
     }
 
     /// @notice Stakes a Uniswap V3 LP token
