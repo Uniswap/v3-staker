@@ -1,4 +1,4 @@
-import { ContractFactory, BigNumber, Wallet } from 'ethers'
+import { BigNumber, Wallet } from 'ethers'
 import { MockProvider } from 'ethereum-waffle'
 import {
   blockTimestamp,
@@ -170,7 +170,13 @@ export class HelperCommands {
     // The LP approves and stakes their NFT
 
     await this.nft.connect(params.lp).approve(this.staker.address, tokenId)
-    await this.staker.connect(params.lp).depositToken(tokenId, maxGas)
+    await this.nft
+      .connect(params.lp)
+      ['safeTransferFrom(address,address,uint256)'](
+        params.lp.address,
+        this.staker.address,
+        tokenId
+      )
     await this.staker
       .connect(params.lp)
       .stakeToken(

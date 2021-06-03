@@ -156,10 +156,6 @@ interface IUniswapV3Staker {
         uint256 claimDeadline;
     }
 
-    /// @notice Deposits a Uniswap V3 LP token `tokenId` from `msg.sender` to this contract
-    /// @param tokenId The unique identifier of an Uniswap V3 LP token
-    function depositToken(uint256 tokenId) external;
-
     /// @notice Withdraws a Uniswap V3 LP token `tokenId` from this contract to the recipient `to`
     /// @param tokenId The unique identifier of an Uniswap V3 LP token
     /// @param to The address where the LP token will be sent

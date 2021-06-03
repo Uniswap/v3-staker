@@ -144,15 +144,6 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
         }
     }
 
-    /// @inheritdoc IUniswapV3Staker
-    function depositToken(uint256 tokenId) external override {
-        nonfungiblePositionManager.safeTransferFrom(
-            msg.sender,
-            address(this),
-            tokenId
-        );
-    }
-
     /// @inheritdoc IERC721Receiver
     function onERC721Received(
         address,

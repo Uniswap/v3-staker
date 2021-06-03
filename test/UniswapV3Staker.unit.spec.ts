@@ -397,56 +397,17 @@ describe('UniswapV3Staker.unit', async () => {
         amount1Min: 0,
         deadline: (await blockTimestamp()) + 1000,
       })
-
-      await context.nft
-        .connect(lpUser0)
-        .approve(context.staker.address, tokenId, {
-          gasLimit: MAX_GAS_LIMIT,
-        })
-    })
-
-    describe('#depositToken', () => {
-      subject = async () =>
-        await context.staker.connect(lpUser0).depositToken(tokenId)
-
-      describe('works and', async () => {
-        it('emits a Deposited event', async () => {
-          await expect(subject(tokenId, lpUser0.address))
-            .to.emit(context.staker, 'TokenDeposited')
-            .withArgs(tokenId, lpUser0.address)
-        })
-
-        it('transfers ownership of the NFT', async () => {
-          await subject(tokenId, lpUser0.address)
-          expect(await context.nft.ownerOf(tokenId)).to.eq(
-            context.staker.address
-          )
-        })
-
-        it('sets owner and maintains numberOfStakes at 0', async () => {
-          await subject(tokenId, lpUser0.address)
-          const deposit = await context.staker.deposits(tokenId)
-          expect(deposit.owner).to.eq(lpUser0.address)
-          expect(deposit.numberOfStakes).to.eq(0)
-        })
-
-        it('has gas cost', async () => {
-          await snapshotGasCost(subject(tokenId, lpUser0.address))
-        })
-      })
-      /*
-      Other possible cases to consider:
-        * What if make nft.safeTransferFrom is adversarial in some way?
-        * What happens if the nft.safeTransferFrom call fails
-        * What if tokenId is invalid
-        * What happens if I call deposit() twice with the same tokenId?
-        * Ownership checks around tokenId? Can you transfer something that is not yours?
-      */
     })
 
     describe('#withdrawToken', () => {
       beforeEach(async () => {
-        await context.staker.connect(lpUser0).depositToken(tokenId)
+        await context.nft
+          .connect(lpUser0)
+          ['safeTransferFrom(address,address,uint256)'](
+            lpUser0.address,
+            context.staker.address,
+            tokenId
+          )
 
         subject = (_tokenId, _recipient) =>
           context.staker.connect(lpUser0).withdrawToken(_tokenId, _recipient)
@@ -557,9 +518,11 @@ describe('UniswapV3Staker.unit', async () => {
 
         await context.nft
           .connect(lpUser0)
-          .approve(context.staker.address, tokenId, { gasLimit: MAX_GAS_LIMIT })
-
-        await context.staker.connect(lpUser0).depositToken(tokenId)
+          ['safeTransferFrom(address,address,uint256)'](
+            lpUser0.address,
+            context.staker.address,
+            tokenId
+          )
         const incentiveParams: HelperTypes.CreateIncentive.Args = {
           rewardToken: context.rewardToken,
           totalReward,
@@ -678,9 +641,11 @@ describe('UniswapV3Staker.unit', async () => {
 
         await context.nft
           .connect(lpUser0)
-          .approve(context.staker.address, tokenId, { gasLimit: MAX_GAS_LIMIT })
-
-        await context.staker.connect(lpUser0).depositToken(tokenId)
+          ['safeTransferFrom(address,address,uint256)'](
+            lpUser0.address,
+            context.staker.address,
+            tokenId
+          )
 
         stakeParams = {
           creator: incentiveCreator.address,
@@ -867,9 +832,11 @@ describe('UniswapV3Staker.unit', async () => {
 
         await context.nft
           .connect(lpUser0)
-          .approve(context.staker.address, tokenId, { gasLimit: MAX_GAS_LIMIT })
-
-        await context.staker.connect(lpUser0).depositToken(tokenId)
+          ['safeTransferFrom(address,address,uint256)'](
+            lpUser0.address,
+            context.staker.address,
+            tokenId
+          )
 
         await Time.setAndMine(timestamps.startTime + 1)
         await context.staker.connect(lpUser0).stakeToken({
@@ -1195,10 +1162,6 @@ describe('UniswapV3Staker.unit', async () => {
         context.staker.address
       )
 
-      await context.nft
-        .connect(multicaller)
-        .approve(context.staker.address, tokenId)
-
       const createIncentiveTx = context.staker.interface.encodeFunctionData(
         'createIncentive',
         [
@@ -1210,17 +1173,13 @@ describe('UniswapV3Staker.unit', async () => {
           },
         ]
       )
-      const depositTx = context.staker.interface.encodeFunctionData(
-        'depositToken',
-        [tokenId]
-      )
       await context.staker
         .connect(multicaller)
-        .multicall([createIncentiveTx, depositTx], maxGas)
+        .multicall([createIncentiveTx], maxGas)
 
-      expect((await context.staker.deposits(tokenId)).owner).to.eq(
-        multicaller.address
-      )
+      // expect((await context.staker.deposits(tokenId)).owner).to.eq(
+      //   multicaller.address
+      // )
     })
   })
 })

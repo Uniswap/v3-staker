@@ -31,7 +31,6 @@ export module ContractParams {
   export type Incentive = {
     totalRewardUnclaimed: BigNumber
     totalSecondsClaimedX128: BigNumber
-    rewardToken: string
   }
 
   export type Stake = {

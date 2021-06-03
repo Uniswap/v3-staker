@@ -1,4 +1,3 @@
-import { ethers } from 'hardhat'
 import { MockProvider } from 'ethereum-waffle'
 import { log } from './logging'
 
@@ -16,18 +15,15 @@ export const createTimeMachine = (provider: MockProvider): TimeSetters => {
       log.debug(`🕒 setTime(${timestamp})`)
       // Not sure if I need both of those
       await provider.send('evm_setNextBlockTimestamp', [timestamp])
-      await ethers.provider.send('evm_setNextBlockTimestamp', [timestamp])
     },
 
     step: async (interval: number) => {
       log.debug(`🕒 increaseTime(${interval})`)
       await provider.send('evm_increaseTime', [interval])
-      await ethers.provider.send('evm_increaseTime', [interval])
     },
 
     setAndMine: async (timestamp: number) => {
       await provider.send('evm_setNextBlockTimestamp', [timestamp])
-      await ethers.provider.send('evm_setNextBlockTimestamp', [timestamp])
       await provider.send('evm_mine', [])
     },
   }

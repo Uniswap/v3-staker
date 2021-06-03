@@ -107,8 +107,6 @@ struct EndIncentiveParams {
 
 ## Deposit/Withdraw Token
 
-### `depositToken(uint256 tokenId)`
-
 **Interactions**
 
 - `nonfungiblePositionManager.safeTransferFrom(sender, this, tokenId)`
