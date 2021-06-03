@@ -150,8 +150,8 @@ interface IUniswapV3Staker {
     /// @param totalReward The total amount of reward tokens to be distributed
     event IncentiveCreated(
         address creator,
-        address indexed rewardToken,
-        address indexed pool,
+        IERC20Minimal indexed rewardToken,
+        IUniswapV3Pool indexed pool,
         uint256 startTime,
         uint256 endTime,
         uint256 claimDeadline,

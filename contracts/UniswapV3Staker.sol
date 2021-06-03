@@ -253,11 +253,14 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
     }
 
     /// @inheritdoc IUniswapV3Staker
-    function claimReward(address rewardToken, address to) external override {
+    function claimReward(IERC20Minimal rewardToken, address to)
+        external
+        override
+    {
         uint256 reward = rewards[rewardToken][msg.sender];
         rewards[rewardToken][msg.sender] = 0;
 
-        TransferHelper.safeTransfer(rewardToken, to, reward);
+        TransferHelper.safeTransfer(address(rewardToken), to, reward);
 
         emit RewardClaimed(to, reward);
     }
@@ -299,15 +302,12 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
         Stake memory stake,
         Incentive memory incentive,
         UpdateStakeParams memory params,
-        address poolAddress,
+        IUniswapV3Pool pool,
         int24 tickLower,
         int24 tickUpper
     ) private view returns (uint256 reward, uint160 secondsInPeriodX128) {
         (, uint160 secondsPerLiquidityInsideX128, ) =
-            IUniswapV3Pool(poolAddress).snapshotCumulativesInside(
-                tickLower,
-                tickUpper
-            );
+            pool.snapshotCumulativesInside(tickLower, tickUpper);
 
         secondsInPeriodX128 = uint160(
             SafeMath.mul(
