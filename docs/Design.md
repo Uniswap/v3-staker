@@ -28,7 +28,7 @@ State:
 IUniswapV3Factory public immutable factory;
 INonfungiblePositionManager public immutable nonfungiblePositionManager;
 
-/// @dev bytes32 refers to the return value of IncentiveHelper.getIncentiveId
+/// @dev bytes32 refers to the return value of IncentiveId.compute
 mapping(bytes32 => Incentive) public incentives;
 
 /// @dev deposits[tokenId] => Deposit

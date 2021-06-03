@@ -3,13 +3,14 @@ pragma solidity =0.7.6;
 pragma abicoder v2;
 
 import './interfaces/IUniswapV3Staker.sol';
-import './libraries/IncentiveHelper.sol';
+import './libraries/IncentiveId.sol';
 
 import '@uniswap/v3-core/contracts/libraries/FixedPoint96.sol';
 import '@uniswap/v3-core/contracts/libraries/FixedPoint128.sol';
 import '@uniswap/v3-core/contracts/libraries/FullMath.sol';
 import '@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol';
 import '@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol';
+import '@uniswap/v3-core/contracts/interfaces/IERC20Minimal.sol';
 
 import '@uniswap/v3-periphery/contracts/libraries/PoolAddress.sol';
 import '@uniswap/v3-periphery/contracts/interfaces/INonfungiblePositionManager.sol';
@@ -29,7 +30,7 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
         public immutable
         override nonfungiblePositionManager;
 
-    /// @dev bytes32 refers to the return value of IncentiveHelper.getIncentiveId
+    /// @dev bytes32 refers to the return value of IncentiveId.compute
     mapping(bytes32 => Incentive) public override incentives;
 
     /// @dev deposits[tokenId] => Deposit
@@ -40,15 +41,18 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
 
     /// @inheritdoc IUniswapV3Staker
     /// @dev rewards[rewardToken][owner] => uint256
-    mapping(address => mapping(address => uint256)) public override rewards;
+    mapping(IERC20Minimal => mapping(address => uint256))
+        public
+        override rewards;
 
     /// @param _factory the Uniswap V3 factory
     /// @param _nonfungiblePositionManager the NFT position manager contract address
-    constructor(address _factory, address _nonfungiblePositionManager) {
-        factory = IUniswapV3Factory(_factory);
-        nonfungiblePositionManager = INonfungiblePositionManager(
-            _nonfungiblePositionManager
-        );
+    constructor(
+        IUniswapV3Factory _factory,
+        INonfungiblePositionManager _nonfungiblePositionManager
+    ) {
+        factory = _factory;
+        nonfungiblePositionManager = _nonfungiblePositionManager;
     }
 
     /// @inheritdoc IUniswapV3Staker
@@ -76,13 +80,15 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
         );
 
         bytes32 incentiveId =
-            IncentiveHelper.getIncentiveId(
-                params.rewardToken,
-                params.pool,
-                params.startTime,
-                params.endTime,
-                params.claimDeadline,
-                params.beneficiary
+            IncentiveId.compute(
+                IncentiveId.Key(
+                    params.rewardToken,
+                    params.pool,
+                    params.startTime,
+                    params.endTime,
+                    params.claimDeadline,
+                    params.beneficiary
+                )
             );
 
         // totalRewardUnclaimed cannot decrease until params.startTime has passed, meaning this check is safe
@@ -98,7 +104,7 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
 
         // this is effectively a validity check on params.rewardToken
         TransferHelper.safeTransferFrom(
-            params.rewardToken,
+            address(params.rewardToken),
             msg.sender,
             address(this),
             reward
@@ -118,13 +124,15 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
     /// @inheritdoc IUniswapV3Staker
     function endIncentive(IncentiveParams memory params) external override {
         bytes32 incentiveId =
-            IncentiveHelper.getIncentiveId(
-                params.rewardToken,
-                params.pool,
-                params.startTime,
-                params.endTime,
-                params.claimDeadline,
-                params.beneficiary
+            IncentiveId.compute(
+                IncentiveId.Key(
+                    params.rewardToken,
+                    params.pool,
+                    params.startTime,
+                    params.endTime,
+                    params.claimDeadline,
+                    params.beneficiary
+                )
             );
 
         uint128 refund = incentives[incentiveId].totalRewardUnclaimed;
@@ -133,7 +141,7 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
         if (refund > 0 && params.claimDeadline < block.timestamp) {
             incentives[incentiveId].totalRewardUnclaimed = 0;
             TransferHelper.safeTransfer(
-                params.rewardToken,
+                address(params.rewardToken),
                 params.beneficiary,
                 refund
             );
@@ -191,17 +199,19 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
             'sender is not nft owner'
         );
 
-        (address poolAddress, int24 tickLower, int24 tickUpper, ) =
+        (IUniswapV3Pool pool, int24 tickLower, int24 tickUpper, ) =
             _getPositionDetails(params.tokenId);
 
         bytes32 incentiveId =
-            IncentiveHelper.getIncentiveId(
-                params.rewardToken,
-                poolAddress,
-                params.startTime,
-                params.endTime,
-                params.claimDeadline,
-                params.beneficiary
+            IncentiveId.compute(
+                IncentiveId.Key(
+                    params.rewardToken,
+                    pool,
+                    params.startTime,
+                    params.endTime,
+                    params.claimDeadline,
+                    params.beneficiary
+                )
             );
 
         Incentive memory incentive = incentives[incentiveId];
@@ -218,7 +228,7 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
                     stake,
                     incentive,
                     params,
-                    poolAddress,
+                    pool,
                     tickLower,
                     tickUpper
                 );
@@ -243,11 +253,14 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
     }
 
     /// @inheritdoc IUniswapV3Staker
-    function claimReward(address rewardToken, address to) external override {
+    function claimReward(IERC20Minimal rewardToken, address to)
+        external
+        override
+    {
         uint256 reward = rewards[rewardToken][msg.sender];
         rewards[rewardToken][msg.sender] = 0;
 
-        TransferHelper.safeTransfer(rewardToken, to, reward);
+        TransferHelper.safeTransfer(address(rewardToken), to, reward);
 
         emit RewardClaimed(to, reward);
     }
@@ -257,17 +270,19 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
         view
         returns (uint256 reward, uint160 secondsInPeriodX128)
     {
-        (address poolAddress, int24 tickLower, int24 tickUpper, ) =
+        (IUniswapV3Pool pool, int24 tickLower, int24 tickUpper, ) =
             _getPositionDetails(params.tokenId);
 
         bytes32 incentiveId =
-            IncentiveHelper.getIncentiveId(
-                params.rewardToken,
-                poolAddress,
-                params.startTime,
-                params.endTime,
-                params.claimDeadline,
-                params.beneficiary
+            IncentiveId.compute(
+                IncentiveId.Key(
+                    params.rewardToken,
+                    pool,
+                    params.startTime,
+                    params.endTime,
+                    params.claimDeadline,
+                    params.beneficiary
+                )
             );
 
         Incentive memory incentive = incentives[incentiveId];
@@ -277,7 +292,7 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
                 stake,
                 incentive,
                 params,
-                poolAddress,
+                pool,
                 tickLower,
                 tickUpper
             );
@@ -287,15 +302,12 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
         Stake memory stake,
         Incentive memory incentive,
         UpdateStakeParams memory params,
-        address poolAddress,
+        IUniswapV3Pool pool,
         int24 tickLower,
         int24 tickUpper
     ) private view returns (uint256 reward, uint160 secondsInPeriodX128) {
         (, uint160 secondsPerLiquidityInsideX128, ) =
-            IUniswapV3Pool(poolAddress).snapshotCumulativesInside(
-                tickLower,
-                tickUpper
-            );
+            pool.snapshotCumulativesInside(tickLower, tickUpper);
 
         secondsInPeriodX128 = uint160(
             SafeMath.mul(
@@ -335,20 +347,22 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
         require(block.timestamp < params.endTime, 'incentive ended');
 
         (
-            address poolAddress,
+            IUniswapV3Pool pool,
             int24 tickLower,
             int24 tickUpper,
             uint128 liquidity
         ) = _getPositionDetails(params.tokenId);
 
         bytes32 incentiveId =
-            IncentiveHelper.getIncentiveId(
-                params.rewardToken,
-                poolAddress,
-                params.startTime,
-                params.endTime,
-                params.claimDeadline,
-                params.beneficiary
+            IncentiveId.compute(
+                IncentiveId.Key(
+                    params.rewardToken,
+                    pool,
+                    params.startTime,
+                    params.endTime,
+                    params.claimDeadline,
+                    params.beneficiary
+                )
             );
 
         require(
@@ -363,10 +377,7 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
         deposits[params.tokenId].numberOfStakes += 1;
 
         (, uint160 secondsPerLiquidityInsideX128, ) =
-            IUniswapV3Pool(poolAddress).snapshotCumulativesInside(
-                tickLower,
-                tickUpper
-            );
+            pool.snapshotCumulativesInside(tickLower, tickUpper);
 
         stakes[params.tokenId][incentiveId] = Stake({
             secondsPerLiquidityInitialX128: secondsPerLiquidityInsideX128,
@@ -385,37 +396,35 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
         private
         view
         returns (
-            address,
-            int24,
-            int24,
-            uint128
+            IUniswapV3Pool pool,
+            int24 tickLower,
+            int24 tickUpper,
+            uint128 liquidity
         )
     {
+        address token0;
+        address token1;
+        uint24 fee;
         (
             ,
             ,
-            address token0,
-            address token1,
-            uint24 fee,
-            int24 tickLower,
-            int24 tickUpper,
-            uint128 liquidity,
+            token0,
+            token1,
+            fee,
+            tickLower,
+            tickUpper,
+            liquidity,
             ,
             ,
             ,
 
         ) = nonfungiblePositionManager.positions(tokenId);
 
-        PoolAddress.PoolKey memory poolKey =
-            PoolAddress.getPoolKey(token0, token1, fee);
-
-        // Could do this via factory.getPool or locally via PoolAddress.
-        // TODO: what happens if this is null
-        return (
-            PoolAddress.computeAddress(address(factory), poolKey),
-            tickLower,
-            tickUpper,
-            liquidity
+        pool = IUniswapV3Pool(
+            PoolAddress.computeAddress(
+                address(factory),
+                PoolAddress.PoolKey({token0: token0, token1: token1, fee: fee})
+            )
         );
     }
 }

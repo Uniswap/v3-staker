@@ -3,15 +3,18 @@ pragma solidity =0.7.6;
 pragma abicoder v2;
 
 import '@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol';
+import '@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol';
+import '@uniswap/v3-core/contracts/interfaces/IERC20Minimal.sol';
+
 import '@uniswap/v3-periphery/contracts/interfaces/INonfungiblePositionManager.sol';
 
 /// @title Uniswap V3 Staker Interface
 /// @notice Allows staking nonfungible liquidity tokens in exchange for reward tokens
 interface IUniswapV3Staker {
-    /// @notice Returns the address of the Uniswap V3 Factory
+    /// @notice The Uniswap V3 Factory
     function factory() external view returns (IUniswapV3Factory);
 
-    /// @notice Returns the nonfungible position manager with which this staking contract is compatible
+    /// @notice The nonfungible position manager with which this staking contract is compatible
     function nonfungiblePositionManager()
         external
         view
@@ -63,23 +66,23 @@ interface IUniswapV3Staker {
         returns (uint160 secondsPerLiquidityInitialX128, uint128 liquidity);
 
     /// @notice Returns amounts of reward tokens owed to a given address according to the last time all stakes were updated
-    /// @param rewardToken The address of the token for which to check rewards
+    /// @param rewardToken The token for which to check rewards
     /// @param owner The owner for which the rewards owed are checked
     /// @return rewardsOwed The amount of the reward token claimable by the owner
-    function rewards(address rewardToken, address owner)
+    function rewards(IERC20Minimal rewardToken, address owner)
         external
         view
         returns (uint256 rewardsOwed);
 
-    /// @param rewardToken The address of the token being distributed as a reward
-    /// @param pool The address of the Uniswap V3 pool
+    /// @param rewardToken The token being distributed as a reward
+    /// @param pool The Uniswap V3 pool
     /// @param startTime The time when the incentive program begins
     /// @param endTime The time when rewards stop accruing
     /// @param claimDeadline Time after which anoyne can cause unaccounted-for rewards to be sent to the beneficiary
     /// @param beneficiary The address which receives any remaining reward tokens after the claimDeadline
     struct IncentiveParams {
-        address rewardToken;
-        address pool;
+        IERC20Minimal rewardToken;
+        IUniswapV3Pool pool;
         uint256 startTime;
         uint256 endTime;
         uint256 claimDeadline;
@@ -101,14 +104,14 @@ interface IUniswapV3Staker {
     /// @param to The address where the LP token will be sent
     function withdrawToken(uint256 tokenId, address to) external;
 
-    /// @param rewardToken The address of the token being distributed as a reward
+    /// @param rewardToken The token being distributed as a reward
     /// @param tokenId The ID of the staked NFT
     /// @param startTime The time when the incentive program begins
     /// @param endTime The time when rewards stop accruing
     /// @param claimDeadline Time after which anoyne can cause unaccounted-for rewards to be sent to the beneficiary
     /// @param beneficiary The address which receives any remaining reward tokens after the claimDeadline
     struct UpdateStakeParams {
-        address rewardToken;
+        IERC20Minimal rewardToken;
         uint256 tokenId;
         uint256 startTime;
         uint256 endTime;
@@ -123,21 +126,21 @@ interface IUniswapV3Staker {
     function unstakeToken(UpdateStakeParams memory params) external;
 
     /// @notice Transfers accrued `rewardToken` rewards from the contarct to the recipient `to`
-    /// @param rewardToken The address of the token being distributed as a reward
+    /// @param rewardToken The token being distributed as a reward
     /// @param to The address where claimed rewards will be sent to
-    function claimReward(address rewardToken, address to) external;
+    function claimReward(IERC20Minimal rewardToken, address to) external;
 
     /// @notice Event emitted when a liquidity mining incentive has been created
-    /// @param rewardToken The address of the token being distributed as a reward
-    /// @param pool The address of the Uniswap V3 pool
+    /// @param rewardToken The token being distributed as a reward
+    /// @param pool The Uniswap V3 pool
     /// @param startTime The time when the incentive program begins
     /// @param endTime The time when rewards stop accruing
     /// @param claimDeadline Time after which anoyne can cause unaccounted-for rewards to be sent to the beneficiary
     /// @param beneficiary The address which receives any remaining reward tokens after the claimDeadline
     /// @param reward The amount of reward tokens to be distributed
     event IncentiveCreated(
-        address indexed rewardToken,
-        address indexed pool,
+        IERC20Minimal indexed rewardToken,
+        IUniswapV3Pool indexed pool,
         uint256 startTime,
         uint256 endTime,
         uint256 claimDeadline,
