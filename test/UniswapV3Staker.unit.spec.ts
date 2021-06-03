@@ -802,11 +802,7 @@ describe('UniswapV3Staker.unit', async () => {
           ...timestamps,
         })
 
-        const idGetter = await (
-          await ethers.getContractFactory('TestIncentiveID')
-        ).deploy()
-
-        const incentiveId = await context.testIncentiveId.compute({
+        incentiveId = await context.testIncentiveId.compute({
           rewardToken: context.rewardToken.address,
           pool: context.pool01,
           startTime: timestamps.startTime,
