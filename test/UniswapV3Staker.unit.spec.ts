@@ -177,14 +177,14 @@ describe('UniswapV3Staker.unit', async () => {
         it('creates an incentive with the correct parameters', async () => {
           const timestamps = makeTimestamps(await blockTimestamp())
           await subject(timestamps)
-          const incentiveId = await context.testIncentiveId.getIncentiveId(
-            incentiveCreator.address,
-            context.rewardToken.address,
-            context.pool01,
-            timestamps.startTime,
-            timestamps.endTime,
-            timestamps.claimDeadline
-          )
+          const incentiveId = await context.testIncentiveId.compute({
+            creator: incentiveCreator.address,
+            rewardToken: context.rewardToken.address,
+            pool: context.pool01,
+            startTime: timestamps.startTime,
+            endTime: timestamps.endTime,
+            claimDeadline: timestamps.claimDeadline,
+          })
 
           const incentive = await context.staker.incentives(incentiveId)
           expect(incentive.totalRewardUnclaimed).to.equal(totalReward)
@@ -1038,14 +1038,14 @@ describe('UniswapV3Staker.unit', async () => {
       })
 
       it('properly stakes the deposit in the select incentive', async () => {
-        const incentiveId = await context.testIncentiveId.getIncentiveId(
-          incentiveCreator.address,
-          context.rewardToken.address,
-          context.pool01,
-          timestamps.startTime,
-          timestamps.endTime,
-          timestamps.claimDeadline
-        )
+        const incentiveId = await context.testIncentiveId.compute({
+          creator: incentiveCreator.address,
+          rewardToken: context.rewardToken.address,
+          pool: context.pool01,
+          startTime: timestamps.startTime,
+          endTime: timestamps.endTime,
+          claimDeadline: timestamps.claimDeadline,
+        })
         Time.set(timestamps.startTime + 10)
         const stakeBefore = await context.staker.stakes(tokenId, incentiveId)
         const depositBefore = await context.staker.deposits(tokenId)

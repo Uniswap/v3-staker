@@ -3,7 +3,7 @@ pragma solidity =0.7.6;
 pragma abicoder v2;
 
 import './interfaces/IUniswapV3Staker.sol';
-import './libraries/IncentiveHelper.sol';
+import './libraries/IncentiveId.sol';
 
 import '@uniswap/v3-core/contracts/libraries/FixedPoint96.sol';
 import '@uniswap/v3-core/contracts/libraries/FixedPoint128.sol';
@@ -29,7 +29,7 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
         public immutable
         override nonfungiblePositionManager;
 
-    /// @dev bytes32 refers to the return value of IncentiveHelper.getIncentiveId
+    /// @dev bytes32 refers to the return value of IncentiveId.compute
     mapping(bytes32 => Incentive) public override incentives;
 
     /// @dev deposits[tokenId] => Deposit
@@ -75,23 +75,25 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
             'total duration of incentive must be less than 2**32 - 1'
         );
 
-        bytes32 key =
-            IncentiveHelper.getIncentiveId(
-                msg.sender,
-                params.rewardToken,
-                params.pool,
-                params.startTime,
-                params.endTime,
-                params.claimDeadline
+        bytes32 incentiveId =
+            IncentiveId.compute(
+                IncentiveId.Key(
+                    msg.sender,
+                    params.rewardToken,
+                    params.pool,
+                    params.startTime,
+                    params.endTime,
+                    params.claimDeadline
+                )
             );
 
         // totalRewardUnclaimed cannot decrease until params.startTime has passed, meaning this check is safe
         require(
-            incentives[key].totalRewardUnclaimed == 0,
+            incentives[incentiveId].totalRewardUnclaimed == 0,
             'incentive already exists'
         );
 
-        incentives[key] = Incentive({
+        incentives[incentiveId] = Incentive({
             totalRewardUnclaimed: params.totalReward,
             totalSecondsClaimedX128: 0
         });
@@ -117,28 +119,30 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
 
     /// @inheritdoc IUniswapV3Staker
     function endIncentive(EndIncentiveParams memory params) external override {
-        bytes32 key =
-            IncentiveHelper.getIncentiveId(
-                params.creator,
-                params.rewardToken,
-                params.pool,
-                params.startTime,
-                params.endTime,
-                params.claimDeadline
+        bytes32 incentiveId =
+            IncentiveId.compute(
+                IncentiveId.Key(
+                    params.creator,
+                    params.rewardToken,
+                    params.pool,
+                    params.startTime,
+                    params.endTime,
+                    params.claimDeadline
+                )
             );
 
-        uint128 refund = incentives[key].totalRewardUnclaimed;
+        uint128 refund = incentives[incentiveId].totalRewardUnclaimed;
 
         // if any unclaimed rewards remain, and we're at or past the claim deadline, issue a refund
         if (refund > 0 && params.claimDeadline <= block.timestamp) {
-            incentives[key].totalRewardUnclaimed = 0;
+            incentives[incentiveId].totalRewardUnclaimed = 0;
             TransferHelper.safeTransfer(
                 params.rewardToken,
                 params.creator,
                 refund
             );
 
-            emit IncentiveEnded(key, refund);
+            emit IncentiveEnded(incentiveId, refund);
         }
     }
 
@@ -195,13 +199,15 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
             _getPositionDetails(params.tokenId);
 
         bytes32 incentiveId =
-            IncentiveHelper.getIncentiveId(
-                params.creator,
-                params.rewardToken,
-                poolAddress,
-                params.startTime,
-                params.endTime,
-                params.claimDeadline
+            IncentiveId.compute(
+                IncentiveId.Key(
+                    params.creator,
+                    params.rewardToken,
+                    poolAddress,
+                    params.startTime,
+                    params.endTime,
+                    params.claimDeadline
+                )
             );
 
         Incentive memory incentive = incentives[incentiveId];
@@ -261,13 +267,15 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
             _getPositionDetails(params.tokenId);
 
         bytes32 incentiveId =
-            IncentiveHelper.getIncentiveId(
-                params.creator,
-                params.rewardToken,
-                poolAddress,
-                params.startTime,
-                params.endTime,
-                params.claimDeadline
+            IncentiveId.compute(
+                IncentiveId.Key(
+                    params.creator,
+                    params.rewardToken,
+                    poolAddress,
+                    params.startTime,
+                    params.endTime,
+                    params.claimDeadline
+                )
             );
 
         Incentive memory incentive = incentives[incentiveId];
@@ -342,13 +350,15 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
         ) = _getPositionDetails(params.tokenId);
 
         bytes32 incentiveId =
-            IncentiveHelper.getIncentiveId(
-                params.creator,
-                params.rewardToken,
-                poolAddress,
-                params.startTime,
-                params.endTime,
-                params.claimDeadline
+            IncentiveId.compute(
+                IncentiveId.Key(
+                    params.creator,
+                    params.rewardToken,
+                    poolAddress,
+                    params.startTime,
+                    params.endTime,
+                    params.claimDeadline
+                )
             );
 
         require(
