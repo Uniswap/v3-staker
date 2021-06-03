@@ -11,6 +11,7 @@ export module ContractParams {
     pool: string
     rewardToken: string
     totalReward: BigNumberish
+    beneficiary: string
   } & Timestamps
 
   export type EndIncentive = {
@@ -19,9 +20,9 @@ export module ContractParams {
   } & Timestamps
 
   export type UpdateStakeParams = {
-    creator: string
     rewardToken: string
     tokenId: number
+    beneficiary: string
   } & Timestamps
 
   export type StakeToken = UpdateStakeParams

@@ -101,17 +101,20 @@ export class HelperCommands {
       .connect(incentiveCreator)
       .approve(this.staker.address, params.totalReward)
 
-    await this.staker.connect(incentiveCreator).createIncentive({
-      pool: params.poolAddress,
-      rewardToken: params.rewardToken.address,
-      totalReward: params.totalReward,
-      ...times,
-    })
+    await this.staker.connect(incentiveCreator).createIncentive(
+      {
+        pool: params.poolAddress,
+        rewardToken: params.rewardToken.address,
+        ...times,
+        beneficiary: params.beneficiary || incentiveCreator.address,
+      },
+      params.totalReward
+    )
 
     return {
       ..._.pick(params, ['poolAddress', 'totalReward', 'rewardToken']),
       ...times,
-      creatorAddress: incentiveCreator.address,
+      beneficiary: params.beneficiary || incentiveCreator.address,
     }
   }
 
@@ -273,9 +276,9 @@ export class HelperCommands {
             'claimDeadline',
           ]),
           {
-            creator: params.createIncentiveResult.creatorAddress,
             rewardToken: rewardToken.address,
             pool: params.createIncentiveResult.poolAddress,
+            beneficiary: params.createIncentiveResult.beneficiary,
           }
         )
       )
@@ -304,12 +307,12 @@ export class HelperCommands {
 
   getIncentiveId: HelperTypes.GetIncentiveId.Command = async (params) => {
     const incentiveId = await this.testIncentiveId.getIncentiveId(
-      params.creatorAddress,
       params.rewardToken.address,
       params.poolAddress,
       params.startTime,
       params.endTime,
-      params.claimDeadline
+      params.claimDeadline,
+      params.beneficiary
     )
     return incentiveId
   }
@@ -450,5 +453,5 @@ export const incentiveResultToStakeAdapter: IncentiveAdapterFunc = (
   endTime: params.endTime,
   claimDeadline: params.claimDeadline,
   rewardToken: params.rewardToken.address,
-  creator: params.creatorAddress,
+  beneficiary: params.beneficiary,
 })
