@@ -8,7 +8,6 @@ There is a canonical position staking contract, Staker.
 struct Incentive {
   uint128 totalRewardUnclaimed;
   uint160 totalSecondsClaimedX128;
-  address rewardToken;
 }
 
 struct Deposit {

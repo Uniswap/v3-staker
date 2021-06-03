@@ -11,7 +11,6 @@ interface IUniswapV3Staker {
     /// @notice Represents a staking incentive
     /// @param totalRewardUnclaimed The amount of reward token not yet claimed by users
     /// @param totalSecondsClaimedX128 Total liquidity-seconds claimed, represented as a UQ32.128
-    /// @param rewardToken The address of the token being distributed as a reward
     struct Incentive {
         uint128 totalRewardUnclaimed;
         uint160 totalSecondsClaimedX128;
