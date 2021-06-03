@@ -803,7 +803,7 @@ describe('UniswapV3Staker.unit', async () => {
         })
 
         const idGetter = await (
-          await ethers.getContractFactory('TestIncentiveID')
+          await ethers.getContractFactory('TestIncentiveId')
         ).deploy()
 
         incentiveId = await idGetter.getIncentiveId(

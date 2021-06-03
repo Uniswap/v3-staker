@@ -356,7 +356,6 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
         emit StakeUpdated(params.tokenId, liquidity, incentiveId, reward);
     }
 
-
     function _getRewardAmount(
         Stake memory stake,
         Incentive memory incentive,
