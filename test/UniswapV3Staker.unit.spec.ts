@@ -803,17 +803,17 @@ describe('UniswapV3Staker.unit', async () => {
         })
 
         const idGetter = await (
-          await ethers.getContractFactory('TestIncentiveId')
+          await ethers.getContractFactory('TestIncentiveID')
         ).deploy()
 
-        incentiveId = await idGetter.getIncentiveId(
-          createIncentiveResult.creatorAddress,
-          createIncentiveResult.rewardToken.address,
-          createIncentiveResult.poolAddress,
-          createIncentiveResult.startTime,
-          createIncentiveResult.endTime,
-          createIncentiveResult.claimDeadline
-        )
+        const incentiveId = await context.testIncentiveId.compute({
+          rewardToken: context.rewardToken.address,
+          pool: context.pool01,
+          startTime: timestamps.startTime,
+          endTime: timestamps.endTime,
+          claimDeadline: timestamps.claimDeadline,
+          beneficiary: incentiveCreator.address,
+        })
 
         await erc20Helper.ensureBalancesAndApprovals(
           lpUser0,
@@ -840,11 +840,17 @@ describe('UniswapV3Staker.unit', async () => {
           .connect(lpUser0)
           .approve(context.staker.address, tokenId, { gasLimit: MAX_GAS_LIMIT })
 
-        await context.staker.connect(lpUser0).depositToken(tokenId)
+        await context.nft
+          .connect(lpUser0)
+          ['safeTransferFrom(address,address,uint256)'](
+            lpUser0.address,
+            context.staker.address,
+            tokenId
+          )
 
         subject = () =>
           context.staker.connect(lpUser0).updateStake({
-            creator: incentiveCreator.address,
+            beneficiary: incentiveCreator.address,
             rewardToken: context.rewardToken.address,
             tokenId,
             ...timestamps,
@@ -858,7 +864,7 @@ describe('UniswapV3Staker.unit', async () => {
         beforeEach(async () => {
           await Time.set(timestamps.startTime + 100)
           await context.staker.connect(lpUser0).stakeToken({
-            creator: incentiveCreator.address,
+            beneficiary: incentiveCreator.address,
             rewardToken: context.rewardToken.address,
             tokenId,
             ...timestamps,
@@ -924,7 +930,6 @@ describe('UniswapV3Staker.unit', async () => {
           expect(secondsInitialBefore).to.be.lt(secondsInitialAfter)
           // doubled liquidity between updates
           expect(liquidityAfter).to.equal(liquidityBefore.mul(2))
-          expect(stakeBefore.exists).to.equal(stakeAfter.exists)
         })
 
         it('updates the incentive appropriately', async () => {
@@ -961,7 +966,7 @@ describe('UniswapV3Staker.unit', async () => {
             .connect(lpUser0)
             .interface.encodeFunctionData('unstakeToken', [
               {
-                creator: incentiveCreator.address,
+                beneficiary: incentiveCreator.address,
                 rewardToken: context.rewardToken.address,
                 tokenId,
                 ...timestamps,
@@ -979,7 +984,7 @@ describe('UniswapV3Staker.unit', async () => {
             .connect(lpUser0)
             .interface.encodeFunctionData('stakeToken', [
               {
-                creator: incentiveCreator.address,
+                beneficiary: incentiveCreator.address,
                 rewardToken: context.rewardToken.address,
                 tokenId,
                 ...timestamps,

@@ -5,7 +5,7 @@ pragma abicoder v2;
 import '../libraries/IncentiveId.sol';
 
 /// @dev Test contract for IncentiveId
-contract TestIncentiveId {
+contract TestIncentiveID {
     function compute(IncentiveId.Key memory key) public pure returns (bytes32) {
         return IncentiveId.compute(key);
     }

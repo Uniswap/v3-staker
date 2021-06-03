@@ -1,18 +1,10 @@
 // Jest Snapshot v1, https://goo.gl/fbAQLP
 
-<<<<<<< HEAD
-exports[`UniswapV3Staker.unit #onERC721Received on successful transfer with staking data has gas cost 1`] = `196464`;
-
-exports[`UniswapV3Staker.unit Deposits #depositToken works and has gas cost 1`] = `96879`;
-
-exports[`UniswapV3Staker.unit Deposits #withdrawToken works and has gas cost 1`] = `74247`;
-=======
 exports[`UniswapV3Staker.unit #onERC721Received on successful transfer with staking data has gas cost 1`] = `195575`;
 
 exports[`UniswapV3Staker.unit Deposits #withdrawToken works and has gas cost 1`] = `74247`;
 
 exports[`UniswapV3Staker.unit Incentives #createIncentive works and has gas cost 1`] = `60854`;
->>>>>>> origin/master
 
 exports[`UniswapV3Staker.unit Incentives #endIncentive works and has gas cost 1`] = `33923`;
 
@@ -20,14 +12,8 @@ exports[`UniswapV3Staker.unit Stakes #claimReward has gas cost 1`] = `46922`;
 
 exports[`UniswapV3Staker.unit Stakes #stakeToken works and has gas cost 1`] = `116324`;
 
-<<<<<<< HEAD
-exports[`UniswapV3Staker.unit Stakes #stakeToken works and has gas cost 1`] = `117225`;
+exports[`UniswapV3Staker.unit Stakes #unstakeToken works and has gas cost 1`] = `100773`;
 
-exports[`UniswapV3Staker.unit Stakes #unstakeToken works and has gas cost 1`] = `103117`;
+exports[`UniswapV3Staker.unit Stakes #updateStake in a valid scenario has equivalent multicall operation gas cost 1`] = `165301`;
 
-exports[`UniswapV3Staker.unit Stakes #updateStake in a valid scenario has equivalent multicall operation gas cost 1`] = `168479`;
-
-exports[`UniswapV3Staker.unit Stakes #updateStake in a valid scenario has gas cost 1`] = `130790`;
-=======
-exports[`UniswapV3Staker.unit Stakes #unstakeToken works and has gas cost 1`] = `100767`;
->>>>>>> origin/master
+exports[`UniswapV3Staker.unit Stakes #updateStake in a valid scenario has gas cost 1`] = `128369`;

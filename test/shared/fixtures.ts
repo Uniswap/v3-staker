@@ -18,7 +18,7 @@ import {
   INonfungiblePositionManager,
   IUniswapV3Factory,
   IUniswapV3Pool,
-  TestIncentiveId,
+  TestIncentiveID,
 } from '../../typechain'
 import { NFTDescriptor } from '../../types/NFTDescriptor'
 import { FeeAmount, BigNumber, encodePriceSqrt, MAX_GAS_LIMIT } from '../shared'
@@ -220,7 +220,7 @@ export type UniswapFixtureType = {
   poolObj: IUniswapV3Pool
   router: ISwapRouter
   staker: UniswapV3Staker
-  testIncentiveId: TestIncentiveId
+  testIncentiveId: TestIncentiveID
   tokens: [TestERC20, TestERC20, TestERC20]
   token0: TestERC20
   token1: TestERC20
@@ -245,10 +245,10 @@ export const uniswapFixture: Fixture<UniswapFixtureType> = async (
   )) as UniswapV3Staker
 
   const testIncentiveIdFactory = await ethers.getContractFactory(
-    'TestIncentiveId',
+    'TestIncentiveID',
     signer
   )
-  const testIncentiveId = (await testIncentiveIdFactory.deploy()) as TestIncentiveId
+  const testIncentiveId = (await testIncentiveIdFactory.deploy()) as TestIncentiveID
 
   for (const token of tokens) {
     await token.approve(nft.address, constants.MaxUint256)
