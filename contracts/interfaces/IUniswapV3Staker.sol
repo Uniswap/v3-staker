@@ -94,15 +94,15 @@ interface IUniswapV3Staker {
     /// @param tokenId The ID of the staked NFT
     /// @param startTime The time when the incentive program begins
     /// @param endTime The time when rewards stop accruing
-    /// @param claimDeadline Time after which anoyne can cause unaccounted-for rewards to be sent to the beneficiary
-    /// @param beneficiary The address which receives any remaining reward tokens after the claimDeadline
+    /// @param claimDeadline Time after which anoyne can cause unaccounted-for rewards to be sent to the refundee
+    /// @param refundee The address which receives any remaining reward tokens after the claimDeadline
     struct UpdateStakeParams {
         IERC20Minimal rewardToken;
         uint256 tokenId;
         uint256 startTime;
         uint256 endTime;
         uint256 claimDeadline;
-        address beneficiary;
+        address refundee;
     }
 
     /// @notice Stakes a Uniswap V3 LP token
@@ -121,8 +121,8 @@ interface IUniswapV3Staker {
     /// @param pool The Uniswap V3 pool
     /// @param startTime The time when the incentive program begins
     /// @param endTime The time when rewards stop accruing
-    /// @param claimDeadline Time after which anoyne can cause unaccounted-for rewards to be sent to the beneficiary
-    /// @param beneficiary The address which receives any remaining reward tokens after the claimDeadline
+    /// @param claimDeadline Time after which anoyne can cause unaccounted-for rewards to be sent to the refundee
+    /// @param refundee The address which receives any remaining reward tokens after the claimDeadline
     /// @param reward The amount of reward tokens to be distributed
     event IncentiveCreated(
         IERC20Minimal indexed rewardToken,
@@ -130,7 +130,7 @@ interface IUniswapV3Staker {
         uint256 startTime,
         uint256 endTime,
         uint256 claimDeadline,
-        address beneficiary,
+        address refundee,
         uint128 reward
     );
 

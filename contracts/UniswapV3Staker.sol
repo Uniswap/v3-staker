@@ -87,7 +87,7 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
                     key.startTime,
                     key.endTime,
                     key.claimDeadline,
-                    key.beneficiary
+                    key.refundee
                 )
             );
 
@@ -116,7 +116,7 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
             key.startTime,
             key.endTime,
             key.claimDeadline,
-            key.beneficiary,
+            key.refundee,
             reward
         );
     }
@@ -132,7 +132,7 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
             incentives[incentiveId].totalRewardUnclaimed = 0;
             TransferHelper.safeTransfer(
                 address(key.rewardToken),
-                key.beneficiary,
+                key.refundee,
                 refund
             );
 
@@ -200,7 +200,7 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
                     params.startTime,
                     params.endTime,
                     params.claimDeadline,
-                    params.beneficiary
+                    params.refundee
                 )
             );
 
@@ -271,7 +271,7 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
                     params.startTime,
                     params.endTime,
                     params.claimDeadline,
-                    params.beneficiary
+                    params.refundee
                 )
             );
 
@@ -351,7 +351,7 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
                     params.startTime,
                     params.endTime,
                     params.claimDeadline,
-                    params.beneficiary
+                    params.refundee
                 )
             );
 

@@ -106,7 +106,7 @@ export class HelperCommands {
         pool: params.poolAddress,
         rewardToken: params.rewardToken.address,
         ...times,
-        beneficiary: params.beneficiary || incentiveCreator.address,
+        refundee: params.refundee || incentiveCreator.address,
       },
       params.totalReward
     )
@@ -114,7 +114,7 @@ export class HelperCommands {
     return {
       ..._.pick(params, ['poolAddress', 'totalReward', 'rewardToken']),
       ...times,
-      beneficiary: params.beneficiary || incentiveCreator.address,
+      refundee: params.refundee || incentiveCreator.address,
     }
   }
 
@@ -278,7 +278,7 @@ export class HelperCommands {
           {
             rewardToken: rewardToken.address,
             pool: params.createIncentiveResult.poolAddress,
-            beneficiary: params.createIncentiveResult.beneficiary,
+            refundee: params.createIncentiveResult.refundee,
           }
         )
       )
@@ -312,7 +312,7 @@ export class HelperCommands {
       startTime: params.startTime,
       endTime: params.endTime,
       claimDeadline: params.claimDeadline,
-      beneficiary: params.beneficiary,
+      refundee: params.refundee,
     })
   }
 
@@ -452,5 +452,5 @@ export const incentiveResultToStakeAdapter: IncentiveAdapterFunc = (
   endTime: params.endTime,
   claimDeadline: params.claimDeadline,
   rewardToken: params.rewardToken.address,
-  beneficiary: params.beneficiary,
+  refundee: params.refundee,
 })

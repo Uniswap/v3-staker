@@ -10,15 +10,15 @@ library IncentiveId {
     /// @param pool The Uniswap V3 pool
     /// @param startTime The time when the incentive program begins
     /// @param endTime The time when rewards stop accruing
-    /// @param claimDeadline Time after which anoyne can cause unaccounted-for rewards to be sent to the beneficiary
-    /// @param beneficiary The address which receives any remaining reward tokens after the claimDeadline
+    /// @param claimDeadline Time after which anoyne can cause unaccounted-for rewards to be sent to the refundee
+    /// @param refundee The address which receives any remaining reward tokens after the claimDeadline
     struct Key {
         IERC20Minimal rewardToken;
         IUniswapV3Pool pool;
         uint256 startTime;
         uint256 endTime;
         uint256 claimDeadline;
-        address beneficiary;
+        address refundee;
     }
 
     /// @notice Calculate the key for a staking incentive

@@ -137,7 +137,7 @@ describe('UniswapV3Staker.unit', async () => {
               startTime: params.startTime || startTime,
               endTime: params.endTime || endTime,
               claimDeadline: params.claimDeadline || claimDeadline,
-              beneficiary: params.beneficiary || incentiveCreator.address,
+              refundee: params.refundee || incentiveCreator.address,
             },
             totalReward
           )
@@ -184,7 +184,7 @@ describe('UniswapV3Staker.unit', async () => {
             startTime: timestamps.startTime,
             endTime: timestamps.endTime,
             claimDeadline: timestamps.claimDeadline,
-            beneficiary: incentiveCreator.address,
+            refundee: incentiveCreator.address,
           })
 
           const incentive = await context.staker.incentives(incentiveId)
@@ -276,7 +276,7 @@ describe('UniswapV3Staker.unit', async () => {
                 {
                   rewardToken: context.rewardToken.address,
                   pool: context.pool01,
-                  beneficiary: incentiveCreator.address,
+                  refundee: incentiveCreator.address,
                   ...makeTimestamps(now, 1_000, 2_000),
                 },
                 BNe18(0)
@@ -310,7 +310,7 @@ describe('UniswapV3Staker.unit', async () => {
             startTime: params.startTime || timestamps.startTime,
             endTime: params.endTime || timestamps.endTime,
             claimDeadline: params.claimDeadline || timestamps.claimDeadline,
-            beneficiary: incentiveCreator.address,
+            refundee: incentiveCreator.address,
           })
         }
       })
@@ -539,7 +539,7 @@ describe('UniswapV3Staker.unit', async () => {
 
         subject = (_tokenId: string, _actor: Wallet = lpUser0) =>
           context.staker.connect(_actor).stakeToken({
-            beneficiary: incentiveCreator.address,
+            refundee: incentiveCreator.address,
             rewardToken: context.rewardToken.address,
             tokenId: _tokenId,
             ...timestamps,
@@ -651,7 +651,7 @@ describe('UniswapV3Staker.unit', async () => {
           )
 
         stakeParams = {
-          beneficiary: incentiveCreator.address,
+          refundee: incentiveCreator.address,
           rewardToken: context.rewardToken.address,
           tokenId: Number.parseInt(tokenId),
           ...timestamps,
@@ -698,7 +698,7 @@ describe('UniswapV3Staker.unit', async () => {
         await Time.set(timestamps.claimDeadline + 1)
 
         await context.staker.connect(incentiveCreator).endIncentive({
-          beneficiary: incentiveCreator.address,
+          refundee: incentiveCreator.address,
           rewardToken: context.rewardToken.address,
           pool: context.pool01,
           ...timestamps,
@@ -745,7 +745,7 @@ describe('UniswapV3Staker.unit', async () => {
         })
 
         await context.staker.connect(lpUser0).unstakeToken({
-          beneficiary: incentiveCreator.address,
+          refundee: incentiveCreator.address,
           rewardToken: rewardToken.address,
           tokenId,
           ...timestamps,
@@ -842,7 +842,7 @@ describe('UniswapV3Staker.unit', async () => {
 
         await Time.setAndMine(timestamps.startTime + 1)
         await context.staker.connect(lpUser0).stakeToken({
-          beneficiary: incentiveCreator.address,
+          refundee: incentiveCreator.address,
           rewardToken: context.rewardToken.address,
           tokenId,
           ...timestamps,
@@ -852,7 +852,7 @@ describe('UniswapV3Staker.unit', async () => {
 
         subject = () =>
           context.staker.connect(lpUser0).unstakeToken({
-            beneficiary: incentiveCreator.address,
+            refundee: incentiveCreator.address,
             rewardToken: context.rewardToken.address,
             tokenId,
             ...timestamps,
@@ -910,7 +910,7 @@ describe('UniswapV3Staker.unit', async () => {
           beforeEach(async () => {
             Time.set(timestamps.claimDeadline + 1)
             await context.staker.connect(incentiveCreator).endIncentive({
-              beneficiary: incentiveCreator.address,
+              refundee: incentiveCreator.address,
               rewardToken: context.rewardToken.address,
               pool: context.pool01,
               ...timestamps,
@@ -967,7 +967,7 @@ describe('UniswapV3Staker.unit', async () => {
 
   describe('#onERC721Received', () => {
     const stakeParamsEncodeType =
-      'tuple(address rewardToken, uint256 tokenId, uint32 startTime, uint32 endTime, uint32 claimDeadline, address beneficiary)'
+      'tuple(address rewardToken, uint256 tokenId, uint32 startTime, uint32 endTime, uint32 claimDeadline, address refundee)'
     let tokenId: BigNumberish
     let data: string
     let timestamps: ContractParams.Timestamps
@@ -1046,7 +1046,7 @@ describe('UniswapV3Staker.unit', async () => {
           startTime: timestamps.startTime,
           endTime: timestamps.endTime,
           claimDeadline: timestamps.claimDeadline,
-          beneficiary: incentiveCreator.address,
+          refundee: incentiveCreator.address,
         })
         Time.set(timestamps.startTime + 10)
         const stakeBefore = await context.staker.stakes(tokenId, incentiveId)
@@ -1109,7 +1109,7 @@ describe('UniswapV3Staker.unit', async () => {
         const invalidStakeParams = {
           rewardToken: context.rewardToken.address,
           tokenId,
-          beneficiary: incentiveCreator.address,
+          refundee: incentiveCreator.address,
           ...timestamps,
           startTime: 100,
         }
@@ -1170,7 +1170,7 @@ describe('UniswapV3Staker.unit', async () => {
           {
             pool: context.pool01,
             rewardToken: context.rewardToken.address,
-            beneficiary: incentiveCreator.address,
+            refundee: incentiveCreator.address,
             ...makeTimestamps(currentTime + 100),
           },
           totalReward,
