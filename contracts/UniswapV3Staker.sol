@@ -364,7 +364,7 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
         int24 tickLower,
         int24 tickUpper
     )
-        internal
+        private
         view
         returns (
             uint256 reward,
