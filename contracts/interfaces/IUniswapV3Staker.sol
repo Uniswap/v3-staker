@@ -3,6 +3,9 @@ pragma solidity =0.7.6;
 pragma abicoder v2;
 
 import '@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol';
+import '@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol';
+import '@uniswap/v3-core/contracts/interfaces/IERC20Minimal.sol';
+
 import '@uniswap/v3-periphery/contracts/interfaces/INonfungiblePositionManager.sol';
 
 /// @title Uniswap V3 Staker Interface
@@ -66,7 +69,7 @@ interface IUniswapV3Staker {
     /// @param rewardToken The address of the token for which to check rewards
     /// @param owner The owner for which the rewards owed are checked
     /// @return rewardsOwed The amount of the reward token claimable by the owner
-    function rewards(address rewardToken, address owner)
+    function rewards(IERC20Minimal rewardToken, address owner)
         external
         view
         returns (uint256 rewardsOwed);
@@ -78,8 +81,8 @@ interface IUniswapV3Staker {
     /// @param claimDeadline Time after which LPs can no longer claim rewards (and incentiveCreator can end the incentive and receive unclaimed rewards)
     /// @param totalReward The total amount of reward tokens to be distributed
     struct CreateIncentiveParams {
-        address rewardToken;
-        address pool;
+        IERC20Minimal rewardToken;
+        IUniswapV3Pool pool;
         uint256 startTime;
         uint256 endTime;
         uint256 claimDeadline;
@@ -97,8 +100,8 @@ interface IUniswapV3Staker {
     /// @param claimDeadline Time after which LPs can no longer claim rewards (and incentiveCreator can end the incentive and receive unclaimed rewards)
     struct EndIncentiveParams {
         address creator;
-        address rewardToken;
-        address pool;
+        IERC20Minimal rewardToken;
+        IUniswapV3Pool pool;
         uint256 startTime;
         uint256 endTime;
         uint256 claimDeadline;
@@ -120,7 +123,7 @@ interface IUniswapV3Staker {
     /// @param claimDeadline Time after which LPs can no longer claim rewards (and incentiveCreator can end the incentive and receive unclaimed rewards)
     struct UpdateStakeParams {
         address creator;
-        address rewardToken;
+        IERC20Minimal rewardToken;
         uint256 tokenId;
         uint256 startTime;
         uint256 endTime;
@@ -136,7 +139,7 @@ interface IUniswapV3Staker {
     /// @notice Transfers accrued `rewardToken` rewards from the contarct to the recipient `to`
     /// @param rewardToken The address of the token being distributed as a reward
     /// @param to The address where claimed rewards will be sent to
-    function claimReward(address rewardToken, address to) external;
+    function claimReward(IERC20Minimal rewardToken, address to) external;
 
     /// @notice Event emitted when a liquidity mining incentive has been created
     /// @param creator The address that created this incentive
@@ -147,8 +150,8 @@ interface IUniswapV3Staker {
     /// @param totalReward The total amount of reward tokens to be distributed
     event IncentiveCreated(
         address creator,
-        address indexed rewardToken,
-        address indexed pool,
+        IERC20Minimal indexed rewardToken,
+        IUniswapV3Pool indexed pool,
         uint256 startTime,
         uint256 endTime,
         uint256 claimDeadline,
