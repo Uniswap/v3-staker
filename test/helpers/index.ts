@@ -16,7 +16,7 @@ import {
   INonfungiblePositionManager,
   UniswapV3Staker,
   IUniswapV3Pool,
-  TestIncentiveId,
+  TestIncentiveID,
 } from '../../typechain'
 import { HelperTypes } from './types'
 import { ActorFixture } from '../shared/actors'
@@ -38,7 +38,7 @@ export class HelperCommands {
   nft: INonfungiblePositionManager
   router: ISwapRouter
   pool: IUniswapV3Pool
-  testIncentiveId: TestIncentiveId
+  testIncentiveId: TestIncentiveID
 
   DEFAULT_INCENTIVE_DURATION = 2_000
   DEFAULT_CLAIM_DURATION = 1_000
@@ -58,7 +58,7 @@ export class HelperCommands {
     router: ISwapRouter
     pool: IUniswapV3Pool
     actors: ActorFixture
-    testIncentiveId: TestIncentiveId
+    testIncentiveId: TestIncentiveID
   }) {
     this.actors = actors
     this.provider = provider
