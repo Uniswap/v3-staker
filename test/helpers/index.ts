@@ -183,7 +183,8 @@ export class HelperCommands {
     await this.staker
       .connect(params.lp)
       .stakeToken(
-        incentiveResultToStakeAdapter(params.createIncentiveResult, tokenId)
+        incentiveResultToStakeAdapter(params.createIncentiveResult),
+        tokenId
       )
 
     const stakedAt = await blockTimestamp()
@@ -198,15 +199,12 @@ export class HelperCommands {
   unstakeCollectBurnFlow: HelperTypes.UnstakeCollectBurn.Command = async (
     params
   ) => {
-    await this.staker
-      .connect(params.lp)
-      .unstakeToken(
-        incentiveResultToStakeAdapter(
-          params.createIncentiveResult,
-          params.tokenId
-        ),
-        maxGas
-      )
+    await this.staker.connect(params.lp).unstakeToken(
+      incentiveResultToStakeAdapter(params.createIncentiveResult),
+      params.tokenId,
+
+      maxGas
+    )
 
     const unstakedAt = await blockTimestamp()
 
@@ -439,15 +437,13 @@ export class ERC20Helper {
 }
 
 type IncentiveAdapterFunc = (
-  params: HelperTypes.CreateIncentive.Result,
-  tokenId: string
-) => ContractParams.StakeToken
+  params: HelperTypes.CreateIncentive.Result
+) => ContractParams.IncentiveKey
 
 export const incentiveResultToStakeAdapter: IncentiveAdapterFunc = (
-  params,
-  tokenId
+  params
 ) => ({
-  tokenId: (tokenId as any) as number,
+  pool: params.poolAddress,
   startTime: params.startTime,
   endTime: params.endTime,
   claimDeadline: params.claimDeadline,

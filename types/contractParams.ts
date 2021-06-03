@@ -7,27 +7,17 @@ export module ContractParams {
     claimDeadline: number
   }
 
-  export type CreateIncentive = {
+  export type IncentiveKey = {
     pool: string
     rewardToken: string
-    totalReward: BigNumberish
     refundee: string
   } & Timestamps
 
-  export type EndIncentive = {
-    pool: string
-    rewardToken: string
-  } & Timestamps
+  export type CreateIncentive = IncentiveKey & {
+    reward: BigNumberish
+  }
 
-  export type UpdateStakeParams = {
-    rewardToken: string
-    tokenId: number
-    refundee: string
-  } & Timestamps
-
-  export type StakeToken = UpdateStakeParams
-
-  export type UnstakeToken = UpdateStakeParams
+  export type EndIncentive = IncentiveKey
 
   export type Incentive = {
     totalRewardUnclaimed: BigNumber

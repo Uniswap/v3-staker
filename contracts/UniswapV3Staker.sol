@@ -79,17 +79,7 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
             'total duration of incentive must be less than 2**32'
         );
 
-        bytes32 incentiveId =
-            IncentiveId.compute(
-                IncentiveId.Key(
-                    key.rewardToken,
-                    key.pool,
-                    key.startTime,
-                    key.endTime,
-                    key.claimDeadline,
-                    key.refundee
-                )
-            );
+        bytes32 incentiveId = IncentiveId.compute(key);
 
         // totalRewardUnclaimed cannot decrease until key.startTime has passed, meaning this check is safe
         require(
@@ -127,17 +117,21 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
 
         uint128 refund = incentives[incentiveId].totalRewardUnclaimed;
 
-        // if any unclaimed rewards remain, and we're past the claim deadline, issue a refund
-        if (refund > 0 && key.claimDeadline < block.timestamp) {
-            incentives[incentiveId].totalRewardUnclaimed = 0;
-            TransferHelper.safeTransfer(
-                address(key.rewardToken),
-                key.refundee,
-                refund
-            );
+        require(refund > 0, 'no refund available');
+        require(
+            block.timestamp >= key.claimDeadline,
+            'cannot end incentive before claim deadline'
+        );
 
-            emit IncentiveEnded(incentiveId, refund);
-        }
+        // if any unclaimed rewards remain, and we're past the claim deadline, issue a refund
+        incentives[incentiveId].totalRewardUnclaimed = 0;
+        TransferHelper.safeTransfer(
+            address(key.rewardToken),
+            key.refundee,
+            refund
+        );
+
+        emit IncentiveEnded(incentiveId, refund);
     }
 
     /// @inheritdoc IERC721Receiver
@@ -156,7 +150,7 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
         emit TokenDeposited(tokenId, from);
 
         if (data.length > 0) {
-            _stakeToken(abi.decode(data, (UpdateStakeParams)));
+            _stakeToken(abi.decode(data, (IncentiveId.Key)), tokenId);
         }
         return this.onERC721Received.selector;
     }
@@ -173,54 +167,49 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
     }
 
     /// @inheritdoc IUniswapV3Staker
-    function stakeToken(UpdateStakeParams memory params) external override {
+    function stakeToken(IncentiveId.Key memory key, uint256 tokenId)
+        external
+        override
+    {
         require(
-            deposits[params.tokenId].owner == msg.sender,
+            deposits[tokenId].owner == msg.sender,
             'sender is not nft owner'
         );
 
-        _stakeToken(params);
+        _stakeToken(key, tokenId);
     }
 
     /// @inheritdoc IUniswapV3Staker
-    function unstakeToken(UpdateStakeParams memory params) external override {
+    function unstakeToken(IncentiveId.Key memory key, uint256 tokenId)
+        external
+        override
+    {
         require(
-            deposits[params.tokenId].owner == msg.sender,
+            deposits[tokenId].owner == msg.sender,
             'sender is not nft owner'
         );
 
-        (IUniswapV3Pool pool, int24 tickLower, int24 tickUpper, ) =
-            _getPositionDetails(params.tokenId);
+        (, int24 tickLower, int24 tickUpper, ) = _getPositionDetails(tokenId);
 
-        bytes32 incentiveId =
-            IncentiveId.compute(
-                IncentiveId.Key(
-                    params.rewardToken,
-                    pool,
-                    params.startTime,
-                    params.endTime,
-                    params.claimDeadline,
-                    params.refundee
-                )
-            );
+        bytes32 incentiveId = IncentiveId.compute(key);
 
-        Incentive memory incentive = incentives[incentiveId];
-        Stake memory stake = stakes[params.tokenId][incentiveId];
+        Incentive storage incentive = incentives[incentiveId];
+        Stake storage stake = stakes[tokenId][incentiveId];
 
         require(stake.liquidity != 0, 'nonexistent stake');
 
-        deposits[params.tokenId].numberOfStakes -= 1;
+        deposits[tokenId].numberOfStakes -= 1;
 
         // if incentive still exists
         if (incentive.totalRewardUnclaimed > 0) {
+            (, uint160 secondsPerLiquidityInsideX128, ) =
+                key.pool.snapshotCumulativesInside(tickLower, tickUpper);
             (uint256 reward, uint160 secondsInPeriodX128) =
                 _getRewardAmount(
                     stake,
                     incentive,
-                    params,
-                    pool,
-                    tickLower,
-                    tickUpper
+                    key,
+                    secondsPerLiquidityInsideX128
                 );
 
             incentives[incentiveId]
@@ -232,14 +221,14 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
             );
 
             // Makes rewards available to claimReward
-            rewards[params.rewardToken][msg.sender] = SafeMath.add(
-                rewards[params.rewardToken][msg.sender],
+            rewards[key.rewardToken][msg.sender] = SafeMath.add(
+                rewards[key.rewardToken][msg.sender],
                 reward
             );
         }
 
-        delete stakes[params.tokenId][incentiveId];
-        emit TokenUnstaked(params.tokenId, incentiveId);
+        delete stakes[tokenId][incentiveId];
+        emit TokenUnstaked(tokenId, incentiveId);
     }
 
     /// @inheritdoc IUniswapV3Staker
@@ -255,50 +244,37 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
         emit RewardClaimed(to, reward);
     }
 
-    function getRewardAmount(UpdateStakeParams memory params)
+    /// @dev Returns the reward amount owed for a given incentive and token combination
+    function getRewardAmount(IncentiveId.Key memory key, uint256 tokenId)
         public
         view
         returns (uint256 reward, uint160 secondsInPeriodX128)
     {
         (IUniswapV3Pool pool, int24 tickLower, int24 tickUpper, ) =
-            _getPositionDetails(params.tokenId);
+            _getPositionDetails(tokenId);
 
-        bytes32 incentiveId =
-            IncentiveId.compute(
-                IncentiveId.Key(
-                    params.rewardToken,
-                    pool,
-                    params.startTime,
-                    params.endTime,
-                    params.claimDeadline,
-                    params.refundee
-                )
-            );
+        bytes32 incentiveId = IncentiveId.compute(key);
 
         Incentive memory incentive = incentives[incentiveId];
-        Stake memory stake = stakes[params.tokenId][incentiveId];
+        Stake memory stake = stakes[tokenId][incentiveId];
+        (, uint160 secondsPerLiquidityInsideX128, ) =
+            pool.snapshotCumulativesInside(tickLower, tickUpper);
+
         return
             _getRewardAmount(
                 stake,
                 incentive,
-                params,
-                pool,
-                tickLower,
-                tickUpper
+                key,
+                secondsPerLiquidityInsideX128
             );
     }
 
     function _getRewardAmount(
         Stake memory stake,
         Incentive memory incentive,
-        UpdateStakeParams memory params,
-        IUniswapV3Pool pool,
-        int24 tickLower,
-        int24 tickUpper
+        IncentiveId.Key memory key,
+        uint160 secondsPerLiquidityInsideX128
     ) private view returns (uint256 reward, uint160 secondsInPeriodX128) {
-        (, uint160 secondsPerLiquidityInsideX128, ) =
-            pool.snapshotCumulativesInside(tickLower, tickUpper);
-
         secondsInPeriodX128 = uint160(
             SafeMath.mul(
                 secondsPerLiquidityInsideX128 -
@@ -311,8 +287,7 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
         uint160 totalSecondsUnclaimedX128 =
             uint160(
                 SafeMath.mul(
-                    Math.max(params.endTime, block.timestamp) -
-                        params.startTime,
+                    Math.max(key.endTime, block.timestamp) - key.startTime,
                     FixedPoint128.Q128
                 ) - incentive.totalSecondsClaimedX128
             );
@@ -332,49 +307,41 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
         );
     }
 
-    function _stakeToken(UpdateStakeParams memory params) private {
-        require(params.startTime <= block.timestamp, 'incentive not started');
-        require(block.timestamp < params.endTime, 'incentive ended');
+    function _stakeToken(IncentiveId.Key memory key, uint256 tokenId) private {
+        require(key.startTime <= block.timestamp, 'incentive not started');
+        require(block.timestamp < key.endTime, 'incentive ended');
 
         (
             IUniswapV3Pool pool,
             int24 tickLower,
             int24 tickUpper,
             uint128 liquidity
-        ) = _getPositionDetails(params.tokenId);
+        ) = _getPositionDetails(tokenId);
 
-        bytes32 incentiveId =
-            IncentiveId.compute(
-                IncentiveId.Key(
-                    params.rewardToken,
-                    pool,
-                    params.startTime,
-                    params.endTime,
-                    params.claimDeadline,
-                    params.refundee
-                )
-            );
+        require(pool == key.pool, 'token pool is not the incentivized pool');
+
+        bytes32 incentiveId = IncentiveId.compute(key);
 
         require(
             incentives[incentiveId].totalRewardUnclaimed > 0,
             'non-existent incentive'
         );
         require(
-            stakes[params.tokenId][incentiveId].liquidity == 0,
-            'incentive already staked'
+            stakes[tokenId][incentiveId].liquidity == 0,
+            'token already staked'
         );
 
-        deposits[params.tokenId].numberOfStakes += 1;
+        deposits[tokenId].numberOfStakes += 1;
 
         (, uint160 secondsPerLiquidityInsideX128, ) =
             pool.snapshotCumulativesInside(tickLower, tickUpper);
 
-        stakes[params.tokenId][incentiveId] = Stake({
+        stakes[tokenId][incentiveId] = Stake({
             secondsPerLiquidityInitialX128: secondsPerLiquidityInsideX128,
             liquidity: liquidity
         });
 
-        emit TokenStaked(params.tokenId, liquidity, incentiveId);
+        emit TokenStaked(tokenId, incentiveId, liquidity);
     }
 
     /// @param tokenId The unique identifier of an Uniswap V3 LP token
