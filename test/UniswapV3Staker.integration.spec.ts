@@ -249,8 +249,11 @@ describe('UniswapV3Staker.integration', async () => {
          *
          * So that's (1/3)*(1/2)*3000e18 = ~50e18
          */
-        expect(unstakes[0].balance).to.eq(BN('499989197530864021534'))
-        // expect(unstakes[0].balance / 1e18).to.eq(499.989)
+        // omarish/uniswap-v3-staker#144
+        expect(unstakes[0].balance).to.beWithin(
+          BNe(1, 15),
+          BN('499989197530864021534')
+        )
 
         // Now the other two LPs hold off till the end and unstake
         await Time.set(endTime + 1)
