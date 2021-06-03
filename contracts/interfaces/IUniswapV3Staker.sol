@@ -9,29 +9,58 @@ import '@uniswap/v3-periphery/contracts/interfaces/INonfungiblePositionManager.s
 /// @notice Allows staking nonfungible liquidity tokens in exchange for reward tokens
 interface IUniswapV3Staker {
     /// @notice Represents a staking incentive
-    /// @param totalRewardUnclaimed The amount of reward token not yet claimed by users
-    /// @param totalSecondsClaimedX128 Total liquidity-seconds claimed, represented as a UQ32.128
     struct Incentive {
         uint128 totalRewardUnclaimed;
         uint160 totalSecondsClaimedX128;
     }
 
+    /// @notice Represents a staking incentive
+    /// @param incentiveId The ID of the incentive computed from its parameters
+    /// @return totalRewardUnclaimed The amount of reward token not yet claimed by users
+    /// @return totalSecondsClaimedX128 Total liquidity-seconds claimed, represented as a UQ32.128
+    function incentives(bytes32 incentiveId)
+        external
+        view
+        returns (uint128 totalRewardUnclaimed, uint160 totalSecondsClaimedX128);
+
     /// @notice Represents the deposit of a liquidity NFT
-    /// @param owner The owner of the LP token
-    /// @param numberOfStakes Counter of how many incentives for which the liquidity is staked
     struct Deposit {
         address owner;
         uint96 numberOfStakes;
     }
 
+    /// @notice Returns information about a deposited NFT
+    /// @return owner The owner of the deposited NFT
+    /// @return numberOfStakes Counter of how many incentives for which the liquidity is staked
+    function deposits(uint256 tokenId)
+        external
+        view
+        returns (address owner, uint96 numberOfStakes);
+
     /// @notice Represents a staked liquidity NFT
-    /// @param secondsPerLiquidityInitialX128 secondsPerLiquidity represented as a UQ32.128
-    /// @param liquidity The amount of liquidity staked
-    /// @param exists Used to for truthiness checks
     struct Stake {
         uint160 secondsPerLiquidityInitialX128;
         uint128 liquidity;
     }
+
+    /// @notice Returns information about a staked liquidity NFT
+    /// @param tokenId The ID of the staked token
+    /// @param incentiveId The ID of the incentive for which the token is staked
+    /// @return secondsPerLiquidityInitialX128 secondsPerLiquidity represented as a UQ32.128
+    /// @return liquidity The amount of liquidity in the NFT as of the last time the rewards were computed
+    function stakes(uint256 tokenId, bytes32 incentiveId)
+        external
+        view
+        returns (uint160 secondsPerLiquidityInitialX128, uint128 liquidity);
+
+    /// @notice Returns amounts of reward tokens owed to a given address according to the last time all stakes were updated
+    /// @param rewardToken The address of the token for which to check rewards
+    /// @param owner The owner for which the rewards owed are checked
+    /// @return rewardsOwed The amount of the reward token claimable by the owner
+    function rewards(address rewardToken, address owner)
+        external
+        view
+        returns (uint256 rewardsOwed);
 
     /// @notice Event emitted when a liquidity mining incentive has been created
     /// @param creator The address that created this incentive

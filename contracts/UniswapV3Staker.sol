@@ -24,22 +24,25 @@ import '@openzeppelin/contracts/math/SafeMath.sol';
 @title Uniswap V3 canonical staking interface
 */
 contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
+    /// @inheritdoc IUniswapV3Staker
     IUniswapV3Factory public immutable override factory;
+    /// @inheritdoc IUniswapV3Staker
     INonfungiblePositionManager
         public immutable
         override nonfungiblePositionManager;
 
     /// @dev bytes32 refers to the return value of IncentiveHelper.getIncentiveId
-    mapping(bytes32 => Incentive) public incentives;
+    mapping(bytes32 => Incentive) public override incentives;
 
     /// @dev deposits[tokenId] => Deposit
-    mapping(uint256 => Deposit) public deposits;
+    mapping(uint256 => Deposit) public override deposits;
 
     /// @dev stakes[tokenId][incentiveHash] => Stake
-    mapping(uint256 => mapping(bytes32 => Stake)) public stakes;
+    mapping(uint256 => mapping(bytes32 => Stake)) public override stakes;
 
-    /// @dev rewards[rewardToken][msg.sender] => uint256
-    mapping(address => mapping(address => uint256)) public rewards;
+    /// @inheritdoc IUniswapV3Staker
+    /// @dev rewards[rewardToken][owner] => uint256
+    mapping(address => mapping(address => uint256)) public override rewards;
 
     /// @param _factory the Uniswap V3 factory
     /// @param _nonfungiblePositionManager the NFT position manager contract address
