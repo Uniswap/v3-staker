@@ -185,7 +185,6 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
             'sender is not nft owner'
         );
 
-        deposits[params.tokenId].numberOfStakes -= 1;
         (address poolAddress, int24 tickLower, int24 tickUpper, ) =
             _getPositionDetails(params.tokenId);
 
@@ -203,6 +202,8 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
         Stake memory stake = stakes[params.tokenId][incentiveId];
 
         require(stake.liquidity != 0, 'nonexistent stake');
+
+        deposits[params.tokenId].numberOfStakes -= 1;
 
         // if incentive still exists
         if (incentive.totalRewardUnclaimed > 0) {
@@ -306,6 +307,8 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
             'incentive already staked'
         );
 
+        deposits[params.tokenId].numberOfStakes += 1;
+
         (, uint160 secondsPerLiquidityInsideX128, ) =
             IUniswapV3Pool(poolAddress).snapshotCumulativesInside(
                 tickLower,
@@ -317,7 +320,6 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
             liquidity: liquidity
         });
 
-        deposits[params.tokenId].numberOfStakes += 1;
         emit TokenStaked(params.tokenId, liquidity, incentiveId);
     }
 
