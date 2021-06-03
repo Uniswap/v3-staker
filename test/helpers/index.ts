@@ -1,4 +1,4 @@
-import { ContractFactory, BigNumber, Wallet } from 'ethers'
+import { BigNumber, Wallet } from 'ethers'
 import { MockProvider } from 'ethereum-waffle'
 import {
   blockTimestamp,
@@ -9,7 +9,6 @@ import {
   MaxUint256,
   encodePath,
   arrayWrap,
-  log,
 } from '../shared/index'
 import _ from 'lodash'
 import {
@@ -102,17 +101,20 @@ export class HelperCommands {
       .connect(incentiveCreator)
       .approve(this.staker.address, params.totalReward)
 
-    await this.staker.connect(incentiveCreator).createIncentive({
-      pool: params.poolAddress,
-      rewardToken: params.rewardToken.address,
-      totalReward: params.totalReward,
-      ...times,
-    })
+    await this.staker.connect(incentiveCreator).createIncentive(
+      {
+        pool: params.poolAddress,
+        rewardToken: params.rewardToken.address,
+        ...times,
+        beneficiary: params.beneficiary || incentiveCreator.address,
+      },
+      params.totalReward
+    )
 
     return {
       ..._.pick(params, ['poolAddress', 'totalReward', 'rewardToken']),
       ...times,
-      creatorAddress: incentiveCreator.address,
+      beneficiary: params.beneficiary || incentiveCreator.address,
     }
   }
 
@@ -171,7 +173,13 @@ export class HelperCommands {
     // The LP approves and stakes their NFT
 
     await this.nft.connect(params.lp).approve(this.staker.address, tokenId)
-    await this.staker.connect(params.lp).depositToken(tokenId, maxGas)
+    await this.nft
+      .connect(params.lp)
+      ['safeTransferFrom(address,address,uint256)'](
+        params.lp.address,
+        this.staker.address,
+        tokenId
+      )
     await this.staker
       .connect(params.lp)
       .stakeToken(
@@ -268,9 +276,9 @@ export class HelperCommands {
             'claimDeadline',
           ]),
           {
-            creator: params.createIncentiveResult.creatorAddress,
             rewardToken: rewardToken.address,
             pool: params.createIncentiveResult.poolAddress,
+            beneficiary: params.createIncentiveResult.beneficiary,
           }
         )
       )
@@ -298,15 +306,14 @@ export class HelperCommands {
   }
 
   getIncentiveId: HelperTypes.GetIncentiveId.Command = async (params) => {
-    const incentiveId = await this.testIncentiveId.getIncentiveId(
-      params.creatorAddress,
-      params.rewardToken.address,
-      params.poolAddress,
-      params.startTime,
-      params.endTime,
-      params.claimDeadline
-    )
-    return incentiveId
+    return this.testIncentiveId.compute({
+      rewardToken: params.rewardToken.address,
+      pool: params.poolAddress,
+      startTime: params.startTime,
+      endTime: params.endTime,
+      claimDeadline: params.claimDeadline,
+      beneficiary: params.beneficiary,
+    })
   }
 
   makeTickGoFlow: HelperTypes.MakeTickGo.Command = async (params) => {
@@ -445,5 +452,5 @@ export const incentiveResultToStakeAdapter: IncentiveAdapterFunc = (
   endTime: params.endTime,
   claimDeadline: params.claimDeadline,
   rewardToken: params.rewardToken.address,
-  creator: params.creatorAddress,
+  beneficiary: params.beneficiary,
 })

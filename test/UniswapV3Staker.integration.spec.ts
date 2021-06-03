@@ -1,24 +1,18 @@
-import { ethers, waffle } from 'hardhat'
 import { TestContext, LoadFixtureFunction } from './types'
-import { IUniswapV3Pool, TestERC20 } from '../typechain'
+import { TestERC20 } from '../typechain'
 import {
   BigNumber,
   blockTimestamp,
   BN,
   BNe18,
-  encodePath,
   expect,
   FeeAmount,
   getMaxTick,
   getMinTick,
-  maxGas,
-  MaxUint256,
-  poolFactory,
   TICK_SPACINGS,
   uniswapFixture,
   log,
   days,
-  divE18,
   ratioE18,
   bnSum,
   getCurrentTick,
@@ -34,7 +28,6 @@ import {
 import { createFixtureLoader, provider } from './shared/provider'
 import { ActorFixture } from './shared/actors'
 import { Fixture } from 'ethereum-waffle'
-import _ from 'lodash'
 import { HelperTypes } from './helpers/types'
 import { Wallet } from '@ethersproject/wallet'
 
@@ -256,8 +249,11 @@ describe('UniswapV3Staker.integration', async () => {
          *
          * So that's (1/3)*(1/2)*3000e18 = ~50e18
          */
-        expect(unstakes[0].balance).to.eq(BN('499989197530864021534'))
-        // expect(unstakes[0].balance / 1e18).to.eq(499.989)
+        // omarish/uniswap-v3-staker#144
+        expect(unstakes[0].balance).to.beWithin(
+          BNe(1, 15),
+          BN('499989197530864021534')
+        )
 
         // Now the other two LPs hold off till the end and unstake
         await Time.set(endTime + 1)
@@ -290,7 +286,7 @@ describe('UniswapV3Staker.integration', async () => {
         ).to.eq(totalReward)
       })
 
-      describe('and then restakes at the 3/4 mark', async () => {
+      describe('and then restakes at the 3/4 mark', () => {
         it('rewards based on their staked time', async () => {
           const {
             helpers,
@@ -343,8 +339,11 @@ describe('UniswapV3Staker.integration', async () => {
             createIncentiveResult,
           })
 
-          // TODO: explanation about how we got this number
-          expect(lpUser0Balance).to.eq(BN('749985223767771705507'))
+          // omarish/uniswap-v3-staker#144
+          expect(lpUser0Balance).to.beWithin(
+            BNe(1, 12),
+            BN('749985223767771705507')
+          )
         })
       })
     })
