@@ -13,13 +13,12 @@ struct Incentive {
 
 struct Deposit {
   address owner;
-  uint32 numberOfStakes;
+  uint96 numberOfStakes;
 }
 
 struct Stake {
   uint160 secondsPerLiquidityInitialX128;
   uint128 liquidity;
-  bool exists;
 }
 
 ```

@@ -32,7 +32,6 @@ interface IUniswapV3Staker {
     struct Stake {
         uint160 secondsPerLiquidityInitialX128;
         uint128 liquidity;
-        bool exists;
     }
 
     /// @notice Event emitted when a liquidity mining incentive has been created

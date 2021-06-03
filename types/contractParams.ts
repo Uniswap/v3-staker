@@ -37,6 +37,5 @@ export module ContractParams {
   export type Stake = {
     secondsPerLiquidityInitialX128: BigNumber
     liquidity: BigNumber
-    exists: boolean
   }
 }
