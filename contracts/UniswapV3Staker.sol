@@ -56,42 +56,42 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
     }
 
     /// @inheritdoc IUniswapV3Staker
-    function createIncentive(IncentiveParams memory params, uint128 reward)
+    function createIncentive(IncentiveId.Key memory key, uint128 reward)
         external
         override
     {
         require(reward > 0, 'reward must be positive');
         require(
-            block.timestamp <= params.startTime,
+            block.timestamp <= key.startTime,
             'start time must be now or in the future'
         );
         require(
-            params.startTime < params.endTime,
+            key.startTime < key.endTime,
             'start time must be before end time'
         );
         require(
-            params.endTime <= params.claimDeadline,
+            key.endTime <= key.claimDeadline,
             'end time must be at or before claim deadline'
         );
         // seconds per liquidity is not reliable over periods greater than 2**32-1 seconds
         require(
-            params.claimDeadline - params.startTime <= type(uint32).max,
+            key.claimDeadline - key.startTime <= type(uint32).max,
             'total duration of incentive must be less than 2**32'
         );
 
         bytes32 incentiveId =
             IncentiveId.compute(
                 IncentiveId.Key(
-                    params.rewardToken,
-                    params.pool,
-                    params.startTime,
-                    params.endTime,
-                    params.claimDeadline,
-                    params.beneficiary
+                    key.rewardToken,
+                    key.pool,
+                    key.startTime,
+                    key.endTime,
+                    key.claimDeadline,
+                    key.beneficiary
                 )
             );
 
-        // totalRewardUnclaimed cannot decrease until params.startTime has passed, meaning this check is safe
+        // totalRewardUnclaimed cannot decrease until key.startTime has passed, meaning this check is safe
         require(
             incentives[incentiveId].totalRewardUnclaimed == 0,
             'incentive already exists'
@@ -102,47 +102,37 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
             totalSecondsClaimedX128: 0
         });
 
-        // this is effectively a validity check on params.rewardToken
+        // this is effectively a validity check on key.rewardToken
         TransferHelper.safeTransferFrom(
-            address(params.rewardToken),
+            address(key.rewardToken),
             msg.sender,
             address(this),
             reward
         );
 
         emit IncentiveCreated(
-            params.rewardToken,
-            params.pool,
-            params.startTime,
-            params.endTime,
-            params.claimDeadline,
-            params.beneficiary,
+            key.rewardToken,
+            key.pool,
+            key.startTime,
+            key.endTime,
+            key.claimDeadline,
+            key.beneficiary,
             reward
         );
     }
 
     /// @inheritdoc IUniswapV3Staker
-    function endIncentive(IncentiveParams memory params) external override {
-        bytes32 incentiveId =
-            IncentiveId.compute(
-                IncentiveId.Key(
-                    params.rewardToken,
-                    params.pool,
-                    params.startTime,
-                    params.endTime,
-                    params.claimDeadline,
-                    params.beneficiary
-                )
-            );
+    function endIncentive(IncentiveId.Key memory key) external override {
+        bytes32 incentiveId = IncentiveId.compute(key);
 
         uint128 refund = incentives[incentiveId].totalRewardUnclaimed;
 
         // if any unclaimed rewards remain, and we're past the claim deadline, issue a refund
-        if (refund > 0 && params.claimDeadline < block.timestamp) {
+        if (refund > 0 && key.claimDeadline < block.timestamp) {
             incentives[incentiveId].totalRewardUnclaimed = 0;
             TransferHelper.safeTransfer(
-                address(params.rewardToken),
-                params.beneficiary,
+                address(key.rewardToken),
+                key.beneficiary,
                 refund
             );
 

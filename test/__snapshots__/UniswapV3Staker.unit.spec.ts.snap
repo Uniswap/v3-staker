@@ -6,7 +6,7 @@ exports[`UniswapV3Staker.unit Deposits #withdrawToken works and has gas cost 1`]
 
 exports[`UniswapV3Staker.unit Incentives #createIncentive works and has gas cost 1`] = `60854`;
 
-exports[`UniswapV3Staker.unit Incentives #endIncentive works and has gas cost 1`] = `33923`;
+exports[`UniswapV3Staker.unit Incentives #endIncentive works and has gas cost 1`] = `33726`;
 
 exports[`UniswapV3Staker.unit Stakes #claimReward has gas cost 1`] = `46922`;
 
