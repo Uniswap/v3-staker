@@ -20,9 +20,7 @@ import '@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol';
 import '@openzeppelin/contracts/math/Math.sol';
 import '@openzeppelin/contracts/math/SafeMath.sol';
 
-/**
-@title Uniswap V3 canonical staking interface
-*/
+/// @title Uniswap V3 canonical staking interface
 contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
     /// @inheritdoc IUniswapV3Staker
     IUniswapV3Factory public immutable override factory;
@@ -215,7 +213,7 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
 
         // if incentive still exists
         if (incentive.totalRewardUnclaimed > 0) {
-            (uint128 reward, uint160 secondsInPeriodX128) =
+            (uint256 reward, uint160 secondsInPeriodX128) =
                 _getRewardAmount(
                     stake,
                     incentive,
@@ -244,10 +242,20 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
         emit TokenUnstaked(params.tokenId, incentiveId);
     }
 
+    /// @inheritdoc IUniswapV3Staker
+    function claimReward(address rewardToken, address to) external override {
+        uint256 reward = rewards[rewardToken][msg.sender];
+        rewards[rewardToken][msg.sender] = 0;
+
+        TransferHelper.safeTransfer(rewardToken, to, reward);
+
+        emit RewardClaimed(to, reward);
+    }
+
     function getRewardAmount(UpdateStakeParams memory params)
         public
         view
-        returns (uint128 reward, uint160 secondsInPeriodX128)
+        returns (uint256 reward, uint160 secondsInPeriodX128)
     {
         (address poolAddress, int24 tickLower, int24 tickUpper, ) =
             _getPositionDetails(params.tokenId);
@@ -275,17 +283,50 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
             );
     }
 
-    /// @inheritdoc IUniswapV3Staker
-    function claimReward(address rewardToken, address to) external override {
-        uint256 reward = rewards[rewardToken][msg.sender];
-        rewards[rewardToken][msg.sender] = 0;
+    function _getRewardAmount(
+        Stake memory stake,
+        Incentive memory incentive,
+        UpdateStakeParams memory params,
+        address poolAddress,
+        int24 tickLower,
+        int24 tickUpper
+    ) private view returns (uint256 reward, uint160 secondsInPeriodX128) {
+        (, uint160 secondsPerLiquidityInsideX128, ) =
+            IUniswapV3Pool(poolAddress).snapshotCumulativesInside(
+                tickLower,
+                tickUpper
+            );
 
-        TransferHelper.safeTransfer(rewardToken, to, reward);
+        secondsInPeriodX128 = uint160(
+            SafeMath.mul(
+                secondsPerLiquidityInsideX128 -
+                    stake.secondsPerLiquidityInitialX128,
+                stake.liquidity
+            )
+        );
 
-        emit RewardClaimed(to, reward);
+        // TODO: double-check for overflow risk here
+        uint160 totalSecondsUnclaimedX128 =
+            uint160(
+                SafeMath.mul(
+                    Math.max(params.endTime, block.timestamp) -
+                        params.startTime,
+                    FixedPoint128.Q128
+                ) - incentive.totalSecondsClaimedX128
+            );
+
+        // TODO: Make sure this truncates and not rounds up
+        uint256 rewardRate =
+            FullMath.mulDiv(
+                incentive.totalRewardUnclaimed,
+                FixedPoint128.Q128,
+                totalSecondsUnclaimedX128
+            );
+
+        reward = FullMath.mulDiv(secondsInPeriodX128, rewardRate, FixedPoint128.Q128);
     }
 
-    function _stakeToken(UpdateStakeParams memory params) internal {
+    function _stakeToken(UpdateStakeParams memory params) private {
         require(params.startTime <= block.timestamp, 'incentive not started');
         require(block.timestamp < params.endTime, 'incentive ended');
 
@@ -331,59 +372,13 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
         emit TokenStaked(params.tokenId, liquidity, incentiveId);
     }
 
-    function _getRewardAmount(
-        Stake memory stake,
-        Incentive memory incentive,
-        UpdateStakeParams memory params,
-        address poolAddress,
-        int24 tickLower,
-        int24 tickUpper
-    ) internal view returns (uint128 reward, uint160 secondsInPeriodX128) {
-        (, uint160 secondsPerLiquidityInsideX128, ) =
-            IUniswapV3Pool(poolAddress).snapshotCumulativesInside(
-                tickLower,
-                tickUpper
-            );
-
-        secondsInPeriodX128 = uint160(
-            SafeMath.mul(
-                secondsPerLiquidityInsideX128 -
-                    stake.secondsPerLiquidityInitialX128,
-                stake.liquidity
-            )
-        );
-
-        // TODO: double-check for overflow risk here
-        uint160 totalSecondsUnclaimedX128 =
-            uint160(
-                SafeMath.mul(
-                    Math.max(params.endTime, block.timestamp) -
-                        params.startTime,
-                    FixedPoint128.Q128
-                ) - incentive.totalSecondsClaimedX128
-            );
-
-        // TODO: Make sure this truncates and not rounds up
-        uint256 rewardRate =
-            FullMath.mulDiv(
-                incentive.totalRewardUnclaimed,
-                FixedPoint128.Q128,
-                totalSecondsUnclaimedX128
-            );
-
-        // TODO: make sure casting is ok here
-        reward = uint128(
-            FullMath.mulDiv(secondsInPeriodX128, rewardRate, FixedPoint128.Q128)
-        );
-    }
-
     /// @param tokenId The unique identifier of an Uniswap V3 LP token
     /// @return pool The address of the Uniswap V3 pool
     /// @return tickLower The lower tick of the Uniswap V3 position
     /// @return tickUpper The upper tick of the Uniswap V3 position
     /// @return liquidity The amount of liquidity staked
     function _getPositionDetails(uint256 tokenId)
-        internal
+        private
         view
         returns (
             address,

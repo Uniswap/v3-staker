@@ -8,6 +8,15 @@ import '@uniswap/v3-periphery/contracts/interfaces/INonfungiblePositionManager.s
 /// @title Uniswap V3 Staker Interface
 /// @notice Allows staking nonfungible liquidity tokens in exchange for reward tokens
 interface IUniswapV3Staker {
+    /// @notice Returns the address of the Uniswap V3 Factory
+    function factory() external view returns (IUniswapV3Factory);
+
+    /// @notice Returns the nonfungible position manager with which this staking contract is compatible
+    function nonfungiblePositionManager()
+        external
+        view
+        returns (INonfungiblePositionManager);
+
     /// @notice Represents a staking incentive
     struct Incentive {
         uint128 totalRewardUnclaimed;
@@ -62,6 +71,73 @@ interface IUniswapV3Staker {
         view
         returns (uint256 rewardsOwed);
 
+    /// @param rewardToken The address of the token being distributed as a reward
+    /// @param pool The address of the Uniswap V3 pool
+    /// @param startTime The time when the incentive program begins
+    /// @param endTime The time when rewards stop accruing
+    /// @param claimDeadline Time after which LPs can no longer claim rewards (and incentiveCreator can end the incentive and receive unclaimed rewards)
+    /// @param totalReward The total amount of reward tokens to be distributed
+    struct CreateIncentiveParams {
+        address rewardToken;
+        address pool;
+        uint256 startTime;
+        uint256 endTime;
+        uint256 claimDeadline;
+        uint128 totalReward;
+    }
+
+    /// @notice Creates a new liquidity mining incentive program.
+    function createIncentive(CreateIncentiveParams memory params) external;
+
+    /// @param creator The address that created this incentive
+    /// @param pool The address of the Uniswap V3 pool
+    /// @param rewardToken The address of the token being distributed as a reward
+    /// @param startTime The time when the incentive program begins
+    /// @param endTime The time when rewards stop accruing
+    /// @param claimDeadline Time after which LPs can no longer claim rewards (and incentiveCreator can end the incentive and receive unclaimed rewards)
+    struct EndIncentiveParams {
+        address creator;
+        address rewardToken;
+        address pool;
+        uint256 startTime;
+        uint256 endTime;
+        uint256 claimDeadline;
+    }
+
+    /// @notice Deletes an incentive whose claimDeadline has passed.
+    function endIncentive(EndIncentiveParams memory params) external;
+
+    /// @notice Withdraws a Uniswap V3 LP token `tokenId` from this contract to the recipient `to`
+    /// @param tokenId The unique identifier of an Uniswap V3 LP token
+    /// @param to The address where the LP token will be sent
+    function withdrawToken(uint256 tokenId, address to) external;
+
+    /// @param creator The address that created this incentive
+    /// @param rewardToken The address of the token being distributed as a reward
+    /// @param tokenId The address of the Uniswap V3 pool
+    /// @param startTime The time when the incentive program begins
+    /// @param endTime The time when rewards stop accruing
+    /// @param claimDeadline Time after which LPs can no longer claim rewards (and incentiveCreator can end the incentive and receive unclaimed rewards)
+    struct UpdateStakeParams {
+        address creator;
+        address rewardToken;
+        uint256 tokenId;
+        uint256 startTime;
+        uint256 endTime;
+        uint256 claimDeadline;
+    }
+
+    /// @notice Stakes a Uniswap V3 LP token
+    function stakeToken(UpdateStakeParams memory params) external;
+
+    /// @notice Unstakes a Uniswap V3 LP token
+    function unstakeToken(UpdateStakeParams memory params) external;
+
+    /// @notice Transfers accrued `rewardToken` rewards from the contarct to the recipient `to`
+    /// @param rewardToken The address of the token being distributed as a reward
+    /// @param to The address where claimed rewards will be sent to
+    function claimReward(address rewardToken, address to) external;
+
     /// @notice Event emitted when a liquidity mining incentive has been created
     /// @param creator The address that created this incentive
     /// @param rewardToken The address of the token being distributed as a reward
@@ -113,80 +189,4 @@ interface IUniswapV3Staker {
     /// @param to The address where claimed rewards were sent to
     /// @param reward The amount of reward tokens claimed
     event RewardClaimed(address indexed to, uint256 reward);
-
-    /// @param rewardToken The address of the token being distributed as a reward
-    /// @param pool The address of the Uniswap V3 pool
-    /// @param startTime The time when the incentive program begins
-    /// @param endTime The time when rewards stop accruing
-    /// @param claimDeadline Time after which LPs can no longer claim rewards (and incentiveCreator can end the incentive and receive unclaimed rewards)
-    /// @param totalReward The total amount of reward tokens to be distributed
-    struct CreateIncentiveParams {
-        address rewardToken;
-        address pool;
-        uint256 startTime;
-        uint256 endTime;
-        uint256 claimDeadline;
-        uint128 totalReward;
-    }
-
-    /// @notice Returns the address of the Uniswap V3 Factory
-    function factory() external view returns (IUniswapV3Factory);
-
-    /// @notice Returns the nonfungible position manager with which this staking contract is compatible
-    function nonfungiblePositionManager()
-        external
-        view
-        returns (INonfungiblePositionManager);
-
-    /// @notice Creates a new liquidity mining incentive program.
-    function createIncentive(CreateIncentiveParams memory params) external;
-
-    /// @param creator The address that created this incentive
-    /// @param pool The address of the Uniswap V3 pool
-    /// @param rewardToken The address of the token being distributed as a reward
-    /// @param startTime The time when the incentive program begins
-    /// @param endTime The time when rewards stop accruing
-    /// @param claimDeadline Time after which LPs can no longer claim rewards (and incentiveCreator can end the incentive and receive unclaimed rewards)
-    struct EndIncentiveParams {
-        address creator;
-        address rewardToken;
-        address pool;
-        uint256 startTime;
-        uint256 endTime;
-        uint256 claimDeadline;
-    }
-
-    /// @notice Withdraws a Uniswap V3 LP token `tokenId` from this contract to the recipient `to`
-    /// @param tokenId The unique identifier of an Uniswap V3 LP token
-    /// @param to The address where the LP token will be sent
-    function withdrawToken(uint256 tokenId, address to) external;
-
-    /// @notice Deletes an incentive whose claimDeadline has passed.
-    function endIncentive(EndIncentiveParams memory params) external;
-
-    /// @param creator The address that created this incentive
-    /// @param rewardToken The address of the token being distributed as a reward
-    /// @param tokenId The address of the Uniswap V3 pool
-    /// @param startTime The time when the incentive program begins
-    /// @param endTime The time when rewards stop accruing
-    /// @param claimDeadline Time after which LPs can no longer claim rewards (and incentiveCreator can end the incentive and receive unclaimed rewards)
-    struct UpdateStakeParams {
-        address creator;
-        address rewardToken;
-        uint256 tokenId;
-        uint256 startTime;
-        uint256 endTime;
-        uint256 claimDeadline;
-    }
-
-    /// @notice Stakes a Uniswap V3 LP token
-    function stakeToken(UpdateStakeParams memory params) external;
-
-    /// @notice Unstakes a Uniswap V3 LP token
-    function unstakeToken(UpdateStakeParams memory params) external;
-
-    /// @notice Transfers accrued `rewardToken` rewards from the contarct to the recipient `to`
-    /// @param rewardToken The address of the token being distributed as a reward
-    /// @param to The address where claimed rewards will be sent to
-    function claimReward(address rewardToken, address to) external;
 }

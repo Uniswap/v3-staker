@@ -12,4 +12,4 @@ exports[`UniswapV3Staker.unit Stakes #claimReward has gas cost 1`] = `46877`;
 
 exports[`UniswapV3Staker.unit Stakes #stakeToken works and has gas cost 1`] = `116396`;
 
-exports[`UniswapV3Staker.unit Stakes #unstakeToken works and has gas cost 1`] = `100799`;
+exports[`UniswapV3Staker.unit Stakes #unstakeToken works and has gas cost 1`] = `100793`;
