@@ -32,8 +32,7 @@ chai.use((chai, utils) => {
   )
 })
 
-describe('beWithin', () => {
-  // yarn test test/matchers/beWithin.ts
+describe('BigNumber beWithin', () => {
   it('works', () => {
     expect(BN('100')).to.beWithin(BN('1'), BN('99'))
     expect(BN('100')).not.to.beWithin(BN('1'), BN('98'))

@@ -283,7 +283,7 @@ describe('UniswapV3Staker.integration', async () => {
         ).to.eq(totalReward)
       })
 
-      describe('and then restakes at the 3/4 mark', async () => {
+      describe('and then restakes at the 3/4 mark', () => {
         it('rewards based on their staked time', async () => {
           const {
             helpers,
@@ -336,8 +336,11 @@ describe('UniswapV3Staker.integration', async () => {
             createIncentiveResult,
           })
 
-          // TODO: explanation about how we got this number
-          expect(lpUser0Balance).to.eq(BN('749985223767771705507'))
+          // omarish/uniswap-v3-staker#144
+          expect(lpUser0Balance).to.beWithin(
+            BNe(1, 12),
+            BN('749985223767771705507')
+          )
         })
       })
     })
