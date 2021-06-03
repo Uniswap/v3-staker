@@ -213,7 +213,7 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
 
         // if incentive still exists
         if (incentive.totalRewardUnclaimed > 0) {
-            (uint256 reward, uint160 secondsInPeriodX128) =
+            (uint256 reward, uint160 secondsInPeriodX128, ) =
                 _getRewardAmount(
                     stake,
                     incentive,
@@ -258,7 +258,7 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
     function getRewardAmount(UpdateStakeParams memory params)
         public
         view
-        returns (uint256 reward, uint160 secondsInPeriodX128)
+        returns (uint256 reward)
     {
         (IUniswapV3Pool pool, int24 tickLower, int24 tickUpper, ) =
             _getPositionDetails(params.tokenId);
@@ -277,7 +277,52 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
 
         Incentive memory incentive = incentives[incentiveId];
         Stake memory stake = stakes[params.tokenId][incentiveId];
-        return
+        (reward, , ) = _getRewardAmount(
+            stake,
+            incentive,
+            params,
+            pool,
+            tickLower,
+            tickUpper
+        );
+    }
+
+    function updateStake(UpdateStakeParams memory params) external {
+        require(
+            deposits[params.tokenId].owner == msg.sender,
+            'sender is not nft owner'
+        );
+        require(block.timestamp < params.endTime, 'incentive has ended');
+
+        (
+            IUniswapV3Pool pool,
+            int24 tickLower,
+            int24 tickUpper,
+            uint128 liquidity
+        ) = _getPositionDetails(params.tokenId);
+
+        bytes32 incentiveId =
+            IncentiveId.compute(
+                IncentiveId.Key(
+                    params.rewardToken,
+                    pool,
+                    params.startTime,
+                    params.endTime,
+                    params.claimDeadline,
+                    params.beneficiary
+                )
+            );
+
+        Incentive memory incentive = incentives[incentiveId];
+        Stake memory stake = stakes[params.tokenId][incentiveId];
+
+        require(stake.liquidity > 0, 'nonexistent stake');
+
+        (
+            uint256 reward,
+            uint160 secondsInPeriodX128,
+            uint160 secondsPerLiquidityInsideX128
+        ) =
             _getRewardAmount(
                 stake,
                 incentive,
@@ -286,6 +331,19 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
                 tickLower,
                 tickUpper
             );
+
+        incentives[incentiveId].totalSecondsClaimedX128 += secondsInPeriodX128;
+        incentives[incentiveId].totalRewardUnclaimed = uint128(
+            SafeMath.sub(incentive.totalRewardUnclaimed, reward)
+        );
+        stakes[params.tokenId][incentiveId].secondsPerLiquidityInitialX128 =
+            secondsPerLiquidityInsideX128 +
+            1;
+        stakes[params.tokenId][incentiveId].liquidity = liquidity;
+        rewards[params.rewardToken][msg.sender] = uint128(
+            SafeMath.add(rewards[params.rewardToken][msg.sender], reward)
+        );
+        emit StakeUpdated(params.tokenId, liquidity, incentiveId, reward);
     }
 
     function _getRewardAmount(
@@ -295,9 +353,17 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
         IUniswapV3Pool pool,
         int24 tickLower,
         int24 tickUpper
-    ) private view returns (uint256 reward, uint160 secondsInPeriodX128) {
-        (, uint160 secondsPerLiquidityInsideX128, ) =
-            pool.snapshotCumulativesInside(tickLower, tickUpper);
+    )
+        private
+        view
+        returns (
+            uint256 reward,
+            uint160 secondsInPeriodX128,
+            uint160 secondsPerLiquidityInsideX128
+        )
+    {
+        (, secondsPerLiquidityInsideX128, ) = IUniswapV3Pool(pool)
+            .snapshotCumulativesInside(tickLower, tickUpper);
 
         secondsInPeriodX128 = uint160(
             SafeMath.mul(

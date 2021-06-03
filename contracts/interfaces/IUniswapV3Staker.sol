@@ -164,7 +164,16 @@ interface IUniswapV3Staker {
     /// @param incentiveId The incentive in which the token is staking
     event TokenUnstaked(uint256 indexed tokenId, bytes32 indexed incentiveId);
 
-    /// @notice Event emitted when a reward token has been claimed
+    /// @notice Event emitted when an existing stake has been updated
+    /// @param rewardClaimed The amount of reward tokens claimed from update
+    event StakeUpdated(
+        uint256 indexed tokenId,
+        uint128 liquidity,
+        bytes32 incentiveId,
+        uint256 rewardClaimed
+    );
+
+    /// @notice Event emitted when a reward token has been claimed from unstaked tokens
     /// @param to The address where claimed rewards were sent to
     /// @param reward The amount of reward tokens claimed
     event RewardClaimed(address indexed to, uint256 reward);

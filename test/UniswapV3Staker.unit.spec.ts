@@ -676,22 +676,12 @@ describe('UniswapV3Staker.unit', async () => {
 
         await provider.send('evm_mine', [timestamps.startTime + 100])
 
-        const { reward, secondsInPeriodX128 } = await context.staker
+        const reward = await context.staker
           .connect(lpUser0)
           .getRewardAmount(stakeParams)
 
-        const { tickLower, tickUpper } = await context.nft.positions(tokenId)
-        const {
-          secondsPerLiquidityInsideX128,
-        } = await pool.snapshotCumulativesInside(tickLower, tickUpper)
-
-        const expectedSecondsInPeriod = secondsPerLiquidityInsideX128
-          .sub(stake.secondsPerLiquidityInitialX128)
-          .mul(stake.liquidity)
-
-        // @ts-ignore
+        // @ts-ignore matcher will accept BigNumber
         expect(reward).to.be.closeTo(BNe(1, 19), BN(1))
-        expect(secondsInPeriodX128).to.eq(expectedSecondsInPeriod)
       })
 
       it('returns 0 for ended incentives', async () => {
@@ -703,7 +693,7 @@ describe('UniswapV3Staker.unit', async () => {
           pool: context.pool01,
           ...timestamps,
         })
-        const { reward } = await context.staker
+        const reward = await context.staker
           .connect(lpUser0)
           .getRewardAmount(stakeParams)
 
@@ -794,6 +784,221 @@ describe('UniswapV3Staker.unit', async () => {
 
       it('has gas cost', async () =>
         await snapshotGasCost(subject(context.rewardToken.address)))
+    })
+
+    describe('#updateStake', () => {
+      let subject: () => Promise<any>
+      let timestamps: ContractParams.Timestamps
+      let tokenId: string
+      let incentiveId: string
+
+      beforeEach(async () => {
+        timestamps = makeTimestamps(await blockTimestamp())
+
+        const createIncentiveResult = await helpers.createIncentiveFlow({
+          rewardToken: context.rewardToken,
+          totalReward,
+          poolAddress: context.poolObj.address,
+          ...timestamps,
+        })
+
+        incentiveId = await context.testIncentiveId.compute({
+          rewardToken: context.rewardToken.address,
+          pool: context.pool01,
+          startTime: timestamps.startTime,
+          endTime: timestamps.endTime,
+          claimDeadline: timestamps.claimDeadline,
+          beneficiary: incentiveCreator.address,
+        })
+
+        await erc20Helper.ensureBalancesAndApprovals(
+          lpUser0,
+          [context.token0, context.token1],
+          amountDesired,
+          context.nft.address
+        )
+
+        tokenId = await mintPosition(context.nft.connect(lpUser0), {
+          token0: context.token0.address,
+          token1: context.token1.address,
+          fee: FeeAmount.MEDIUM,
+          tickLower: getMinTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
+          tickUpper: getMaxTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
+          recipient: lpUser0.address,
+          amount0Desired: amountDesired,
+          amount1Desired: amountDesired,
+          amount0Min: 0,
+          amount1Min: 0,
+          deadline: (await blockTimestamp()) + 1000,
+        })
+
+        await context.nft
+          .connect(lpUser0)
+          .approve(context.staker.address, tokenId, { gasLimit: MAX_GAS_LIMIT })
+
+        await context.nft
+          .connect(lpUser0)
+          ['safeTransferFrom(address,address,uint256)'](
+            lpUser0.address,
+            context.staker.address,
+            tokenId
+          )
+
+        subject = () =>
+          context.staker.connect(lpUser0).updateStake({
+            beneficiary: incentiveCreator.address,
+            rewardToken: context.rewardToken.address,
+            tokenId,
+            ...timestamps,
+          })
+      })
+
+      describe('in a valid scenario', () => {
+        let recipient
+        let expectedReward
+
+        beforeEach(async () => {
+          await Time.set(timestamps.startTime + 100)
+          await context.staker.connect(lpUser0).stakeToken({
+            beneficiary: incentiveCreator.address,
+            rewardToken: context.rewardToken.address,
+            tokenId,
+            ...timestamps,
+          })
+
+          // update liquidity
+          await erc20Helper.ensureBalancesAndApprovals(
+            lpUser0,
+            [context.token0, context.token1],
+            amountDesired,
+            context.nft.address
+          )
+          await context.nft.increaseLiquidity({
+            tokenId,
+            amount0Desired: amountDesired,
+            amount1Desired: amountDesired,
+            amount0Min: 0,
+            amount1Min: 0,
+            deadline: (await blockTimestamp()) + 1000,
+          })
+
+          await Time.set(timestamps.startTime + 500)
+          expectedReward = BN('20249999999999999999')
+        })
+
+        it('adjusts rewards amount for staker', async () => {
+          const rewardBefore = await context.staker.rewards(
+            context.rewardToken.address,
+            lpUser0.address
+          )
+          await subject()
+          const rewardAfter = await context.staker.rewards(
+            context.rewardToken.address,
+            lpUser0.address
+          )
+          expect(rewardAfter).to.eq(rewardBefore.add(expectedReward))
+        })
+
+        it('emits a StakeUpdated event', async () => {
+          const stakeBefore = await context.staker.stakes(tokenId, incentiveId)
+          await expect(subject())
+            .to.emit(context.staker, 'StakeUpdated')
+            .withArgs(
+              tokenId,
+              stakeBefore.liquidity.mul(2),
+              incentiveId,
+              expectedReward
+            )
+        })
+
+        it('updates the stake appropriately', async () => {
+          const stakeBefore = await context.staker.stakes(tokenId, incentiveId)
+          const secondsInitialBefore =
+            stakeBefore.secondsPerLiquidityInitialX128
+          const liquidityBefore = stakeBefore.liquidity
+
+          await subject()
+
+          const stakeAfter = await context.staker.stakes(tokenId, incentiveId)
+          const secondsInitialAfter = stakeAfter.secondsPerLiquidityInitialX128
+          const liquidityAfter = stakeAfter.liquidity
+
+          expect(secondsInitialBefore).to.be.lt(secondsInitialAfter)
+          // doubled liquidity between updates
+          expect(liquidityAfter).to.equal(liquidityBefore.mul(2))
+        })
+
+        it('updates the incentive appropriately', async () => {
+          const incentivePrev = await context.staker.incentives(incentiveId)
+          const rewardsUnclaimedPrev = incentivePrev.totalRewardUnclaimed
+          const secondsClaimedPrev = incentivePrev.totalSecondsClaimedX128
+
+          await subject()
+
+          const incentiveCurrent = await context.staker.incentives(incentiveId)
+          const rewardsUnclaimedCurrent = incentiveCurrent.totalRewardUnclaimed
+          const secondsClaimedCurrent = incentiveCurrent.totalSecondsClaimedX128
+
+          expect(rewardsUnclaimedPrev.sub(rewardsUnclaimedCurrent)).to.eq(
+            expectedReward
+          )
+          expect(secondsClaimedPrev).to.equal(0)
+
+          // calculation is sometimes off by one
+          expect(secondsClaimedCurrent).to.be.gte(
+            BN('68907179301490038851320000000000000000000')
+          )
+          expect(secondsClaimedCurrent).to.be.lte(
+            BN('68907179301490038851330000000000000000000')
+          )
+        })
+
+        it('has gas cost', async () => {
+          await snapshotGasCost(subject())
+        })
+
+        it('has equivalent multicall operation gas cost', async () => {
+          const unstakeTx = context.staker
+            .connect(lpUser0)
+            .interface.encodeFunctionData('unstakeToken', [
+              {
+                beneficiary: incentiveCreator.address,
+                rewardToken: context.rewardToken.address,
+                tokenId,
+                ...timestamps,
+              },
+            ])
+
+          const claimTx = context.staker
+            .connect(lpUser0)
+            .interface.encodeFunctionData('claimReward', [
+              context.rewardToken.address,
+              lpUser0.address,
+            ])
+
+          const stakeTx = context.staker
+            .connect(lpUser0)
+            .interface.encodeFunctionData('stakeToken', [
+              {
+                beneficiary: incentiveCreator.address,
+                rewardToken: context.rewardToken.address,
+                tokenId,
+                ...timestamps,
+              },
+            ])
+          await snapshotGasCost(
+            context.staker
+              .connect(lpUser0)
+              .multicall([unstakeTx, claimTx, stakeTx], maxGas)
+          )
+        })
+      })
+
+      describe('in an invalid scenario', () => {
+        it('reverts if stake does not exist', async () => {
+          await expect(subject()).to.be.revertedWith('nonexistent stake')
+        })
+      })
     })
 
     describe('#unstakeToken', () => {
