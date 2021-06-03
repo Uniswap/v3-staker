@@ -47,9 +47,9 @@ Params:
 struct CreateIncentiveParams {
   address rewardToken;
   address pool;
-  uint64 startTime;
-  uint64 endTime;
-  uint64 claimDeadline;
+  uint256 startTime;
+  uint256 endTime;
+  uint256 claimDeadline;
   uint128 totalReward;
 }
 
@@ -57,9 +57,9 @@ struct EndIncentiveParams {
   address creator;
   address rewardToken;
   address pool;
-  uint64 startTime;
-  uint64 endTime;
-  uint64 claimDeadline;
+  uint256 startTime;
+  uint256 endTime;
+  uint256 claimDeadline;
 }
 
 ```

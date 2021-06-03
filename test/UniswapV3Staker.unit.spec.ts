@@ -203,12 +203,12 @@ describe('UniswapV3Staker.unit', async () => {
             context.staker,
             'IncentiveCreated'
           )
-          await expect(subject(params)).to.be.revertedWith('incentive exists')
+          await expect(subject(params)).to.be.revertedWith(
+            'incentive already exists'
+          )
         })
 
         describe('invalid timestamps', () => {
-          const ERR_TIMESTAMPS_INVALID = 'timestamps invalid'
-
           it('current time is after start time', async () => {
             const params = makeTimestamps(
               await blockTimestamp(),
@@ -235,7 +235,7 @@ describe('UniswapV3Staker.unit', async () => {
             )
 
             await expect(subject(params)).to.be.revertedWith(
-              ERR_TIMESTAMPS_INVALID
+              'start time must be now or in the future'
             )
           })
 
@@ -243,7 +243,7 @@ describe('UniswapV3Staker.unit', async () => {
             const params = makeTimestamps(await blockTimestamp())
             params.endTime = params.claimDeadline + 100
             await expect(subject(params)).to.be.revertedWith(
-              ERR_TIMESTAMPS_INVALID
+              'end time must be at or before claim deadline'
             )
           })
 
@@ -251,7 +251,7 @@ describe('UniswapV3Staker.unit', async () => {
             const params = makeTimestamps(await blockTimestamp())
             params.claimDeadline = params.startTime - 10
             await expect(subject(params)).to.be.revertedWith(
-              ERR_TIMESTAMPS_INVALID
+              'end time must be at or before claim deadline'
             )
           })
 
@@ -259,13 +259,13 @@ describe('UniswapV3Staker.unit', async () => {
             const params = makeTimestamps(await blockTimestamp())
             params.endTime = params.startTime - 10
             await expect(subject(params)).to.be.revertedWith(
-              ERR_TIMESTAMPS_INVALID
+              'start time must be before end time'
             )
           })
         })
 
         describe('invalid reward', () => {
-          const ERR_REWARD_INVALID = 'reward invalid'
+          const ERR_REWARD_INVALID = 'reward must be greater than 0'
 
           it('totalReward is 0 or an invalid amount', async () => {
             const now = await blockTimestamp()

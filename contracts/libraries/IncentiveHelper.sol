@@ -15,9 +15,9 @@ library IncentiveHelper {
         address creator,
         address rewardToken,
         address pool,
-        uint64 startTime,
-        uint64 endTime,
-        uint64 claimDeadline
+        uint256 startTime,
+        uint256 endTime,
+        uint256 claimDeadline
     ) internal pure returns (bytes32) {
         return
             keccak256(
