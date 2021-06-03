@@ -7,6 +7,7 @@ import '@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol';
 import '@uniswap/v3-core/contracts/interfaces/IERC20Minimal.sol';
 
 import '@uniswap/v3-periphery/contracts/interfaces/INonfungiblePositionManager.sol';
+import '../libraries/IncentiveId.sol';
 
 /// @title Uniswap V3 Staker Interface
 /// @notice Allows staking nonfungible liquidity tokens in exchange for reward tokens
@@ -74,41 +75,12 @@ interface IUniswapV3Staker {
         view
         returns (uint256 rewardsOwed);
 
-    /// @param rewardToken The address of the token being distributed as a reward
-    /// @param pool The address of the Uniswap V3 pool
-    /// @param startTime The time when the incentive program begins
-    /// @param endTime The time when rewards stop accruing
-    /// @param claimDeadline Time after which LPs can no longer claim rewards (and incentiveCreator can end the incentive and receive unclaimed rewards)
-    /// @param totalReward The total amount of reward tokens to be distributed
-    struct CreateIncentiveParams {
-        IERC20Minimal rewardToken;
-        IUniswapV3Pool pool;
-        uint256 startTime;
-        uint256 endTime;
-        uint256 claimDeadline;
-        uint128 totalReward;
-    }
-
     /// @notice Creates a new liquidity mining incentive program.
-    function createIncentive(CreateIncentiveParams memory params) external;
-
-    /// @param creator The address that created this incentive
-    /// @param pool The address of the Uniswap V3 pool
-    /// @param rewardToken The address of the token being distributed as a reward
-    /// @param startTime The time when the incentive program begins
-    /// @param endTime The time when rewards stop accruing
-    /// @param claimDeadline Time after which LPs can no longer claim rewards (and incentiveCreator can end the incentive and receive unclaimed rewards)
-    struct EndIncentiveParams {
-        address creator;
-        IERC20Minimal rewardToken;
-        IUniswapV3Pool pool;
-        uint256 startTime;
-        uint256 endTime;
-        uint256 claimDeadline;
-    }
+    function createIncentive(IncentiveId.Key memory key, uint128 totalReward)
+        external;
 
     /// @notice Deletes an incentive whose claimDeadline has passed.
-    function endIncentive(EndIncentiveParams memory params) external;
+    function endIncentive(IncentiveId.Key memory key) external;
 
     /// @notice Withdraws a Uniswap V3 LP token `tokenId` from this contract to the recipient `to`
     /// @param tokenId The unique identifier of an Uniswap V3 LP token

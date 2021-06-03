@@ -101,12 +101,15 @@ export class HelperCommands {
       .connect(incentiveCreator)
       .approve(this.staker.address, params.totalReward)
 
-    await this.staker.connect(incentiveCreator).createIncentive({
-      pool: params.poolAddress,
-      rewardToken: params.rewardToken.address,
-      totalReward: params.totalReward,
-      ...times,
-    })
+    await this.staker.connect(incentiveCreator).createIncentive(
+      {
+        creator: incentiveCreator.address,
+        pool: params.poolAddress,
+        rewardToken: params.rewardToken.address,
+        ...times,
+      },
+      params.totalReward
+    )
 
     return {
       ..._.pick(params, ['poolAddress', 'totalReward', 'rewardToken']),

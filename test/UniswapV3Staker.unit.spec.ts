@@ -130,16 +130,17 @@ describe('UniswapV3Staker.unit', async () => {
             await blockTimestamp()
           )
 
-          return await context.staker
-            .connect(incentiveCreator)
-            .createIncentive({
+          return await context.staker.connect(incentiveCreator).createIncentive(
+            {
+              creator: incentiveCreator.address,
               rewardToken: params.rewardToken || context.rewardToken.address,
               pool: context.pool01,
               startTime: params.startTime || startTime,
               endTime: params.endTime || endTime,
               claimDeadline: params.claimDeadline || claimDeadline,
-              totalReward,
-            })
+            },
+            totalReward
+          )
         }
       })
 
@@ -265,19 +266,20 @@ describe('UniswapV3Staker.unit', async () => {
         })
 
         describe('invalid reward', () => {
-          const ERR_REWARD_INVALID = 'reward must be greater than 0'
-
           it('totalReward is 0 or an invalid amount', async () => {
             const now = await blockTimestamp()
 
             await expect(
-              context.staker.connect(incentiveCreator).createIncentive({
-                rewardToken: context.rewardToken.address,
-                pool: context.pool01,
-                totalReward: BNe18(0),
-                ...makeTimestamps(now, 1_000, 2_000),
-              })
-            ).to.be.revertedWith(ERR_REWARD_INVALID)
+              context.staker.connect(incentiveCreator).createIncentive(
+                {
+                  creator: incentiveCreator.address,
+                  rewardToken: context.rewardToken.address,
+                  pool: context.pool01,
+                  ...makeTimestamps(now, 1_000, 2_000),
+                },
+                BNe18(0)
+              )
+            ).to.be.revertedWith('reward must be greater than 0')
           })
         })
       })
@@ -348,9 +350,8 @@ describe('UniswapV3Staker.unit', async () => {
       describe('no-op when', async () => {
         it('block.timestamp <= claim deadline', async () => {
           await Time.set(timestamps.claimDeadline - 10)
-          await expect(subject({})).to.not.emit(
-            context.staker,
-            'IncentiveEnded'
+          await expect(subject({})).to.be.revertedWith(
+            'cannot end before claimDeadline'
           )
         })
 
@@ -361,7 +362,7 @@ describe('UniswapV3Staker.unit', async () => {
             subject({
               startTime: (await blockTimestamp()) + 1000,
             })
-          ).to.not.emit(context.staker, 'IncentiveEnded')
+          ).to.be.revertedWith('no reward to claim')
         })
       })
     })
@@ -1166,11 +1167,12 @@ describe('UniswapV3Staker.unit', async () => {
         'createIncentive',
         [
           {
+            creator: multicaller.address,
             pool: context.pool01,
             rewardToken: context.rewardToken.address,
-            totalReward,
             ...makeTimestamps(currentTime + 100),
           },
+          totalReward,
         ]
       )
       await context.staker

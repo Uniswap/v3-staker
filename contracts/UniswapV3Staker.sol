@@ -56,40 +56,30 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
     }
 
     /// @inheritdoc IUniswapV3Staker
-    function createIncentive(CreateIncentiveParams memory params)
+    function createIncentive(IncentiveId.Key memory key, uint128 totalReward)
         external
         override
     {
-        require(params.totalReward > 0, 'reward must be greater than 0');
+        require(totalReward > 0, 'reward must be greater than 0');
         require(
-            params.startTime < params.endTime,
+            key.startTime < key.endTime,
             'start time must be before end time'
         );
         require(
-            params.endTime <= params.claimDeadline,
+            key.endTime <= key.claimDeadline,
             'end time must be at or before claim deadline'
         );
         require(
-            params.startTime >= block.timestamp,
+            key.startTime >= block.timestamp,
             'start time must be now or in the future'
         );
         // seconds per liquidity is not reliable over periods greater than 2**32-1 seconds
         require(
-            params.claimDeadline - params.startTime <= type(uint32).max,
+            key.claimDeadline - key.startTime <= type(uint32).max,
             'total duration of incentive must be less than 2**32 - 1'
         );
 
-        bytes32 incentiveId =
-            IncentiveId.compute(
-                IncentiveId.Key(
-                    msg.sender,
-                    params.rewardToken,
-                    params.pool,
-                    params.startTime,
-                    params.endTime,
-                    params.claimDeadline
-                )
-            );
+        bytes32 incentiveId = IncentiveId.compute(key);
 
         // totalRewardUnclaimed cannot decrease until params.startTime has passed, meaning this check is safe
         require(
@@ -98,56 +88,60 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
         );
 
         incentives[incentiveId] = Incentive({
-            totalRewardUnclaimed: params.totalReward,
+            totalRewardUnclaimed: totalReward,
             totalSecondsClaimedX128: 0
         });
 
         // this is effectively a validity check on params.rewardToken
         TransferHelper.safeTransferFrom(
-            address(params.rewardToken),
+            address(key.rewardToken),
             msg.sender,
             address(this),
-            params.totalReward
+            totalReward
         );
 
         emit IncentiveCreated(
-            msg.sender,
-            params.rewardToken,
-            params.pool,
-            params.startTime,
-            params.endTime,
-            params.claimDeadline,
-            params.totalReward
+            key.creator,
+            key.rewardToken,
+            key.pool,
+            key.startTime,
+            key.endTime,
+            key.claimDeadline,
+            totalReward
         );
     }
 
     /// @inheritdoc IUniswapV3Staker
-    function endIncentive(EndIncentiveParams memory params) external override {
+    function endIncentive(IncentiveId.Key memory key) external override {
+        require(
+            block.timestamp >= key.claimDeadline,
+            'cannot end before claimDeadline'
+        );
+
         bytes32 incentiveId =
             IncentiveId.compute(
                 IncentiveId.Key(
-                    params.creator,
-                    params.rewardToken,
-                    params.pool,
-                    params.startTime,
-                    params.endTime,
-                    params.claimDeadline
+                    key.creator,
+                    key.rewardToken,
+                    key.pool,
+                    key.startTime,
+                    key.endTime,
+                    key.claimDeadline
                 )
             );
 
         uint128 refund = incentives[incentiveId].totalRewardUnclaimed;
 
-        // if any unclaimed rewards remain, and we're at or past the claim deadline, issue a refund
-        if (refund > 0 && params.claimDeadline <= block.timestamp) {
-            incentives[incentiveId].totalRewardUnclaimed = 0;
-            TransferHelper.safeTransfer(
-                address(params.rewardToken),
-                params.creator,
-                refund
-            );
+        require(refund > 0, 'no reward to claim');
 
-            emit IncentiveEnded(incentiveId, refund);
-        }
+        incentives[incentiveId].totalRewardUnclaimed = 0;
+        TransferHelper.safeTransfer(
+            address(key.rewardToken),
+            key.creator,
+            refund
+        );
+
+        emit IncentiveEnded(incentiveId, refund);
     }
 
     /// @inheritdoc IERC721Receiver
