@@ -2,6 +2,9 @@
 pragma solidity =0.7.6;
 pragma abicoder v2;
 
+import '@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol';
+import '@uniswap/v3-core/contracts/interfaces/IERC20Minimal.sol';
+
 library IncentiveId {
     /// @param creator The address that created the incentive
     /// @param rewardToken The address of the token being distributed as a reward
@@ -11,8 +14,8 @@ library IncentiveId {
     /// @param claimDeadline Time after which LPs can no longer claim rewards (and incentiveCreator can end the incentive and receive unclaimed rewards)
     struct Key {
         address creator;
-        address rewardToken;
-        address pool;
+        IERC20Minimal rewardToken;
+        IUniswapV3Pool pool;
         uint256 startTime;
         uint256 endTime;
         uint256 claimDeadline;
