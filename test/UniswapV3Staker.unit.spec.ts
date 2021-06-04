@@ -398,7 +398,7 @@ describe('UniswapV3Staker.unit', async () => {
     })
 
     describe('via nft#safeTransferFrom', () => {
-      it('allows depositing without staking')
+      it('allows depositing without staking', () => {})
       it('allows depositing and staking for a single incentive')
       it('allows depositing and staking for two incentives')
       it(
