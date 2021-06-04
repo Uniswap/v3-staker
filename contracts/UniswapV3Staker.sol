@@ -150,7 +150,15 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
         emit TokenDeposited(tokenId, from);
 
         if (data.length > 0) {
-            _stakeToken(abi.decode(data, (IncentiveId.Key)), tokenId);
+            if (data.length == 192) {
+                _stakeToken(abi.decode(data, (IncentiveId.Key)), tokenId);
+            } else {
+                IncentiveId.Key[] memory keys =
+                    abi.decode(data, (IncentiveId.Key[]));
+                for (uint256 i = 0; i < keys.length; i++) {
+                    _stakeToken(keys[i], tokenId);
+                }
+            }
         }
         return this.onERC721Received.selector;
     }
