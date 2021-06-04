@@ -377,7 +377,7 @@ describe('UniswapV3Staker.unit', async () => {
     const SAFE_TRANSFER_FROM_SIGNATURE =
       'safeTransferFrom(address,address,uint256,bytes)'
     const INCENTIVE_KEY_ABI =
-      'tuple(address rewardToken, address pool, uint256 startTime, uint256 endTime, uint256 claimDeadline, address refundee)'
+      'tuple(address rewardToken, address pool, uint256 startTime, uint256 endTime, address refundee)'
 
     beforeEach(async () => {
       await erc20Helper.ensureBalancesAndApprovals(
@@ -453,7 +453,6 @@ describe('UniswapV3Staker.unit', async () => {
           [INCENTIVE_KEY_ABI],
           [incentiveResultToStakeAdapter(createIncentiveResult)]
         )
-
         await subject(data, lpUser0)
         const deposit = await context.staker.deposits(tokenId)
         expect(deposit.owner).to.eq(lpUser0.address)
