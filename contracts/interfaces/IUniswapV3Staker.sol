@@ -90,26 +90,15 @@ interface IUniswapV3Staker {
     /// @param to The address where the LP token will be sent
     function withdrawToken(uint256 tokenId, address to) external;
 
-    /// @param rewardToken The token being distributed as a reward
-    /// @param tokenId The ID of the staked NFT
-    /// @param startTime The time when the incentive program begins
-    /// @param endTime The time when rewards stop accruing
-    /// @param claimDeadline Time after which anoyne can cause unaccounted-for rewards to be sent to the refundee
-    /// @param refundee The address which receives any remaining reward tokens after the claimDeadline
-    struct UpdateStakeParams {
-        IERC20Minimal rewardToken;
-        uint256 tokenId;
-        uint256 startTime;
-        uint256 endTime;
-        uint256 claimDeadline;
-        address refundee;
-    }
-
     /// @notice Stakes a Uniswap V3 LP token
-    function stakeToken(UpdateStakeParams memory params) external;
+    /// @param key The key of the incentive for which to stake the NFT
+    /// @param tokenId The ID of the token to stake
+    function stakeToken(IncentiveId.Key memory key, uint256 tokenId) external;
 
     /// @notice Unstakes a Uniswap V3 LP token
-    function unstakeToken(UpdateStakeParams memory params) external;
+    /// @param key The key of the incentive for which to unstake the NFT
+    /// @param tokenId The ID of the token to unstake
+    function unstakeToken(IncentiveId.Key memory key, uint256 tokenId) external;
 
     /// @notice Transfers accrued `rewardToken` rewards from the contarct to the recipient `to`
     /// @param rewardToken The token being distributed as a reward
@@ -155,8 +144,8 @@ interface IUniswapV3Staker {
     /// @param incentiveId The incentive in which the token is staking
     event TokenStaked(
         uint256 indexed tokenId,
-        uint128 liquidity,
-        bytes32 indexed incentiveId
+        bytes32 indexed incentiveId,
+        uint128 liquidity
     );
 
     /// @notice Event emitted when a Uniswap V3 LP token has been unstaked

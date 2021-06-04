@@ -159,10 +159,8 @@ describe('UniswapV3Staker.integration', async () => {
               staker
                 .connect(params.lp)
                 .unstakeToken(
-                  incentiveResultToStakeAdapter(
-                    createIncentiveResult,
-                    params.tokenId
-                  )
+                  incentiveResultToStakeAdapter(createIncentiveResult),
+                  params.tokenId
                 ),
 
             doWithdraw: (params: HelperTypes.MintStake.Result) =>
