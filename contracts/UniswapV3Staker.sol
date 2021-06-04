@@ -255,6 +255,7 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
     /// @dev Returns the reward amount owed for a given incentive and token combination
     function getRewardAmount(IncentiveId.Key memory key, uint256 tokenId)
         external
+        override
         view
         returns (uint256 reward)
     {

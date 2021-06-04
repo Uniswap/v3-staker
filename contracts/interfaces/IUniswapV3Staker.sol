@@ -108,6 +108,12 @@ interface IUniswapV3Staker {
     /// @param to The address where claimed rewards will be sent to
     function claimReward(IERC20Minimal rewardToken, address to) external;
 
+    /// @notice Calculates reward amount for an NFT
+    /// @param key The key of the incentive
+    /// @param tokenId The ID of the token
+    /// @return reward The reward accrued to the NFT thus far
+    function getRewardAmount(IncentiveId.Key memory key, uint256 tokenId) external returns (uint256 reward);
+
     /// @notice Event emitted when a liquidity mining incentive has been created
     /// @param rewardToken The token being distributed as a reward
     /// @param pool The Uniswap V3 pool
