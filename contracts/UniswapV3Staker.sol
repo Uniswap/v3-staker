@@ -191,10 +191,14 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
         external
         override
     {
-        require(
-            deposits[tokenId].owner == msg.sender,
-            'only owner can withdraw token'
-        );
+        address depositOwner = deposits[tokenId].owner;
+        // anyone can call unstakeToken if the block time is after the end time of the incentive
+        if (block.timestamp < key.endTime) {
+            require(
+                depositOwner == msg.sender,
+                'only owner can withdraw token before incentive end time'
+            );
+        }
 
         bytes32 incentiveId = IncentiveId.compute(key);
 
@@ -230,8 +234,8 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
             );
 
             // Makes rewards available to claimReward
-            rewards[key.rewardToken][msg.sender] = SafeMath.add(
-                rewards[key.rewardToken][msg.sender],
+            rewards[key.rewardToken][depositOwner] = SafeMath.add(
+                rewards[key.rewardToken][depositOwner],
                 reward
             );
         }
