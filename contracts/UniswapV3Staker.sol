@@ -6,7 +6,6 @@ import './interfaces/IUniswapV3Staker.sol';
 import './libraries/IncentiveId.sol';
 
 import '@uniswap/v3-core/contracts/libraries/FixedPoint96.sol';
-import '@uniswap/v3-core/contracts/libraries/FixedPoint128.sol';
 import '@uniswap/v3-core/contracts/libraries/FullMath.sol';
 import '@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol';
 import '@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol';
@@ -255,8 +254,8 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
     /// @dev Returns the reward amount owed for a given incentive and token combination
     function getRewardAmount(IncentiveId.Key memory key, uint256 tokenId)
         external
-        override
         view
+        override
         returns (uint256 reward)
     {
         (IUniswapV3Pool pool, int24 tickLower, int24 tickUpper, ) =
@@ -290,8 +289,8 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
             stake.liquidity;
 
         uint256 totalSecondsUnclaimedX128 =
-            ((Math.max(key.endTime, block.timestamp) - key.startTime) *
-                FixedPoint128.Q128) - incentive.totalSecondsClaimedX128;
+            ((Math.max(key.endTime, block.timestamp) - key.startTime) << 128) -
+                incentive.totalSecondsClaimedX128;
 
         reward = FullMath.mulDiv(
             incentive.totalRewardUnclaimed,

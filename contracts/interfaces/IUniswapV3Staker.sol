@@ -112,7 +112,9 @@ interface IUniswapV3Staker {
     /// @param key The key of the incentive
     /// @param tokenId The ID of the token
     /// @return reward The reward accrued to the NFT thus far
-    function getRewardAmount(IncentiveId.Key memory key, uint256 tokenId) external returns (uint256 reward);
+    function getRewardAmount(IncentiveId.Key memory key, uint256 tokenId)
+        external
+        returns (uint256 reward);
 
     /// @notice Event emitted when a liquidity mining incentive has been created
     /// @param rewardToken The token being distributed as a reward
