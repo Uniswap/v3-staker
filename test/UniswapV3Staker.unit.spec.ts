@@ -980,13 +980,13 @@ describe('UniswapV3Staker.unit', async () => {
   })
 
   describe('#onERC721Received', () => {
-    const stakeParamsEncodeType =
-      'tuple(address rewardToken, uint256 tokenId, uint32 startTime, uint32 endTime, uint32 claimDeadline, address refundee)'
+    const incentiveKeyAbi =
+      'tuple(address rewardToken, address pool, uint256 startTime, uint256 endTime, uint256 claimDeadline, address refundee)'
     let tokenId: BigNumberish
     let data: string
     let timestamps: ContractParams.Timestamps
 
-    beforeEach(async () => {
+    beforeEach('set up position', async () => {
       const { rewardToken } = context
       timestamps = makeTimestamps((await blockTimestamp()) + 1_000)
 
@@ -1018,18 +1018,18 @@ describe('UniswapV3Staker.unit', async () => {
         ...timestamps,
       })
 
-      const stakeParams: ContractParams.IncentiveKey = incentiveResultToStakeAdapter(
+      const incentiveKey: ContractParams.IncentiveKey = incentiveResultToStakeAdapter(
         incentive
       )
 
       data = ethers.utils.defaultAbiCoder.encode(
-        [stakeParamsEncodeType],
-        [stakeParams]
+        [incentiveKeyAbi],
+        [incentiveKey]
       )
     })
 
     describe('on successful transfer with staking data', () => {
-      beforeEach(async () => {
+      beforeEach('set the timestamp after the start time', async () => {
         await Time.set(timestamps.startTime + 1)
       })
 
@@ -1121,16 +1121,17 @@ describe('UniswapV3Staker.unit', async () => {
       it('reverts when staking on invalid incentive', async () => {
         const invalidStakeParams = {
           rewardToken: context.rewardToken.address,
-          tokenId,
           refundee: incentiveCreator.address,
+          pool: context.pool01,
           ...timestamps,
           startTime: 100,
         }
 
         let invalidData = ethers.utils.defaultAbiCoder.encode(
-          [stakeParamsEncodeType],
+          [incentiveKeyAbi],
           [invalidStakeParams]
         )
+
         await expect(
           context.nft
             .connect(lpUser0)
