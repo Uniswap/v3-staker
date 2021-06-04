@@ -138,14 +138,14 @@ describe('UniswapV3Staker.integration', async () => {
         log.debug('Total rewards ', rewardsEarned.toString())
 
         // Fast-forward until after the program ends
-        await Time.set(createIncentiveResult.claimDeadline + 1)
+        await Time.set(createIncentiveResult.endTime + 1)
         const { amountReturnedToCreator } = await helpers.endIncentiveFlow({
           createIncentiveResult,
         })
         expect(rewardsEarned.add(amountReturnedToCreator)).to.eq(totalReward)
       })
 
-      describe('time goes past the incentive claimDeadline', () => {
+      describe.skip('time goes past the incentive end time', () => {
         it('still allows an LP to unstake if they have not already', async () => {
           const {
             createIncentiveResult,
@@ -177,7 +177,7 @@ describe('UniswapV3Staker.integration', async () => {
                 ),
           }
 
-          await Time.set(createIncentiveResult.claimDeadline + 1)
+          await Time.set(createIncentiveResult.endTime + 1)
 
           // First make sure it is still owned by the staker
           expect(await nft.ownerOf(stakes[0].tokenId)).to.eq(staker.address)
@@ -192,7 +192,7 @@ describe('UniswapV3Staker.integration', async () => {
             .to.emit(staker, 'TokenUnstaked')
             .withArgs(stakes[0].tokenId, incentiveId)
 
-          // It does not allow them to claim rewards (since we're past claimDeadline)
+          // It does not allow them to claim rewards (since we're past end time)
           await actions.doClaimRewards(stakes[0])
 
           // Right now they're still getting rewards since rewards can be claimed past claimDeadline
@@ -266,7 +266,7 @@ describe('UniswapV3Staker.integration', async () => {
         )
         unstakes.push(...otherUnstakes)
 
-        await Time.set(createIncentiveResult.claimDeadline + 1)
+        await Time.set(createIncentiveResult.endTime + 1)
         const { amountReturnedToCreator } = await helpers.endIncentiveFlow({
           createIncentiveResult,
         })
@@ -350,7 +350,7 @@ describe('UniswapV3Staker.integration', async () => {
       describe('and provides half the liquidity', async () => {
         it('gives them a smaller share of the reward', async () => {
           const { helpers, createIncentiveResult, stakes, context } = subject
-          const { startTime, endTime, claimDeadline } = createIncentiveResult
+          const { startTime, endTime } = createIncentiveResult
 
           // Halfway through, lp3 decides they want in. Good for them.
           await Time.set(startTime + duration / 2)
@@ -389,7 +389,7 @@ describe('UniswapV3Staker.integration', async () => {
             '4.34'
           )
 
-          await Time.set(claimDeadline + 1)
+          await Time.set(endTime + 1)
           const { amountReturnedToCreator } = await helpers.endIncentiveFlow({
             createIncentiveResult,
           })
@@ -469,7 +469,7 @@ describe('UniswapV3Staker.integration', async () => {
           BNe(5, 16)
         )
 
-        await Time.set(createIncentiveResult.claimDeadline + 1)
+        await Time.set(createIncentiveResult.endTime + 1)
         const { amountReturnedToCreator } = await helpers.endIncentiveFlow({
           createIncentiveResult,
         })

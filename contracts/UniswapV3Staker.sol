@@ -69,15 +69,6 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
             key.startTime < key.endTime,
             'start time must be before end time'
         );
-        require(
-            key.endTime <= key.claimDeadline,
-            'end time must be at or before claim deadline'
-        );
-        // seconds per liquidity is not reliable over periods greater than 2**32-1 seconds
-        require(
-            key.claimDeadline - key.startTime <= type(uint32).max,
-            'total duration of incentive must be less than 2**32'
-        );
 
         bytes32 incentiveId = IncentiveId.compute(key);
 
@@ -89,7 +80,8 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
 
         incentives[incentiveId] = Incentive({
             totalRewardUnclaimed: reward,
-            totalSecondsClaimedX128: 0
+            totalSecondsClaimedX128: 0,
+            numberOfStakes: 0
         });
 
         // this is effectively a validity check on key.rewardToken
@@ -105,7 +97,6 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
             key.pool,
             key.startTime,
             key.endTime,
-            key.claimDeadline,
             key.refundee,
             reward
         );
@@ -114,17 +105,22 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
     /// @inheritdoc IUniswapV3Staker
     function endIncentive(IncentiveId.Key memory key) external override {
         bytes32 incentiveId = IncentiveId.compute(key);
+        Incentive storage incentive = incentives[incentiveId];
 
-        uint128 refund = incentives[incentiveId].totalRewardUnclaimed;
+        uint128 refund = incentive.totalRewardUnclaimed;
 
         require(refund > 0, 'no refund available');
         require(
-            block.timestamp >= key.claimDeadline,
-            'cannot end incentive before claim deadline'
+            block.timestamp >= key.endTime,
+            'cannot end incentive before end time'
+        );
+        require(
+            incentive.numberOfStakes == 0,
+            'cannot end incentive while deposits are staked'
         );
 
         // if any unclaimed rewards remain, and we're past the claim deadline, issue a refund
-        incentives[incentiveId].totalRewardUnclaimed = 0;
+        incentive.totalRewardUnclaimed = 0;
         TransferHelper.safeTransfer(
             address(key.rewardToken),
             key.refundee,
@@ -150,7 +146,7 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
         emit TokenDeposited(tokenId, from);
 
         if (data.length > 0) {
-            if (data.length == 192) {
+            if (data.length == 160) {
                 _stakeToken(abi.decode(data, (IncentiveId.Key)), tokenId);
             } else {
                 IncentiveId.Key[] memory keys =
@@ -166,8 +162,11 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
     /// @inheritdoc IUniswapV3Staker
     function withdrawToken(uint256 tokenId, address to) external override {
         Deposit memory deposit = deposits[tokenId];
-        require(deposit.numberOfStakes == 0, 'nonzero num of stakes');
-        require(deposit.owner == msg.sender, 'sender is not nft owner');
+        require(
+            deposit.numberOfStakes == 0,
+            'cannot withdraw token while staked'
+        );
+        require(deposit.owner == msg.sender, 'only owner can withdraw token');
 
         delete deposits[tokenId];
         nonfungiblePositionManager.safeTransferFrom(address(this), to, tokenId);
@@ -197,18 +196,20 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
             'sender is not nft owner'
         );
 
-        (, int24 tickLower, int24 tickUpper, ) = _getPositionDetails(tokenId);
-
         bytes32 incentiveId = IncentiveId.compute(key);
 
         Incentive storage incentive = incentives[incentiveId];
         Stake storage stake = stakes[tokenId][incentiveId];
 
-        require(stake.liquidity != 0, 'nonexistent stake');
+        require(stake.liquidity != 0, 'stake does not exist');
 
-        deposits[tokenId].numberOfStakes -= 1;
+        (, , , , , int24 tickLower, int24 tickUpper, , , , , ) =
+            nonfungiblePositionManager.positions(tokenId);
 
-        // if incentive still exists
+        incentive.numberOfStakes--;
+        deposits[tokenId].numberOfStakes--;
+
+        // if incentive still has rewards to claim
         if (incentive.totalRewardUnclaimed > 0) {
             (, uint160 secondsPerLiquidityInsideX128, ) =
                 key.pool.snapshotCumulativesInside(tickLower, tickUpper);
@@ -216,15 +217,15 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
                 _getRewardAmount(
                     stake,
                     incentive,
-                    key,
+                    key.startTime,
+                    key.endTime,
                     secondsPerLiquidityInsideX128
                 );
 
-            incentives[incentiveId]
-                .totalSecondsClaimedX128 += secondsInPeriodX128;
+            incentive.totalSecondsClaimedX128 += secondsInPeriodX128;
 
             // TODO: is SafeMath necessary here? Could we do just a subtraction?
-            incentives[incentiveId].totalRewardUnclaimed = uint128(
+            incentive.totalRewardUnclaimed = uint128(
                 SafeMath.sub(incentive.totalRewardUnclaimed, reward)
             );
 
@@ -272,7 +273,8 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
             _getRewardAmount(
                 stake,
                 incentive,
-                key,
+                key.startTime,
+                key.endTime,
                 secondsPerLiquidityInsideX128
             );
     }
@@ -280,7 +282,8 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
     function _getRewardAmount(
         Stake memory stake,
         Incentive memory incentive,
-        IncentiveId.Key memory key,
+        uint256 startTime,
+        uint256 endTime,
         uint160 secondsPerLiquidityInsideX128
     ) private view returns (uint256 reward, uint160 secondsInPeriodX128) {
         secondsInPeriodX128 = uint160(
@@ -295,7 +298,7 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
         uint160 totalSecondsUnclaimedX128 =
             uint160(
                 SafeMath.mul(
-                    Math.max(key.endTime, block.timestamp) - key.startTime,
+                    Math.max(endTime, block.timestamp) - startTime,
                     FixedPoint128.Q128
                 ) - incentive.totalSecondsClaimedX128
             );
@@ -316,17 +319,8 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
     }
 
     function _stakeToken(IncentiveId.Key memory key, uint256 tokenId) private {
-        require(key.startTime <= block.timestamp, 'incentive not started');
+        require(block.timestamp >= key.startTime, 'incentive not started');
         require(block.timestamp < key.endTime, 'incentive ended');
-
-        (
-            IUniswapV3Pool pool,
-            int24 tickLower,
-            int24 tickUpper,
-            uint128 liquidity
-        ) = _getPositionDetails(tokenId);
-
-        require(pool == key.pool, 'token pool is not the incentivized pool');
 
         bytes32 incentiveId = IncentiveId.compute(key);
 
@@ -339,7 +333,17 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
             'token already staked'
         );
 
-        deposits[tokenId].numberOfStakes += 1;
+        (
+            IUniswapV3Pool pool,
+            int24 tickLower,
+            int24 tickUpper,
+            uint128 liquidity
+        ) = _getPositionDetails(tokenId);
+
+        require(pool == key.pool, 'token pool is not the incentivized pool');
+
+        deposits[tokenId].numberOfStakes++;
+        incentives[incentiveId].numberOfStakes++;
 
         (, uint160 secondsPerLiquidityInsideX128, ) =
             pool.snapshotCumulativesInside(tickLower, tickUpper);

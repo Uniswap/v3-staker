@@ -24,17 +24,23 @@ interface IUniswapV3Staker {
     /// @notice Represents a staking incentive
     struct Incentive {
         uint128 totalRewardUnclaimed;
+        uint128 numberOfStakes;
         uint160 totalSecondsClaimedX128;
     }
 
     /// @notice Represents a staking incentive
     /// @param incentiveId The ID of the incentive computed from its parameters
     /// @return totalRewardUnclaimed The amount of reward token not yet claimed by users
+    /// @return numberOfStakes The count of deposits that are currently staked for the incentive
     /// @return totalSecondsClaimedX128 Total liquidity-seconds claimed, represented as a UQ32.128
     function incentives(bytes32 incentiveId)
         external
         view
-        returns (uint128 totalRewardUnclaimed, uint160 totalSecondsClaimedX128);
+        returns (
+            uint128 totalRewardUnclaimed,
+            uint128 numberOfStakes,
+            uint160 totalSecondsClaimedX128
+        );
 
     /// @notice Represents the deposit of a liquidity NFT
     struct Deposit {
@@ -81,7 +87,7 @@ interface IUniswapV3Staker {
     function createIncentive(IncentiveId.Key memory key, uint128 reward)
         external;
 
-    /// @notice Ends an incentive whose claimDeadline has passed.
+    /// @notice Ends an incentive after the incentive end time has passed and all stakes have been withdrawn
     /// @param key Details of the incentive to end
     function endIncentive(IncentiveId.Key memory key) external;
 
@@ -110,15 +116,13 @@ interface IUniswapV3Staker {
     /// @param pool The Uniswap V3 pool
     /// @param startTime The time when the incentive program begins
     /// @param endTime The time when rewards stop accruing
-    /// @param claimDeadline Time after which anoyne can cause unaccounted-for rewards to be sent to the refundee
-    /// @param refundee The address which receives any remaining reward tokens after the claimDeadline
+    /// @param refundee The address which receives any remaining reward tokens after the end time
     /// @param reward The amount of reward tokens to be distributed
     event IncentiveCreated(
         IERC20Minimal indexed rewardToken,
         IUniswapV3Pool indexed pool,
         uint256 startTime,
         uint256 endTime,
-        uint256 claimDeadline,
         address refundee,
         uint128 reward
     );
