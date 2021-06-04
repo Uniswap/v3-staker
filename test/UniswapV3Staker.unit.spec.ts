@@ -583,9 +583,9 @@ describe('UniswapV3Staker.unit', async () => {
           await subject(tokenId)
           const stakeAfter = await context.staker.stakes(tokenId, incentiveId)
 
-          expect(stakeBefore.secondsPerLiquidityInitialX128).to.eq(0)
+          expect(stakeBefore.secondsPerLiquidityInsideInitialX128).to.eq(0)
           expect(stakeBefore.liquidity).to.eq(0)
-          expect(stakeAfter.secondsPerLiquidityInitialX128).to.be.gt(0)
+          expect(stakeAfter.secondsPerLiquidityInsideInitialX128).to.be.gt(0)
           expect(stakeAfter.liquidity).to.eq(liquidity)
           expect((await context.staker.deposits(tokenId)).numberOfStakes).to.eq(
             nStakesBefore.add(1)
@@ -691,7 +691,7 @@ describe('UniswapV3Staker.unit', async () => {
 
         await provider.send('evm_mine', [timestamps.startTime + 100])
 
-        const { reward, secondsInPeriodX128 } = await context.staker
+        const reward = await context.staker
           .connect(lpUser0)
           .getRewardAmount(stakeParams, tokenId)
 
@@ -701,12 +701,11 @@ describe('UniswapV3Staker.unit', async () => {
         } = await pool.snapshotCumulativesInside(tickLower, tickUpper)
 
         const expectedSecondsInPeriod = secondsPerLiquidityInsideX128
-          .sub(stake.secondsPerLiquidityInitialX128)
+          .sub(stake.secondsPerLiquidityInsideInitialX128)
           .mul(stake.liquidity)
 
         // @ts-ignore
         expect(reward).to.be.closeTo(BNe(1, 19), BN(1))
-        expect(secondsInPeriodX128).to.eq(expectedSecondsInPeriod)
       })
 
       it('returns 0 for ended incentives', async () => {
@@ -718,7 +717,7 @@ describe('UniswapV3Staker.unit', async () => {
           pool: context.pool01,
           ...timestamps,
         })
-        const { reward } = await context.staker
+        const reward = await context.staker
           .connect(lpUser0)
           .getRewardAmount(stakeParams, tokenId)
 
@@ -924,9 +923,9 @@ describe('UniswapV3Staker.unit', async () => {
           await subject()
           const stakeAfter = await context.staker.stakes(tokenId, incentiveId)
 
-          expect(stakeBefore.secondsPerLiquidityInitialX128).to.gt(0)
+          expect(stakeBefore.secondsPerLiquidityInsideInitialX128).to.gt(0)
           expect(stakeBefore.liquidity).to.gt(0)
-          expect(stakeAfter.secondsPerLiquidityInitialX128).to.eq(0)
+          expect(stakeAfter.secondsPerLiquidityInsideInitialX128).to.eq(0)
           expect(stakeAfter.liquidity).to.eq(0)
         })
 
@@ -949,9 +948,9 @@ describe('UniswapV3Staker.unit', async () => {
             await subject()
             const stakeAfter = await context.staker.stakes(tokenId, incentiveId)
 
-            expect(stakeBefore.secondsPerLiquidityInitialX128).to.gt(0)
+            expect(stakeBefore.secondsPerLiquidityInsideInitialX128).to.gt(0)
             expect(stakeBefore.liquidity).to.gt(0)
-            expect(stakeAfter.secondsPerLiquidityInitialX128).to.eq(0)
+            expect(stakeAfter.secondsPerLiquidityInsideInitialX128).to.eq(0)
             expect(stakeAfter.liquidity).to.eq(0)
           })
 
@@ -1092,8 +1091,8 @@ describe('UniswapV3Staker.unit', async () => {
         expect(
           (await context.staker.deposits(tokenId)).numberOfStakes
         ).to.equal(1)
-        expect(stakeBefore.secondsPerLiquidityInitialX128).to.equal(0)
-        expect(stakeAfter.secondsPerLiquidityInitialX128).to.be.gt(0)
+        expect(stakeBefore.secondsPerLiquidityInsideInitialX128).to.equal(0)
+        expect(stakeAfter.secondsPerLiquidityInsideInitialX128).to.be.gt(0)
       })
 
       it('has gas cost', async () => {

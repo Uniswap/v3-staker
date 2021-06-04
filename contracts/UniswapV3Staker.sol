@@ -6,7 +6,6 @@ import './interfaces/IUniswapV3Staker.sol';
 import './libraries/IncentiveId.sol';
 
 import '@uniswap/v3-core/contracts/libraries/FixedPoint96.sol';
-import '@uniswap/v3-core/contracts/libraries/FixedPoint128.sol';
 import '@uniswap/v3-core/contracts/libraries/FullMath.sol';
 import '@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol';
 import '@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol';
@@ -212,7 +211,7 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
         if (incentive.totalRewardUnclaimed > 0) {
             (, uint160 secondsPerLiquidityInsideX128, ) =
                 key.pool.snapshotCumulativesInside(tickLower, tickUpper);
-            (uint256 reward, uint160 secondsInPeriodX128) =
+            (uint256 reward, uint160 secondsInsideX128) =
                 _getRewardAmount(
                     stake,
                     incentive,
@@ -221,7 +220,7 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
                 );
 
             incentives[incentiveId]
-                .totalSecondsClaimedX128 += secondsInPeriodX128;
+                .totalSecondsClaimedX128 += secondsInsideX128;
 
             // TODO: is SafeMath necessary here? Could we do just a subtraction?
             incentives[incentiveId].totalRewardUnclaimed = uint128(
@@ -254,9 +253,10 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
 
     /// @dev Returns the reward amount owed for a given incentive and token combination
     function getRewardAmount(IncentiveId.Key memory key, uint256 tokenId)
-        public
+        external
         view
-        returns (uint256 reward, uint160 secondsInPeriodX128)
+        override
+        returns (uint256 reward)
     {
         (IUniswapV3Pool pool, int24 tickLower, int24 tickUpper, ) =
             _getPositionDetails(tokenId);
@@ -268,13 +268,12 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
         (, uint160 secondsPerLiquidityInsideX128, ) =
             pool.snapshotCumulativesInside(tickLower, tickUpper);
 
-        return
-            _getRewardAmount(
-                stake,
-                incentive,
-                key,
-                secondsPerLiquidityInsideX128
-            );
+        (reward, ) = _getRewardAmount(
+            stake,
+            incentive,
+            key,
+            secondsPerLiquidityInsideX128
+        );
     }
 
     function _getRewardAmount(
@@ -282,36 +281,21 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
         Incentive memory incentive,
         IncentiveId.Key memory key,
         uint160 secondsPerLiquidityInsideX128
-    ) private view returns (uint256 reward, uint160 secondsInPeriodX128) {
-        secondsInPeriodX128 = uint160(
-            SafeMath.mul(
-                secondsPerLiquidityInsideX128 -
-                    stake.secondsPerLiquidityInitialX128,
-                stake.liquidity
-            )
-        );
+    ) private view returns (uint256 reward, uint160 secondsInsideX128) {
+        // this operation is safe, as the difference cannot be greater than 1/stake.liquidity
+        secondsInsideX128 =
+            (secondsPerLiquidityInsideX128 -
+                stake.secondsPerLiquidityInsideInitialX128) *
+            stake.liquidity;
 
-        // TODO: double-check for overflow risk here
-        uint160 totalSecondsUnclaimedX128 =
-            uint160(
-                SafeMath.mul(
-                    Math.max(key.endTime, block.timestamp) - key.startTime,
-                    FixedPoint128.Q128
-                ) - incentive.totalSecondsClaimedX128
-            );
-
-        // TODO: Make sure this truncates and not rounds up
-        uint256 rewardRate =
-            FullMath.mulDiv(
-                incentive.totalRewardUnclaimed,
-                FixedPoint128.Q128,
-                totalSecondsUnclaimedX128
-            );
+        uint256 totalSecondsUnclaimedX128 =
+            ((Math.max(key.endTime, block.timestamp) - key.startTime) << 128) -
+                incentive.totalSecondsClaimedX128;
 
         reward = FullMath.mulDiv(
-            secondsInPeriodX128,
-            rewardRate,
-            FixedPoint128.Q128
+            incentive.totalRewardUnclaimed,
+            secondsInsideX128,
+            totalSecondsUnclaimedX128
         );
     }
 
@@ -345,7 +329,7 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
             pool.snapshotCumulativesInside(tickLower, tickUpper);
 
         stakes[tokenId][incentiveId] = Stake({
-            secondsPerLiquidityInitialX128: secondsPerLiquidityInsideX128,
+            secondsPerLiquidityInsideInitialX128: secondsPerLiquidityInsideX128,
             liquidity: liquidity
         });
 
