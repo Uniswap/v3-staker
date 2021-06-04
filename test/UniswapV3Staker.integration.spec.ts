@@ -231,7 +231,7 @@ describe('UniswapV3Staker.integration', async () => {
         const { startTime, endTime } = createIncentiveResult
 
         // Halfway through, lp0 decides they want out. Pauvre lp0.
-        await Time.set(startTime + duration / 2)
+        await Time.setAndMine(startTime + duration / 2)
 
         const [lpUser0, lpUser1, lpUser2] = actors.lpUsers()
         let unstakes: Array<HelperTypes.UnstakeCollectBurn.Result> = []
@@ -259,7 +259,7 @@ describe('UniswapV3Staker.integration', async () => {
         )
 
         // Now the other two LPs hold off till the end and unstake
-        await Time.set(endTime + 1)
+        await Time.setAndMine(endTime + 1)
         const otherUnstakes = await Promise.all(
           stakes.slice(1).map(({ lp, tokenId }) =>
             helpers.unstakeCollectBurnFlow({
@@ -271,7 +271,8 @@ describe('UniswapV3Staker.integration', async () => {
         )
         unstakes.push(...otherUnstakes)
 
-        await Time.set(createIncentiveResult.endTime + 1)
+        // We don't need this call anymore because we're already setting that time above
+        // await Time.set(createIncentiveResult.endTime + 1)
         const { amountReturnedToCreator } = await helpers.endIncentiveFlow({
           createIncentiveResult,
         })
@@ -352,7 +353,7 @@ describe('UniswapV3Staker.integration', async () => {
     })
 
     describe('when another LP starts staking halfway through', () => {
-      describe('and provides half the liquidity', async () => {
+      describe('and provides half the liquidity', () => {
         it('gives them a smaller share of the reward', async () => {
           const { helpers, createIncentiveResult, stakes, context } = subject
           const { startTime, endTime } = createIncentiveResult
@@ -378,7 +379,7 @@ describe('UniswapV3Staker.integration', async () => {
           })
 
           // Now, go to the end and get rewards
-          await Time.set(endTime + 1)
+          await Time.setAndMine(endTime + 1)
 
           const unstakes = await Promise.all(
             stakes.concat(extraStake).map(({ lp, tokenId }) =>
@@ -394,7 +395,7 @@ describe('UniswapV3Staker.integration', async () => {
             '4.34'
           )
 
-          await Time.set(endTime + 1)
+          // await Time.set(endTime + 1)
           const { amountReturnedToCreator } = await helpers.endIncentiveFlow({
             createIncentiveResult,
           })
@@ -474,7 +475,7 @@ describe('UniswapV3Staker.integration', async () => {
           BNe(5, 16)
         )
 
-        await Time.set(createIncentiveResult.endTime + 1)
+        // await Time.set(createIncentiveResult.endTime + 1)
         const { amountReturnedToCreator } = await helpers.endIncentiveFlow({
           createIncentiveResult,
         })
