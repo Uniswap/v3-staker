@@ -122,7 +122,14 @@ describe('UniswapV3Staker.integration', async () => {
     describe('who all stake the entire time ', () => {
       it('allows them all to withdraw at the end', async () => {
         const { helpers, createIncentiveResult } = subject
-        await Time.set(createIncentiveResult.endTime + 1)
+
+        await Time.setAndMine(createIncentiveResult.endTime + 1)
+
+        // Sanity check: make sure we go past the incentive end time.
+        expect(
+          await blockTimestamp(),
+          'test setup: must be run after start time'
+        ).to.be.gte(createIncentiveResult.endTime)
 
         // Everyone pulls their liquidity at the same time
         const unstakes = await Promise.all(
@@ -137,8 +144,6 @@ describe('UniswapV3Staker.integration', async () => {
         const rewardsEarned = bnSum(unstakes.map((o) => o.balance))
         log.debug('Total rewards ', rewardsEarned.toString())
 
-        // Fast-forward until after the program ends
-        await Time.set(createIncentiveResult.endTime + 1)
         const { amountReturnedToCreator } = await helpers.endIncentiveFlow({
           createIncentiveResult,
         })
