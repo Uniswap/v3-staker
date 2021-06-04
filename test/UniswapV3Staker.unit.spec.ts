@@ -402,7 +402,7 @@ describe('UniswapV3Staker.unit', async () => {
       })
     })
 
-    describe.only('nft#safeTransferFrom', () => {
+    describe('nft#safeTransferFrom', () => {
       let subject: (calldata: string, actor?: Wallet) => Promise<any>
       let createIncentiveResult: HelperTypes.CreateIncentive.Result
 
@@ -460,7 +460,7 @@ describe('UniswapV3Staker.unit', async () => {
         expect(deposit.numberOfStakes).to.eq(BN('1'))
       })
 
-      it.only('allows depositing and staking for two incentives', async () => {
+      it('allows depositing and staking for two incentives', async () => {
         const incentive2 = await helpers.createIncentiveFlow({
           rewardToken: context.rewardToken,
           poolAddress: context.poolObj.address,
@@ -508,166 +508,6 @@ describe('UniswapV3Staker.unit', async () => {
             ) + 'aaaa'
 
           await expect(subject(data, lpUser0)).to.be.reverted
-        })
-      })
-    })
-
-    describe('#onERC721Received', () => {
-      let tokenId: BigNumberish
-      let data: string
-
-      beforeEach('set up position', async () => {
-        const { rewardToken } = context
-        timestamps = makeTimestamps((await blockTimestamp()) + 1_000)
-
-        await erc20Helper.ensureBalancesAndApprovals(
-          lpUser0,
-          [context.token0, context.token1],
-          amountDesired,
-          context.nft.address
-        )
-
-        tokenId = await mintPosition(context.nft.connect(lpUser0), {
-          token0: context.token0.address,
-          token1: context.token1.address,
-          fee: FeeAmount.MEDIUM,
-          tickLower: getMinTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
-          tickUpper: getMaxTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
-          recipient: lpUser0.address,
-          amount0Desired: amountDesired,
-          amount1Desired: amountDesired,
-          amount0Min: 0,
-          amount1Min: 0,
-          deadline: (await blockTimestamp()) + 1000,
-        })
-
-        const incentive = await helpers.createIncentiveFlow({
-          rewardToken,
-          totalReward,
-          poolAddress: context.poolObj.address,
-          ...timestamps,
-        })
-
-        const incentiveKey = incentiveResultToStakeAdapter(incentive)
-
-        data = ethers.utils.defaultAbiCoder.encode(
-          [INCENTIVE_KEY_ABI],
-          [incentiveKey]
-        )
-      })
-
-      describe('on successful transfer with staking data', () => {
-        beforeEach('set the timestamp after the start time', async () => {
-          await Time.set(timestamps.startTime + 1)
-        })
-
-        it('deposits the token', async () => {
-          expect((await context.staker.deposits(1)).owner).to.equal(
-            constants.AddressZero
-          )
-          await context.nft
-            .connect(lpUser0)
-            ['safeTransferFrom(address,address,uint256)'](
-              lpUser0.address,
-              context.staker.address,
-              tokenId,
-              maxGas
-            )
-          expect((await context.staker.deposits(1)).owner).to.equal(
-            lpUser0.address
-          )
-        })
-
-        it('properly stakes the deposit in the select incentive', async () => {
-          const incentiveId = await context.testIncentiveId.compute({
-            rewardToken: context.rewardToken.address,
-            pool: context.pool01,
-            startTime: timestamps.startTime,
-            endTime: timestamps.endTime,
-            claimDeadline: timestamps.claimDeadline,
-            refundee: incentiveCreator.address,
-          })
-          await Time.set(timestamps.startTime + 10)
-          const stakeBefore = await context.staker.stakes(tokenId, incentiveId)
-          const depositBefore = await context.staker.deposits(tokenId)
-          await context.nft
-            .connect(lpUser0)
-            ['safeTransferFrom(address,address,uint256,bytes)'](
-              lpUser0.address,
-              context.staker.address,
-              tokenId,
-              data,
-              {
-                ...maxGas,
-                from: lpUser0.address,
-              }
-            )
-          const stakeAfter = await context.staker.stakes(tokenId, incentiveId)
-
-          expect(depositBefore.numberOfStakes).to.equal(0)
-          expect(
-            (await context.staker.deposits(tokenId)).numberOfStakes
-          ).to.equal(1)
-          expect(stakeBefore.secondsPerLiquidityInitialX128).to.equal(0)
-          expect(stakeAfter.secondsPerLiquidityInitialX128).to.be.gt(0)
-        })
-
-        it('has gas cost', async () => {
-          await snapshotGasCost(
-            context.nft
-              .connect(lpUser0)
-              ['safeTransferFrom(address,address,uint256,bytes)'](
-                lpUser0.address,
-                context.staker.address,
-                tokenId,
-                data,
-                {
-                  ...maxGas,
-                  from: lpUser0.address,
-                }
-              )
-          )
-        })
-      })
-
-      describe('on invalid call', async () => {
-        it('reverts when called by contract other than uniswap v3 nonfungiblePositionManager', async () => {
-          await expect(
-            context.staker
-              .connect(lpUser0)
-              .onERC721Received(
-                incentiveCreator.address,
-                lpUser0.address,
-                1,
-                data
-              )
-          ).to.be.revertedWith('not a univ3 nft')
-        })
-
-        it('reverts when staking on invalid incentive', async () => {
-          const invalidStakeParams = {
-            rewardToken: context.rewardToken.address,
-            refundee: incentiveCreator.address,
-            pool: context.pool01,
-            ...timestamps,
-            startTime: 100,
-          }
-
-          let invalidData = ethers.utils.defaultAbiCoder.encode(
-            [INCENTIVE_KEY_ABI],
-            [invalidStakeParams]
-          )
-
-          await expect(
-            context.nft
-              .connect(lpUser0)
-              ['safeTransferFrom(address,address,uint256,bytes)'](
-                lpUser0.address,
-                context.staker.address,
-                tokenId,
-                invalidData
-              )
-          ).to.be.revertedWith('non-existent incentive')
         })
       })
     })
