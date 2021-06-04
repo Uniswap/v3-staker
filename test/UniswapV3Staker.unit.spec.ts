@@ -697,7 +697,7 @@ describe('UniswapV3Staker.unit', async () => {
       })
 
       it('returns nonzero for incentive after end time', async () => {
-        await Time.set(timestamps.endTime + 1)
+        await Time.setAndMine(timestamps.endTime + 1)
 
         const { reward, secondsInPeriodX128 } = await context.staker
           .connect(lpUser0)
