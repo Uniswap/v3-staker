@@ -306,9 +306,14 @@ describe('UniswapV3Staker.unit', async () => {
 
           await Time.set(timestamps.endTime + 1)
           await subject({})
-          expect(
-            (await context.staker.incentives(incentiveId)).totalRewardUnclaimed
-          ).to.eq(0)
+          const {
+            totalRewardUnclaimed,
+            totalSecondsClaimedX128,
+            numberOfStakes,
+          } = await context.staker.incentives(incentiveId)
+          expect(totalRewardUnclaimed).to.eq(0)
+          expect(totalSecondsClaimedX128).to.eq(0)
+          expect(numberOfStakes).to.eq(0)
         })
 
         it('has gas cost', async () => {
@@ -333,6 +338,28 @@ describe('UniswapV3Staker.unit', async () => {
               startTime: (await blockTimestamp()) + 1000,
             })
           ).to.be.revertedWith('no refund available')
+        })
+
+        it('incentive has stakes', async () => {
+          await Time.set(timestamps.startTime)
+
+          // stake a token
+          await helpers.mintDepositStakeFlow({
+            lp: lpUser0,
+            createIncentiveResult,
+            tokensToStake: [context.token0, context.token1],
+            ticks: [
+              getMinTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
+              getMaxTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
+            ],
+            amountsToStake: [amountDesired, amountDesired],
+          })
+
+          // Adjust the block.timestamp so it is after the claim deadline
+          await Time.set(timestamps.endTime + 1)
+          await expect(subject({})).to.be.revertedWith(
+            'cannot end incentive while deposits are staked'
+          )
         })
       })
     })

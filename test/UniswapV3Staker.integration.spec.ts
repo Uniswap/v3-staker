@@ -145,7 +145,7 @@ describe('UniswapV3Staker.integration', async () => {
         expect(rewardsEarned.add(amountReturnedToCreator)).to.eq(totalReward)
       })
 
-      describe.skip('time goes past the incentive end time', () => {
+      describe('time goes past the incentive end time', () => {
         it('still allows an LP to unstake if they have not already', async () => {
           const {
             createIncentiveResult,
