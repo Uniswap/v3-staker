@@ -58,19 +58,22 @@ interface IUniswapV3Staker {
 
     /// @notice Represents a staked liquidity NFT
     struct Stake {
-        uint160 secondsPerLiquidityInitialX128;
+        uint160 secondsPerLiquidityInsideInitialX128;
         uint128 liquidity;
     }
 
     /// @notice Returns information about a staked liquidity NFT
     /// @param tokenId The ID of the staked token
     /// @param incentiveId The ID of the incentive for which the token is staked
-    /// @return secondsPerLiquidityInitialX128 secondsPerLiquidity represented as a UQ32.128
+    /// @return secondsPerLiquidityInsideInitialX128 secondsPerLiquidity represented as a UQ32.128
     /// @return liquidity The amount of liquidity in the NFT as of the last time the rewards were computed
     function stakes(uint256 tokenId, bytes32 incentiveId)
         external
         view
-        returns (uint160 secondsPerLiquidityInitialX128, uint128 liquidity);
+        returns (
+            uint160 secondsPerLiquidityInsideInitialX128,
+            uint128 liquidity
+        );
 
     /// @notice Returns amounts of reward tokens owed to a given address according to the last time all stakes were updated
     /// @param rewardToken The token for which to check rewards
@@ -110,6 +113,14 @@ interface IUniswapV3Staker {
     /// @param rewardToken The token being distributed as a reward
     /// @param to The address where claimed rewards will be sent to
     function claimReward(IERC20Minimal rewardToken, address to) external;
+
+    /// @notice Calculates reward amount for an NFT
+    /// @param key The key of the incentive
+    /// @param tokenId The ID of the token
+    /// @return reward The reward accrued to the NFT thus far
+    function getRewardAmount(IncentiveId.Key memory key, uint256 tokenId)
+        external
+        returns (uint256 reward);
 
     /// @notice Event emitted when a liquidity mining incentive has been created
     /// @param rewardToken The token being distributed as a reward

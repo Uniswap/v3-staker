@@ -19,7 +19,7 @@ export module ContractParams {
   export type EndIncentive = IncentiveKey
 
   export type Stake = {
-    secondsPerLiquidityInitialX128: BigNumber
+    secondsPerLiquidityInsideInitialX128: BigNumber
     liquidity: BigNumber
   }
 }
