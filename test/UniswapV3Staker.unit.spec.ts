@@ -75,7 +75,7 @@ describe('UniswapV3Staker.unit', async () => {
   let context: UniswapFixtureType
 
   /**
-   * Helper for keeping track of startTime, endTime, claimDeadline.
+   * Helper for keeping track of startTime, endTime.
    */
   let timestamps: ContractParams.Timestamps
 
@@ -126,9 +126,7 @@ describe('UniswapV3Staker.unit', async () => {
             context.staker.address
           )
 
-          const { startTime, endTime, claimDeadline } = makeTimestamps(
-            await blockTimestamp()
-          )
+          const { startTime, endTime } = makeTimestamps(await blockTimestamp())
 
           return await context.staker.connect(incentiveCreator).createIncentive(
             {
@@ -136,7 +134,6 @@ describe('UniswapV3Staker.unit', async () => {
               pool: context.pool01,
               startTime: params.startTime || startTime,
               endTime: params.endTime || endTime,
-              claimDeadline: params.claimDeadline || claimDeadline,
               refundee: params.refundee || incentiveCreator.address,
             },
             totalReward
@@ -159,17 +156,14 @@ describe('UniswapV3Staker.unit', async () => {
         })
 
         it('emits an event with valid parameters', async () => {
-          const { startTime, endTime, claimDeadline } = makeTimestamps(
-            await blockTimestamp()
-          )
-          await expect(subject({ startTime, endTime, claimDeadline }))
+          const { startTime, endTime } = makeTimestamps(await blockTimestamp())
+          await expect(subject({ startTime, endTime }))
             .to.emit(context.staker, 'IncentiveCreated')
             .withArgs(
               context.rewardToken.address,
               context.pool01,
               startTime,
               endTime,
-              claimDeadline,
               incentiveCreator.address,
               totalReward
             )
@@ -183,7 +177,6 @@ describe('UniswapV3Staker.unit', async () => {
             pool: context.pool01,
             startTime: timestamps.startTime,
             endTime: timestamps.endTime,
-            claimDeadline: timestamps.claimDeadline,
             refundee: incentiveCreator.address,
           })
 
@@ -211,11 +204,7 @@ describe('UniswapV3Staker.unit', async () => {
 
         describe('invalid timestamps', () => {
           it('current time is after start time', async () => {
-            const params = makeTimestamps(
-              await blockTimestamp(),
-              100_000,
-              200_000
-            )
+            const params = makeTimestamps(await blockTimestamp(), 100_000)
 
             // Go to after the start time
             await Time.setAndMine(params.startTime + 100)
@@ -231,28 +220,8 @@ describe('UniswapV3Staker.unit', async () => {
               'test setup: after end time'
             )
 
-            expect(now, 'test setup: after claim deadline').to.be.lessThan(
-              params.claimDeadline
-            )
-
             await expect(subject(params)).to.be.revertedWith(
               'start time must be now or in the future'
-            )
-          })
-
-          it('claim deadline is before end time', async () => {
-            const params = makeTimestamps(await blockTimestamp())
-            params.endTime = params.claimDeadline + 100
-            await expect(subject(params)).to.be.revertedWith(
-              'end time must be at or before claim deadline'
-            )
-          })
-
-          it('claim deadline is before start time', async () => {
-            const params = makeTimestamps(await blockTimestamp())
-            params.claimDeadline = params.startTime - 10
-            await expect(subject(params)).to.be.revertedWith(
-              'end time must be at or before claim deadline'
             )
           })
 
@@ -277,7 +246,7 @@ describe('UniswapV3Staker.unit', async () => {
                   rewardToken: context.rewardToken.address,
                   pool: context.pool01,
                   refundee: incentiveCreator.address,
-                  ...makeTimestamps(now, 1_000, 2_000),
+                  ...makeTimestamps(now, 1_000),
                 },
                 BNe18(0)
               )
@@ -309,7 +278,6 @@ describe('UniswapV3Staker.unit', async () => {
             pool: context.pool01,
             startTime: params.startTime || timestamps.startTime,
             endTime: params.endTime || timestamps.endTime,
-            claimDeadline: params.claimDeadline || timestamps.claimDeadline,
             refundee: incentiveCreator.address,
           })
         }
@@ -317,7 +285,7 @@ describe('UniswapV3Staker.unit', async () => {
 
       describe('works and', () => {
         it('emits IncentiveEnded event', async () => {
-          await Time.set(timestamps.claimDeadline + 10)
+          await Time.set(timestamps.endTime + 10)
 
           const incentiveId = await helpers.getIncentiveId(
             createIncentiveResult
@@ -336,35 +304,62 @@ describe('UniswapV3Staker.unit', async () => {
             (await context.staker.incentives(incentiveId)).totalRewardUnclaimed
           ).to.be.gt(0)
 
-          await Time.set(timestamps.claimDeadline + 1)
+          await Time.set(timestamps.endTime + 1)
           await subject({})
-          expect(
-            (await context.staker.incentives(incentiveId)).totalRewardUnclaimed
-          ).to.eq(0)
+          const {
+            totalRewardUnclaimed,
+            totalSecondsClaimedX128,
+            numberOfStakes,
+          } = await context.staker.incentives(incentiveId)
+          expect(totalRewardUnclaimed).to.eq(0)
+          expect(totalSecondsClaimedX128).to.eq(0)
+          expect(numberOfStakes).to.eq(0)
         })
 
         it('has gas cost', async () => {
-          await Time.set(timestamps.claimDeadline + 1)
+          await Time.set(timestamps.endTime + 1)
           await snapshotGasCost(subject({}))
         })
       })
 
       describe('reverts when', async () => {
-        it('block.timestamp <= claim deadline', async () => {
-          await Time.set(timestamps.claimDeadline - 10)
+        it('block.timestamp <= end time', async () => {
+          await Time.set(timestamps.endTime - 10)
           await expect(subject({})).to.be.revertedWith(
-            'cannot end incentive before claim deadline'
+            'cannot end incentive before end time'
           )
         })
 
         it('incentive does not exist', async () => {
           // Adjust the block.timestamp so it is after the claim deadline
-          await Time.set(timestamps.claimDeadline + 1)
+          await Time.set(timestamps.endTime + 1)
           await expect(
             subject({
               startTime: (await blockTimestamp()) + 1000,
             })
           ).to.be.revertedWith('no refund available')
+        })
+
+        it('incentive has stakes', async () => {
+          await Time.set(timestamps.startTime)
+
+          // stake a token
+          await helpers.mintDepositStakeFlow({
+            lp: lpUser0,
+            createIncentiveResult,
+            tokensToStake: [context.token0, context.token1],
+            ticks: [
+              getMinTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
+              getMaxTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
+            ],
+            amountsToStake: [amountDesired, amountDesired],
+          })
+
+          // Adjust the block.timestamp so it is after the claim deadline
+          await Time.set(timestamps.endTime + 1)
+          await expect(subject({})).to.be.revertedWith(
+            'cannot end incentive while deposits are staked'
+          )
         })
       })
     })
@@ -464,7 +459,7 @@ describe('UniswapV3Staker.unit', async () => {
             context.staker
               .connect(notOwner)
               .withdrawToken(tokenId, notOwner.address)
-          ).to.revertedWith('sender is not nft owner')
+          ).to.revertedWith('only owner can withdraw token')
         })
 
         it('number of stakes is not 0', async () => {
@@ -487,7 +482,7 @@ describe('UniswapV3Staker.unit', async () => {
           )
 
           await expect(subject(tokenId, lpUser0.address)).to.revertedWith(
-            'nonzero num of stakes'
+            'cannot withdraw token while staked'
           )
         })
       })
@@ -607,7 +602,7 @@ describe('UniswapV3Staker.unit', async () => {
         it('you are not the owner of the deposit', async () => {
           await Time.set(timestamps.startTime + 500)
           await expect(subject(tokenId, actors.lpUser2())).to.be.revertedWith(
-            'sender is not nft owner'
+            'only owner can withdraw token'
           )
         })
 
@@ -631,9 +626,9 @@ describe('UniswapV3Staker.unit', async () => {
     describe('#getRewardAmount', async () => {
       let incentiveId: string
       let stake: ContractParams.Stake
-      let stakeParams: ContractParams.IncentiveKey
+      let stakeIncentiveKey: ContractParams.IncentiveKey
 
-      beforeEach(async () => {
+      beforeEach('set up incentive and stake', async () => {
         timestamps = makeTimestamps((await blockTimestamp()) + 1_000)
 
         await erc20Helper.ensureBalancesAndApprovals(
@@ -665,7 +660,7 @@ describe('UniswapV3Staker.unit', async () => {
             tokenId
           )
 
-        stakeParams = {
+        stakeIncentiveKey = {
           refundee: incentiveCreator.address,
           rewardToken: context.rewardToken.address,
           pool: context.pool01,
@@ -682,7 +677,9 @@ describe('UniswapV3Staker.unit', async () => {
         )
 
         await Time.set(timestamps.startTime)
-        await context.staker.connect(lpUser0).stakeToken(stakeParams, tokenId)
+        await context.staker
+          .connect(lpUser0)
+          .stakeToken(stakeIncentiveKey, tokenId)
         stake = await context.staker.stakes(tokenId, incentiveId)
       })
 
@@ -693,7 +690,7 @@ describe('UniswapV3Staker.unit', async () => {
 
         const reward = await context.staker
           .connect(lpUser0)
-          .getRewardAmount(stakeParams, tokenId)
+          .getRewardAmount(stakeIncentiveKey, tokenId)
 
         const { tickLower, tickUpper } = await context.nft.positions(tokenId)
         const {
@@ -708,20 +705,14 @@ describe('UniswapV3Staker.unit', async () => {
         expect(reward).to.be.closeTo(BNe(1, 19), BN(1))
       })
 
-      it('returns 0 for ended incentives', async () => {
-        await Time.set(timestamps.claimDeadline + 1)
+      it('returns nonzero for incentive after end time', async () => {
+        await Time.setAndMine(timestamps.endTime + 1)
 
-        await context.staker.connect(incentiveCreator).endIncentive({
-          refundee: incentiveCreator.address,
-          rewardToken: context.rewardToken.address,
-          pool: context.pool01,
-          ...timestamps,
-        })
         const reward = await context.staker
           .connect(lpUser0)
-          .getRewardAmount(stakeParams, tokenId)
+          .getRewardAmount(stakeIncentiveKey, tokenId)
 
-        expect(reward).to.equal(0)
+        expect(reward, 'reward is nonzero').to.not.equal(0)
       })
     })
 
@@ -818,7 +809,7 @@ describe('UniswapV3Staker.unit', async () => {
       let subject: () => Promise<any>
       let createIncentiveResult: HelperTypes.CreateIncentive.Result
 
-      beforeEach(async () => {
+      beforeEach('create the incentive and nft and stake it', async () => {
         timestamps = makeTimestamps(await blockTimestamp())
 
         createIncentiveResult = await helpers.createIncentiveFlow({
@@ -883,7 +874,7 @@ describe('UniswapV3Staker.unit', async () => {
       })
 
       describe('works and', () => {
-        it('decrements numberOfStakes by 1', async () => {
+        it('decrements deposit numberOfStakes by 1', async () => {
           const { numberOfStakes: stakesPre } = await context.staker.deposits(
             tokenId
           )
@@ -891,6 +882,17 @@ describe('UniswapV3Staker.unit', async () => {
           const { numberOfStakes: stakesPost } = await context.staker.deposits(
             tokenId
           )
+          expect(stakesPre).to.not.equal(stakesPost.sub(1))
+        })
+
+        it('decrements incentive numberOfStakes by 1', async () => {
+          const { numberOfStakes: stakesPre } = await context.staker.incentives(
+            incentiveId
+          )
+          await subject()
+          const {
+            numberOfStakes: stakesPost,
+          } = await context.staker.incentives(incentiveId)
           expect(stakesPre).to.not.equal(stakesPost.sub(1))
         })
 
@@ -929,52 +931,6 @@ describe('UniswapV3Staker.unit', async () => {
           expect(stakeAfter.liquidity).to.eq(0)
         })
 
-        describe('when creator has terminated the incentive and collected remaining rewards', () => {
-          beforeEach(async () => {
-            await Time.set(timestamps.claimDeadline + 1)
-            await context.staker.connect(incentiveCreator).endIncentive({
-              refundee: incentiveCreator.address,
-              rewardToken: context.rewardToken.address,
-              pool: context.pool01,
-              ...timestamps,
-            })
-          })
-
-          it('it deletes the stake', async () => {
-            const stakeBefore = await context.staker.stakes(
-              tokenId,
-              incentiveId
-            )
-            await subject()
-            const stakeAfter = await context.staker.stakes(tokenId, incentiveId)
-
-            expect(stakeBefore.secondsPerLiquidityInsideInitialX128).to.gt(0)
-            expect(stakeBefore.liquidity).to.gt(0)
-            expect(stakeAfter.secondsPerLiquidityInsideInitialX128).to.eq(0)
-            expect(stakeAfter.liquidity).to.eq(0)
-          })
-
-          it('accrues 0 rewards to the recipient', async () => {
-            await subject()
-            expect(
-              await context.staker.rewards(
-                context.rewardToken.address,
-                lpUser0.address
-              )
-            ).to.eq(0)
-          })
-
-          it('does not write to incentive', async () => {
-            await subject()
-            const {
-              totalRewardUnclaimed,
-              totalSecondsClaimedX128,
-            } = await context.staker.incentives(incentiveId)
-            expect(totalRewardUnclaimed).to.eq(0)
-            expect(totalSecondsClaimedX128).to.eq(0)
-          })
-        })
-
         it('calculates the right secondsPerLiquidity')
         it('does not overflow totalSecondsUnclaimed')
       })
@@ -982,7 +938,7 @@ describe('UniswapV3Staker.unit', async () => {
       describe('fails if', () => {
         it('you have not staked', async () => {
           await subject()
-          await expect(subject()).to.revertedWith('nonexistent stake')
+          await expect(subject()).to.revertedWith('stake does not exist')
         })
       })
     })
@@ -990,7 +946,7 @@ describe('UniswapV3Staker.unit', async () => {
 
   describe('#onERC721Received', () => {
     const incentiveKeyAbi =
-      'tuple(address rewardToken, address pool, uint256 startTime, uint256 endTime, uint256 claimDeadline, address refundee)'
+      'tuple(address rewardToken, address pool, uint256 startTime, uint256 endTime, address refundee)'
     let tokenId: BigNumberish
     let data: string
     let timestamps: ContractParams.Timestamps
@@ -1067,7 +1023,6 @@ describe('UniswapV3Staker.unit', async () => {
           pool: context.pool01,
           startTime: timestamps.startTime,
           endTime: timestamps.endTime,
-          claimDeadline: timestamps.claimDeadline,
           refundee: incentiveCreator.address,
         })
         await Time.set(timestamps.startTime + 10)

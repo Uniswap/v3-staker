@@ -17,7 +17,6 @@ library IncentiveId {
         IUniswapV3Pool pool;
         uint256 startTime;
         uint256 endTime;
-        uint256 claimDeadline;
         address refundee;
     }
 

@@ -79,14 +79,11 @@ export class HelperCommands {
     const { startTime } = params
     const endTime =
       params.endTime || startTime + this.DEFAULT_INCENTIVE_DURATION
-    const claimDeadline =
-      params.claimDeadline || endTime + this.DEFAULT_CLAIM_DURATION
 
     const incentiveCreator = this.actors.incentiveCreator()
     const times = {
       startTime,
       endTime,
-      claimDeadline,
     }
     const bal = await params.rewardToken.balanceOf(incentiveCreator.address)
 
@@ -268,11 +265,7 @@ export class HelperCommands {
       await this.staker.connect(incentiveCreator).endIncentive(
         _.assign(
           {},
-          _.pick(params.createIncentiveResult, [
-            'startTime',
-            'endTime',
-            'claimDeadline',
-          ]),
+          _.pick(params.createIncentiveResult, ['startTime', 'endTime']),
           {
             rewardToken: rewardToken.address,
             pool: params.createIncentiveResult.poolAddress,
@@ -309,7 +302,6 @@ export class HelperCommands {
       pool: params.poolAddress,
       startTime: params.startTime,
       endTime: params.endTime,
-      claimDeadline: params.claimDeadline,
       refundee: params.refundee,
     })
   }
@@ -446,7 +438,6 @@ export const incentiveResultToStakeAdapter: IncentiveAdapterFunc = (
   pool: params.poolAddress,
   startTime: params.startTime,
   endTime: params.endTime,
-  claimDeadline: params.claimDeadline,
   rewardToken: params.rewardToken.address,
   refundee: params.refundee,
 })

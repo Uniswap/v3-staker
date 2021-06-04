@@ -151,12 +151,7 @@ export const erc20Wrap = async (x: string | TestERC20): Promise<TestERC20> => {
   return x
 }
 
-export const makeTimestamps = (
-  n: number,
-  duration: number = 1_000,
-  claimDuration: number = 1_000
-) => ({
+export const makeTimestamps = (n: number, duration: number = 1_000) => ({
   startTime: n + 100,
   endTime: n + 100 + duration,
-  claimDeadline: n + 100 + duration + claimDuration,
 })

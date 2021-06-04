@@ -7,6 +7,7 @@ There is a canonical position staking contract, Staker.
 ```solidity
 struct Incentive {
   uint128 totalRewardUnclaimed;
+  uint128 numberOfStakes;
   uint160 totalSecondsClaimedX128;
 }
 
@@ -19,7 +20,6 @@ struct Stake {
   uint160 secondsPerLiquidityInsideInitialX128;
   uint128 liquidity;
 }
-
 ```
 
 State:
@@ -49,7 +49,6 @@ struct CreateIncentiveParams {
   address pool;
   uint256 startTime;
   uint256 endTime;
-  uint256 claimDeadline;
   uint128 totalReward;
 }
 
@@ -59,7 +58,6 @@ struct EndIncentiveParams {
   address pool;
   uint256 startTime;
   uint256 endTime;
-  uint256 claimDeadline;
 }
 
 ```
@@ -73,7 +71,7 @@ struct EndIncentiveParams {
 **Check:**
 
 - Incentive with these params does not already exist
-- Timestamps: `params.claimDeadline >= params.endTime >= params.startTime`, `block.timestamp < params.startTime`
+- Timestamps: `params.endTime >= params.startTime`, `params.startTime >= block.timestamp`
 - Incentive with this ID does not already exist. See `getIncentiveId`.
 
 **Effects:**
@@ -88,7 +86,7 @@ struct EndIncentiveParams {
 
 ### `endIncentive(EndIncentiveParams memory params)`
 
-`endIncentive` can be called by a `creator` to delete an Incentive whose `claimDeadline` has passed, transferring `totalRewardUnclaimed` of `rewardToken` back to `creator`.
+`endIncentive` can be called by anyone to end an Incentive after the `endTime` has passed, transferring `totalRewardUnclaimed` of `rewardToken` back to `refundee`.
 
 **Check:**
 

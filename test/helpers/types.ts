@@ -12,7 +12,6 @@ export module HelperTypes {
       poolAddress: string
       startTime: number
       endTime?: number
-      claimDeadline?: number
       totalReward: BigNumber
       refundee?: string
     }
@@ -22,7 +21,6 @@ export module HelperTypes {
       totalReward: BigNumber
       startTime: number
       endTime: number
-      claimDeadline: number
       refundee: string
     }
 
