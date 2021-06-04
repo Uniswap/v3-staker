@@ -17,6 +17,7 @@ import {
   BN,
   BNe,
   BNe18,
+  log,
   snapshotGasCost,
   ActorFixture,
   erc20Wrap,
@@ -401,7 +402,7 @@ describe('UniswapV3Staker.unit', async () => {
       })
     })
 
-    describe('nft#safeTransferFrom', () => {
+    describe.only('nft#safeTransferFrom', () => {
       let subject: (calldata: string, actor?: Wallet) => Promise<any>
       let createIncentiveResult: HelperTypes.CreateIncentive.Result
 
@@ -444,28 +445,52 @@ describe('UniswapV3Staker.unit', async () => {
         // Pass empty data
         await subject(ethers.utils.defaultAbiCoder.encode([], []), lpUser0)
         const deposit = await context.staker.deposits(tokenId)
-
         expect(deposit.owner).to.eq(lpUser0.address)
         // Make sure it is not staked.
         expect(deposit.numberOfStakes).to.eq(BN('0'))
       })
 
-      it('allows depositing and staking for a single incentive', () => {
-        // const data =
-        //   ([INCENTIVE_KEY_ABI],
-        //   [incentiveResultToStakeAdapter(createIncentiveResult)])
-        // Do a deposit.
-        // Make sure the deposit exists and belongs to sender
-        // Make sure the stake exists
+      it('allows depositing and staking for a single incentive', async () => {
+        const data = ethers.utils.defaultAbiCoder.encode(
+          [INCENTIVE_KEY_ABI],
+          [incentiveResultToStakeAdapter(createIncentiveResult)]
+        )
+
+        await subject(data, lpUser0)
+        const deposit = await context.staker.deposits(tokenId)
+        expect(deposit.owner).to.eq(lpUser0.address)
+        expect(deposit.numberOfStakes).to.eq(BN('1'))
       })
+
       it('allows depositing and staking for two incentives', () => {
-        // Do a deposit with the right calldata
-        // Make sure it's staked on two incentives
+        // TODO: create another incentive first
       })
 
       describe('reverts when', () => {
-        it('staking info is less than 160 bytes and greater than 0 bytes')
-        it('staking information is invalid and greater than 160 bytes')
+        it('staking info is less than 160 bytes and greater than 0 bytes', async () => {
+          const data = ethers.utils.defaultAbiCoder.encode(
+            [INCENTIVE_KEY_ABI],
+            [
+              // Make the data invalid
+              incentiveResultToStakeAdapter({
+                ...createIncentiveResult,
+                poolAddress: constants.AddressZero,
+              }),
+            ]
+          )
+
+          await expect(subject(data, lpUser0)).to.be.reverted
+        })
+
+        it('staking information is invalid and greater than 160 bytes', async () => {
+          const data =
+            ethers.utils.defaultAbiCoder.encode(
+              [INCENTIVE_KEY_ABI],
+              [incentiveResultToStakeAdapter(createIncentiveResult)]
+            ) + 'aaaa'
+
+          await expect(subject(data, lpUser0)).to.be.reverted
+        })
       })
     })
 
