@@ -359,7 +359,7 @@ describe('UniswapV3Staker.unit', async () => {
 
         it('incentive does not exist', async () => {
           // Adjust the block.timestamp so it is after the claim deadline
-          Time.set(timestamps.claimDeadline + 1)
+          await Time.set(timestamps.claimDeadline + 1)
           await expect(
             subject({
               startTime: (await blockTimestamp()) + 1000,
@@ -922,7 +922,7 @@ describe('UniswapV3Staker.unit', async () => {
 
         describe('when creator has terminated the incentive and collected remaining rewards', () => {
           beforeEach(async () => {
-            Time.set(timestamps.claimDeadline + 1)
+            await Time.set(timestamps.claimDeadline + 1)
             await context.staker.connect(incentiveCreator).endIncentive({
               refundee: incentiveCreator.address,
               rewardToken: context.rewardToken.address,
@@ -1061,7 +1061,7 @@ describe('UniswapV3Staker.unit', async () => {
           claimDeadline: timestamps.claimDeadline,
           refundee: incentiveCreator.address,
         })
-        Time.set(timestamps.startTime + 10)
+        await Time.set(timestamps.startTime + 10)
         const stakeBefore = await context.staker.stakes(tokenId, incentiveId)
         const depositBefore = await context.staker.deposits(tokenId)
         await context.nft
