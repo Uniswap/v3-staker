@@ -407,9 +407,7 @@ describe('UniswapV3Staker.unit', async () => {
       let createIncentiveResult: HelperTypes.CreateIncentive.Result
 
       beforeEach('setup', async () => {
-        const { startTime, endTime, claimDeadline } = makeTimestamps(
-          await blockTimestamp()
-        )
+        const { startTime } = makeTimestamps(await blockTimestamp())
 
         createIncentiveResult = await helpers.createIncentiveFlow({
           rewardToken: context.rewardToken,
@@ -462,8 +460,28 @@ describe('UniswapV3Staker.unit', async () => {
         expect(deposit.numberOfStakes).to.eq(BN('1'))
       })
 
-      it('allows depositing and staking for two incentives', () => {
-        // TODO: create another incentive first
+      it.only('allows depositing and staking for two incentives', async () => {
+        const incentive2 = await helpers.createIncentiveFlow({
+          rewardToken: context.rewardToken,
+          poolAddress: context.poolObj.address,
+          startTime: createIncentiveResult.startTime + 100,
+          totalReward,
+        })
+
+        await Time.setAndMine(incentive2.startTime)
+
+        const data = ethers.utils.defaultAbiCoder.encode(
+          [`${INCENTIVE_KEY_ABI}[]`],
+          [
+            [createIncentiveResult, incentive2].map(
+              incentiveResultToStakeAdapter
+            ),
+          ]
+        )
+        await subject(data, lpUser0)
+        const deposit = await context.staker.deposits(tokenId)
+        expect(deposit.owner).to.eq(lpUser0.address)
+        expect(deposit.numberOfStakes).to.eq(BN('2'))
       })
 
       describe('reverts when', () => {
