@@ -402,6 +402,16 @@ describe('UniswapV3Staker.unit', async () => {
       })
     })
 
+    describe('via nft#safeTransferFrom', () => {
+      it('allows depositing without staking')
+      it('allows depositing and staking for a single incentive')
+      it('allows depositing and staking for two incentives')
+      it(
+        'reverts if staking information is less than 160 bytes and greater than 0 bytes'
+      )
+      it('reverts if staking information is invalid and greater than 160 bytes')
+    })
+
     describe('#withdrawToken', () => {
       beforeEach(async () => {
         await context.nft
