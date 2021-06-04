@@ -624,8 +624,8 @@ describe('UniswapV3Staker.integration', async () => {
         createIncentiveResult,
       })
 
-      expect(lp2Balance).to.eq(BN('999990162082783982753'))
-      expect(lp1Balance).to.eq(BN('499996238431987912152'))
+      expect(lp2Balance).to.eq(BN('999990162082783775671'))
+      expect(lp1Balance).to.eq(BN('499996238431987566881'))
 
       await expect(
         helpers.unstakeCollectBurnFlow({
