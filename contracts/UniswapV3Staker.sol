@@ -180,7 +180,7 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
     {
         require(
             deposits[tokenId].owner == msg.sender,
-            'sender is not nft owner'
+            'only owner can withdraw token'
         );
 
         _stakeToken(key, tokenId);
@@ -193,7 +193,7 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
     {
         require(
             deposits[tokenId].owner == msg.sender,
-            'sender is not nft owner'
+            'only owner can withdraw token'
         );
 
         bytes32 incentiveId = IncentiveId.compute(key);

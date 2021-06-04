@@ -422,7 +422,7 @@ describe('UniswapV3Staker.unit', async () => {
             context.staker
               .connect(notOwner)
               .withdrawToken(tokenId, notOwner.address)
-          ).to.revertedWith('sender is not nft owner')
+          ).to.revertedWith('only owner can withdraw token')
         })
 
         it('number of stakes is not 0', async () => {
@@ -445,7 +445,7 @@ describe('UniswapV3Staker.unit', async () => {
           )
 
           await expect(subject(tokenId, lpUser0.address)).to.revertedWith(
-            'nonzero num of stakes'
+            'cannot withdraw token while staked'
           )
         })
       })
@@ -565,7 +565,7 @@ describe('UniswapV3Staker.unit', async () => {
         it('you are not the owner of the deposit', async () => {
           await Time.set(timestamps.startTime + 500)
           await expect(subject(tokenId, actors.lpUser2())).to.be.revertedWith(
-            'sender is not nft owner'
+            'only owner can withdraw token'
           )
         })
 
@@ -941,7 +941,7 @@ describe('UniswapV3Staker.unit', async () => {
       describe('fails if', () => {
         it('you have not staked', async () => {
           await subject()
-          await expect(subject()).to.revertedWith('nonexistent stake')
+          await expect(subject()).to.revertedWith('stake does not exist')
         })
       })
     })
