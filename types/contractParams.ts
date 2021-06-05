@@ -17,9 +17,23 @@ export module ContractParams {
   }
 
   export type EndIncentive = IncentiveKey
+}
 
+export module ContractStructs {
+  // I think this is possible using ReturnType and ThenArg
   export type Stake = {
     secondsPerLiquidityInsideInitialX128: BigNumber
     liquidity: BigNumber
+  }
+
+  export type Deposit = {
+    owner: string
+    numberOfStakes: BigNumber
+  }
+
+  export type Incentive = {
+    totalRewardUnclaimed: BigNumber
+    numberOfStakes: BigNumber
+    totalSecondsClaimedX128: BigNumber
   }
 }

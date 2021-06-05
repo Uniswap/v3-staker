@@ -1,4 +1,4 @@
-import { constants, BigNumberish, Wallet } from 'ethers'
+import { constants, BigNumberish, Wallet, BigNumber } from 'ethers'
 import { LoadFixtureFunction } from './types'
 import { ethers } from 'hardhat'
 import { UniswapV3Staker, TestERC20 } from '../typechain'
@@ -17,8 +17,8 @@ import {
   BN,
   BNe,
   BNe18,
+  log,
   snapshotGasCost,
-  MAX_GAS_LIMIT,
   ActorFixture,
   erc20Wrap,
   makeTimestamps,
@@ -31,7 +31,7 @@ import {
   incentiveResultToStakeAdapter,
 } from './helpers'
 
-import { ContractParams } from '../types/contractParams'
+import { ContractParams, ContractStructs } from '../types/contractParams'
 import { createTimeMachine } from './shared/time'
 import { HelperTypes } from './helpers/types'
 
@@ -374,6 +374,11 @@ describe('UniswapV3Staker.unit', async () => {
     let tokenId: string
     let recipient = lpUser0.address
 
+    const SAFE_TRANSFER_FROM_SIGNATURE =
+      'safeTransferFrom(address,address,uint256,bytes)'
+    const INCENTIVE_KEY_ABI =
+      'tuple(address rewardToken, address pool, uint256 startTime, uint256 endTime, address refundee)'
+
     beforeEach(async () => {
       await erc20Helper.ensureBalancesAndApprovals(
         lpUser0,
@@ -397,14 +402,171 @@ describe('UniswapV3Staker.unit', async () => {
       })
     })
 
-    describe('via nft#safeTransferFrom', () => {
-      it('allows depositing without staking')
-      it('allows depositing and staking for a single incentive')
-      it('allows depositing and staking for two incentives')
-      it(
-        'reverts if staking information is less than 160 bytes and greater than 0 bytes'
-      )
-      it('reverts if staking information is invalid and greater than 160 bytes')
+    describe('nft#safeTransferFrom', () => {
+      /**
+       * We're ultimately checking these variables, so subject calls with calldata (from actor)
+       * and returns those three objects. */
+      let subject: (
+        calldata: string,
+        actor?: Wallet
+      ) => Promise<{
+        deposit: ContractStructs.Deposit
+        stake: ContractStructs.Stake
+        incentive: ContractStructs.Incentive
+      }>
+
+      let createIncentiveResult: HelperTypes.CreateIncentive.Result
+
+      beforeEach('setup', async () => {
+        const { startTime } = makeTimestamps(await blockTimestamp())
+
+        createIncentiveResult = await helpers.createIncentiveFlow({
+          rewardToken: context.rewardToken,
+          poolAddress: context.poolObj.address,
+          startTime,
+          totalReward,
+        })
+
+        await Time.setAndMine(startTime + 1)
+
+        // Make sure we're starting from a clean slate
+        const depositBefore = await context.staker.deposits(tokenId)
+        expect(depositBefore.owner).to.eq(constants.AddressZero)
+        expect(depositBefore.numberOfStakes).to.eq(0)
+
+        subject = async (data: string, actor: Wallet = lpUser0) => {
+          await context.nft
+            .connect(actor)
+            [SAFE_TRANSFER_FROM_SIGNATURE](
+              actor.address,
+              context.staker.address,
+              tokenId,
+              data,
+              {
+                ...maxGas,
+                from: actor.address,
+              }
+            )
+
+          const incentiveId = await helpers.getIncentiveId(
+            createIncentiveResult
+          )
+
+          return {
+            deposit: (await context.staker.deposits(
+              tokenId
+            )) as ContractStructs.Deposit,
+            incentive: (await context.staker.incentives(
+              incentiveId
+            )) as ContractStructs.Incentive,
+            stake: (await context.staker.stakes(
+              tokenId,
+              incentiveId
+            )) as ContractStructs.Stake,
+          }
+        }
+      })
+
+      it('allows depositing without staking', async () => {
+        // Pass empty data
+        const { deposit, incentive, stake } = await subject(
+          ethers.utils.defaultAbiCoder.encode([], [])
+        )
+
+        expect(deposit.owner).to.eq(lpUser0.address)
+        expect(deposit.numberOfStakes).to.eq(BN('0'))
+        expect(incentive.numberOfStakes).to.eq(BN('0'))
+        expect(stake.secondsPerLiquidityInsideInitialX128).to.eq(BN('0'))
+      })
+
+      it('allows depositing and staking for a single incentive', async () => {
+        const data = ethers.utils.defaultAbiCoder.encode(
+          [INCENTIVE_KEY_ABI],
+          [incentiveResultToStakeAdapter(createIncentiveResult)]
+        )
+        const { deposit, incentive, stake } = await subject(data, lpUser0)
+        expect(deposit.owner).to.eq(lpUser0.address)
+        expect(deposit.numberOfStakes).to.eq(BN('1'))
+        expect(incentive.numberOfStakes).to.eq(BN('1'))
+        expect(stake.secondsPerLiquidityInsideInitialX128).not.to.eq(BN('0'))
+      })
+
+      it('allows depositing and staking for two incentives', async () => {
+        const createIncentiveResult2 = await helpers.createIncentiveFlow({
+          rewardToken: context.rewardToken,
+          poolAddress: context.poolObj.address,
+          startTime: createIncentiveResult.startTime + 100,
+          totalReward,
+        })
+
+        await Time.setAndMine(createIncentiveResult2.startTime)
+
+        const data = ethers.utils.defaultAbiCoder.encode(
+          [`${INCENTIVE_KEY_ABI}[]`],
+          [
+            [createIncentiveResult, createIncentiveResult2].map(
+              incentiveResultToStakeAdapter
+            ),
+          ]
+        )
+
+        const { deposit, incentive, stake } = await subject(data)
+        expect(deposit.owner).to.eq(lpUser0.address)
+        expect(deposit.numberOfStakes).to.eq(BN('2'))
+        expect(incentive.numberOfStakes).to.eq(BN('1'))
+        expect(stake.secondsPerLiquidityInsideInitialX128).not.to.eq(BN('0'))
+
+        const incentiveId2 = await helpers.getIncentiveId(
+          createIncentiveResult2
+        )
+        const incentive2 = (await context.staker.incentives(
+          incentiveId2
+        )) as ContractStructs.Incentive
+
+        const stake2 = (await context.staker.stakes(
+          tokenId,
+          incentiveId2
+        )) as ContractStructs.Stake
+
+        expect(incentive2.numberOfStakes).to.eq(BN('1'))
+        expect(stake2.secondsPerLiquidityInsideInitialX128).not.to.eq(BN('0'))
+      })
+
+      describe('reverts when', () => {
+        it('staking info is less than 160 bytes and greater than 0 bytes', async () => {
+          const data = ethers.utils.defaultAbiCoder.encode(
+            [INCENTIVE_KEY_ABI],
+            [incentiveResultToStakeAdapter(createIncentiveResult)]
+          )
+          const malformedData = data.slice(0, data.length - 2)
+          await expect(subject(malformedData)).to.be.reverted
+        })
+
+        it('it has an invalid pool address', async () => {
+          const data = ethers.utils.defaultAbiCoder.encode(
+            [INCENTIVE_KEY_ABI],
+            [
+              // Make the data invalid
+              incentiveResultToStakeAdapter({
+                ...createIncentiveResult,
+                poolAddress: constants.AddressZero,
+              }),
+            ]
+          )
+
+          await expect(subject(data)).to.be.reverted
+        })
+
+        it('staking information is invalid and greater than 160 bytes', async () => {
+          const malformedData =
+            ethers.utils.defaultAbiCoder.encode(
+              [INCENTIVE_KEY_ABI],
+              [incentiveResultToStakeAdapter(createIncentiveResult)]
+            ) + 'aaaa'
+
+          await expect(subject(malformedData)).to.be.reverted
+        })
+      })
     })
 
     describe('#withdrawToken', () => {
@@ -625,7 +787,7 @@ describe('UniswapV3Staker.unit', async () => {
 
     describe('#getRewardAmount', async () => {
       let incentiveId: string
-      let stake: ContractParams.Stake
+      let stake: ContractStructs.Stake
       let stakeIncentiveKey: ContractParams.IncentiveKey
 
       beforeEach('set up incentive and stake', async () => {
