@@ -487,6 +487,15 @@ describe('UniswapV3Staker.unit', async () => {
         it('staking info is less than 160 bytes and greater than 0 bytes', async () => {
           const data = ethers.utils.defaultAbiCoder.encode(
             [INCENTIVE_KEY_ABI],
+            [incentiveResultToStakeAdapter(createIncentiveResult)]
+          )
+          const malformedData = data.slice(0, data.length - 2)
+          await expect(subject(malformedData)).to.be.reverted
+        })
+
+        it('it has an invalid pool address', async () => {
+          const data = ethers.utils.defaultAbiCoder.encode(
+            [INCENTIVE_KEY_ABI],
             [
               // Make the data invalid
               incentiveResultToStakeAdapter({
@@ -496,17 +505,17 @@ describe('UniswapV3Staker.unit', async () => {
             ]
           )
 
-          await expect(subject(data, lpUser0)).to.be.reverted
+          await expect(subject(data)).to.be.reverted
         })
 
         it('staking information is invalid and greater than 160 bytes', async () => {
-          const data =
+          const malformedData =
             ethers.utils.defaultAbiCoder.encode(
               [INCENTIVE_KEY_ABI],
               [incentiveResultToStakeAdapter(createIncentiveResult)]
             ) + 'aaaa'
 
-          await expect(subject(data, lpUser0)).to.be.reverted
+          await expect(subject(malformedData)).to.be.reverted
         })
       })
     })
