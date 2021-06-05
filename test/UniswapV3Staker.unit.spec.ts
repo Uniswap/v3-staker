@@ -1325,7 +1325,9 @@ describe('UniswapV3Staker.unit', async () => {
       // )
     })
 
-    it('can be used to stake an already deposited token for multiple positions')
+    it(
+      'can be used to stake an already deposited token for multiple incentives'
+    )
 
     it('can be used to exit a position from multiple incentives', async () => {
       const { startTime, endTime } = makeTimestamps(
@@ -1396,6 +1398,6 @@ describe('UniswapV3Staker.unit', async () => {
       await snapshotGasCost(tx)
     })
 
-    it('can be used to exit multiple positions from one incentive')
+    it('can be used to exit multiple tokens from one incentive')
   })
 })
