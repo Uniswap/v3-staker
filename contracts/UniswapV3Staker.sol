@@ -179,7 +179,7 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
     {
         require(
             deposits[tokenId].owner == msg.sender,
-            'only owner can withdraw token'
+            'only owner can stake token'
         );
 
         _stakeToken(key, tokenId);
@@ -256,7 +256,7 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
         emit RewardClaimed(to, reward);
     }
 
-    /// @dev Returns the reward amount owed for a given incentive and token combination
+    /// @inheritdoc IUniswapV3Staker
     function getRewardAmount(IncentiveId.Key memory key, uint256 tokenId)
         external
         view

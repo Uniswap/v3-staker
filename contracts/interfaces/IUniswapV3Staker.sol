@@ -114,10 +114,10 @@ interface IUniswapV3Staker {
     /// @param to The address where claimed rewards will be sent to
     function claimReward(IERC20Minimal rewardToken, address to) external;
 
-    /// @notice Calculates reward amount for an NFT
+    /// @notice Calculates the reward amount that will be received for the given stake
     /// @param key The key of the incentive
     /// @param tokenId The ID of the token
-    /// @return reward The reward accrued to the NFT thus far
+    /// @return reward The reward accrued to the NFT for the given incentive thus far
     function getRewardAmount(IncentiveId.Key memory key, uint256 tokenId)
         external
         returns (uint256 reward);

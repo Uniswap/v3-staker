@@ -602,7 +602,7 @@ describe('UniswapV3Staker.unit', async () => {
         it('you are not the owner of the deposit', async () => {
           await Time.set(timestamps.startTime + 500)
           await expect(subject(tokenId, actors.lpUser2())).to.be.revertedWith(
-            'only owner can withdraw token'
+            'only owner can stake token'
           )
         })
 
@@ -1162,5 +1162,78 @@ describe('UniswapV3Staker.unit', async () => {
       //   multicaller.address
       // )
     })
+
+    it('can be used to stake an already deposited token for multiple positions')
+
+    it('can be used to exit a position from multiple incentives', async () => {
+      const { startTime, endTime } = makeTimestamps(
+        await blockTimestamp(),
+        1000
+      )
+      const incentive0 = await helpers.createIncentiveFlow({
+        rewardToken: context.token0,
+        startTime,
+        endTime,
+        refundee: actors.incentiveCreator().address,
+        totalReward: BN(10000),
+        poolAddress: context.pool01,
+      })
+      const incentiveId0 = await helpers.getIncentiveId(incentive0)
+      const incentive1 = await helpers.createIncentiveFlow({
+        rewardToken: context.token1,
+        startTime,
+        endTime,
+        refundee: actors.incentiveCreator().address,
+        totalReward: BN(10000),
+        poolAddress: context.pool01,
+      })
+      const incentiveId1 = await helpers.getIncentiveId(incentive1)
+
+      await Time.set(startTime)
+
+      const { tokenId } = await helpers.mintDepositStakeFlow({
+        lp: lpUser0,
+        tokensToStake: [context.token0, context.token1],
+        amountsToStake: [amountDesired, amountDesired],
+        ticks: [
+          getMinTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
+          getMaxTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
+        ],
+        createIncentiveResult: incentive0,
+      })
+      await context.staker
+        .connect(lpUser0)
+        .stakeToken(incentiveResultToStakeAdapter(incentive1), tokenId)
+
+      await Time.set(endTime)
+
+      const tx = context.staker
+        .connect(lpUser0)
+        .multicall([
+          context.staker.interface.encodeFunctionData('unstakeToken', [
+            incentiveResultToStakeAdapter(incentive0),
+            tokenId,
+          ]),
+          context.staker.interface.encodeFunctionData('unstakeToken', [
+            incentiveResultToStakeAdapter(incentive1),
+            tokenId,
+          ]),
+          context.staker.interface.encodeFunctionData('withdrawToken', [
+            tokenId,
+            lpUser0.address,
+          ]),
+          context.staker.interface.encodeFunctionData('claimReward', [
+            context.token0.address,
+            lpUser0.address,
+          ]),
+          context.staker.interface.encodeFunctionData('claimReward', [
+            context.token1.address,
+            lpUser0.address,
+          ]),
+        ])
+      await snapshotGasCost(tx)
+    })
+
+    it('can be used to exit multiple positions from one incentive')
   })
 })
