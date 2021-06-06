@@ -1,7 +1,6 @@
-import { constants, BigNumberish, Wallet, BigNumber } from 'ethers'
+import { Wallet } from 'ethers'
 import { LoadFixtureFunction } from '../types'
-import { ethers } from 'hardhat'
-import { UniswapV3Staker, TestERC20 } from '../../typechain'
+import { TestERC20 } from '../../typechain'
 import {
   uniswapFixture,
   mintPosition,
@@ -19,16 +18,10 @@ import {
   BNe18,
   snapshotGasCost,
   ActorFixture,
-  erc20Wrap,
   makeTimestamps,
-  maxGas,
 } from '../shared'
 import { createFixtureLoader, provider } from '../shared/provider'
-import {
-  HelperCommands,
-  ERC20Helper,
-  incentiveResultToStakeAdapter,
-} from '../helpers'
+import { HelperCommands, ERC20Helper } from '../helpers'
 
 import { ContractParams, ContractStructs } from '../../types/contractParams'
 import { createTimeMachine } from '../shared/time'

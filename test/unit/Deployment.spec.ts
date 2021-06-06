@@ -1,38 +1,13 @@
-import { constants, BigNumberish, Wallet, BigNumber } from 'ethers'
 import { LoadFixtureFunction } from '../types'
 import { ethers } from 'hardhat'
-import { UniswapV3Staker, TestERC20 } from '../../typechain'
-import {
-  uniswapFixture,
-  mintPosition,
-  UniswapFixtureType,
-} from '../shared/fixtures'
-import {
-  expect,
-  getMaxTick,
-  getMinTick,
-  FeeAmount,
-  TICK_SPACINGS,
-  blockTimestamp,
-  BN,
-  BNe,
-  BNe18,
-  snapshotGasCost,
-  ActorFixture,
-  erc20Wrap,
-  makeTimestamps,
-  maxGas,
-} from '../shared'
+import { UniswapV3Staker } from '../../typechain'
+import { uniswapFixture, UniswapFixtureType } from '../shared/fixtures'
+import { expect, BNe18, ActorFixture } from '../shared'
 import { createFixtureLoader, provider } from '../shared/provider'
-import {
-  HelperCommands,
-  ERC20Helper,
-  incentiveResultToStakeAdapter,
-} from '../helpers'
+import { HelperCommands, ERC20Helper } from '../helpers'
 
-import { ContractParams, ContractStructs } from '../../types/contractParams'
+import { ContractParams } from '../../types/contractParams'
 import { createTimeMachine } from '../shared/time'
-import { HelperTypes } from '../helpers/types'
 
 let loadFixture: LoadFixtureFunction
 

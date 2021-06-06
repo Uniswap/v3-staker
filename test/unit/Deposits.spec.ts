@@ -1,7 +1,6 @@
-import { constants, BigNumberish, Wallet, BigNumber } from 'ethers'
+import { constants, BigNumberish, Wallet } from 'ethers'
 import { LoadFixtureFunction } from '../types'
 import { ethers } from 'hardhat'
-import { UniswapV3Staker, TestERC20 } from '../../typechain'
 import {
   uniswapFixture,
   mintPosition,

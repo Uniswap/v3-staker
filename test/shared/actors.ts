@@ -1,5 +1,5 @@
 import { MockProvider } from 'ethereum-waffle'
-import { Wallet, Signer } from 'ethers'
+import { Wallet } from 'ethers'
 
 export const WALLET_USER_INDEXES = {
   WETH_OWNER: 0,
