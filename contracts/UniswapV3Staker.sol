@@ -15,8 +15,6 @@ import '@uniswap/v3-periphery/contracts/interfaces/INonfungiblePositionManager.s
 import '@uniswap/v3-periphery/contracts/libraries/TransferHelper.sol';
 import '@uniswap/v3-periphery/contracts/base/Multicall.sol';
 
-import '@openzeppelin/contracts/math/SafeMath.sol';
-
 /// @title Uniswap V3 canonical staking interface
 contract UniswapV3Staker is IUniswapV3Staker, Multicall {
     /// @notice Represents a staking incentive
@@ -221,14 +219,15 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall {
 
         require(stake.liquidity != 0, 'stake does not exist');
 
-        (, , , , , int24 tickLower, int24 tickUpper, , , , , ) =
-            nonfungiblePositionManager.positions(tokenId);
-
         incentive.numberOfStakes--;
         deposits[tokenId].numberOfStakes--;
 
         // if incentive still has rewards to claim
         if (incentive.totalRewardUnclaimed > 0) {
+            // NFTPositionInfo is not used here because we do not need to compute the pool address
+            (, , , , , int24 tickLower, int24 tickUpper, , , , , ) =
+                nonfungiblePositionManager.positions(tokenId);
+
             (, uint160 secondsPerLiquidityInsideX128, ) =
                 key.pool.snapshotCumulativesInside(tickLower, tickUpper);
             (uint256 reward, uint160 secondsInsideX128) =
@@ -246,12 +245,8 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall {
 
             // TODO: verify that reward is never greater than totalRewardUnclaimed
             incentive.totalRewardUnclaimed -= reward;
-
-            // Makes rewards available to claimReward
-            rewards[key.rewardToken][depositOwner] = SafeMath.add(
-                rewards[key.rewardToken][depositOwner],
-                reward
-            );
+            // this only overflows if a token has a total supply greater than type(uint256).max
+            rewards[key.rewardToken][depositOwner] += reward;
         }
 
         delete stakes[tokenId][incentiveId];
