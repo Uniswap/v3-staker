@@ -271,7 +271,10 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall {
             rewards[key.rewardToken][depositOwner] += reward;
         }
 
-        delete _stakes[tokenId][incentiveId];
+        Stake storage stake = _stakes[tokenId][incentiveId];
+        delete stake.secondsPerLiquidityInsideInitialX128;
+        delete stake.liquidityNoOverflow;
+        if (liquidity >= type(uint96).max) delete stake.liquidityIfOverflow;
         emit TokenUnstaked(tokenId, incentiveId);
     }
 
