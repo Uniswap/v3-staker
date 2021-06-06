@@ -23,23 +23,23 @@ interface IUniswapV3Staker {
 
     /// @notice Represents a staking incentive
     struct Incentive {
-        uint128 totalRewardUnclaimed;
-        uint128 numberOfStakes;
+        uint256 totalRewardUnclaimed;
         uint160 totalSecondsClaimedX128;
+        uint96 numberOfStakes;
     }
 
     /// @notice Represents a staking incentive
     /// @param incentiveId The ID of the incentive computed from its parameters
     /// @return totalRewardUnclaimed The amount of reward token not yet claimed by users
-    /// @return numberOfStakes The count of deposits that are currently staked for the incentive
     /// @return totalSecondsClaimedX128 Total liquidity-seconds claimed, represented as a UQ32.128
+    /// @return numberOfStakes The count of deposits that are currently staked for the incentive
     function incentives(bytes32 incentiveId)
         external
         view
         returns (
-            uint128 totalRewardUnclaimed,
-            uint128 numberOfStakes,
-            uint160 totalSecondsClaimedX128
+            uint256 totalRewardUnclaimed,
+            uint160 totalSecondsClaimedX128,
+            uint96 numberOfStakes
         );
 
     /// @notice Represents the deposit of a liquidity NFT
@@ -87,7 +87,7 @@ interface IUniswapV3Staker {
     /// @notice Creates a new liquidity mining incentive program
     /// @param key Details of the incentive to create
     /// @param reward The amount of reward tokens to be distributed
-    function createIncentive(IncentiveId.Key memory key, uint128 reward)
+    function createIncentive(IncentiveId.Key memory key, uint256 reward)
         external;
 
     /// @notice Ends an incentive after the incentive end time has passed and all stakes have been withdrawn
@@ -135,13 +135,13 @@ interface IUniswapV3Staker {
         uint256 startTime,
         uint256 endTime,
         address refundee,
-        uint128 reward
+        uint256 reward
     );
 
     /// @notice Event that can be emitted when a liquidity mining incentive has ended
     /// @param incentiveId The incentive which is ending
     /// @param refund The amount of reward tokens refunded
-    event IncentiveEnded(bytes32 indexed incentiveId, uint128 refund);
+    event IncentiveEnded(bytes32 indexed incentiveId, uint256 refund);
 
     /// @notice Event emitted when a Uniswap V3 LP token has been deposited
     /// @param tokenId The unique identifier of an Uniswap V3 LP token
