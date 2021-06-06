@@ -278,17 +278,19 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall {
         override
         returns (uint256 reward)
     {
+        bytes32 incentiveId = IncentiveId.compute(key);
+
+        Stake storage stake = stakes[tokenId][incentiveId];
+        require(stake.liquidity != 0, 'stake does not exist');
+
+        Incentive storage incentive = incentives[incentiveId];
+
         (IUniswapV3Pool pool, int24 tickLower, int24 tickUpper, ) =
             NFTPositionInfo.getPositionInfo(
                 factory,
                 nonfungiblePositionManager,
                 tokenId
             );
-
-        bytes32 incentiveId = IncentiveId.compute(key);
-
-        Incentive storage incentive = incentives[incentiveId];
-        Stake storage stake = stakes[tokenId][incentiveId];
 
         (, uint160 secondsPerLiquidityInsideX128, ) =
             pool.snapshotCumulativesInside(tickLower, tickUpper);

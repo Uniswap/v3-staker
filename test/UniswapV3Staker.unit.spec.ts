@@ -882,6 +882,8 @@ describe('UniswapV3Staker.unit', async () => {
 
         expect(reward, 'reward is nonzero').to.not.equal(0)
       })
+
+      it('reverts if stake does not exist')
     })
 
     describe('#claimReward', () => {
