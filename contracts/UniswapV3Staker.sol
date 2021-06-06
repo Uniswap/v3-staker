@@ -20,6 +20,25 @@ import '@openzeppelin/contracts/math/SafeMath.sol';
 
 /// @title Uniswap V3 canonical staking interface
 contract UniswapV3Staker is IUniswapV3Staker, Multicall {
+    /// @notice Represents a staking incentive
+    struct Incentive {
+        uint256 totalRewardUnclaimed;
+        uint160 totalSecondsClaimedX128;
+        uint96 numberOfStakes;
+    }
+
+    /// @notice Represents the deposit of a liquidity NFT
+    struct Deposit {
+        address owner;
+        uint96 numberOfStakes;
+    }
+
+    /// @notice Represents a staked liquidity NFT
+    struct Stake {
+        uint160 secondsPerLiquidityInsideInitialX128;
+        uint128 liquidity;
+    }
+
     /// @inheritdoc IUniswapV3Staker
     IUniswapV3Factory public immutable override factory;
     /// @inheritdoc IUniswapV3Staker
@@ -53,7 +72,7 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall {
     }
 
     /// @inheritdoc IUniswapV3Staker
-    function createIncentive(IncentiveId.Key memory key, uint256 reward)
+    function createIncentive(IncentiveKey memory key, uint256 reward)
         external
         override
     {
@@ -100,7 +119,7 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall {
     }
 
     /// @inheritdoc IUniswapV3Staker
-    function endIncentive(IncentiveId.Key memory key) external override {
+    function endIncentive(IncentiveKey memory key) external override {
         bytes32 incentiveId = IncentiveId.compute(key);
         Incentive storage incentive = incentives[incentiveId];
 
@@ -144,10 +163,9 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall {
 
         if (data.length > 0) {
             if (data.length == 160) {
-                _stakeToken(abi.decode(data, (IncentiveId.Key)), tokenId);
+                _stakeToken(abi.decode(data, (IncentiveKey)), tokenId);
             } else {
-                IncentiveId.Key[] memory keys =
-                    abi.decode(data, (IncentiveId.Key[]));
+                IncentiveKey[] memory keys = abi.decode(data, (IncentiveKey[]));
                 for (uint256 i = 0; i < keys.length; i++) {
                     _stakeToken(keys[i], tokenId);
                 }
@@ -171,7 +189,7 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall {
     }
 
     /// @inheritdoc IUniswapV3Staker
-    function stakeToken(IncentiveId.Key memory key, uint256 tokenId)
+    function stakeToken(IncentiveKey memory key, uint256 tokenId)
         external
         override
     {
@@ -184,7 +202,7 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall {
     }
 
     /// @inheritdoc IUniswapV3Staker
-    function unstakeToken(IncentiveId.Key memory key, uint256 tokenId)
+    function unstakeToken(IncentiveKey memory key, uint256 tokenId)
         external
         override
     {
@@ -255,7 +273,7 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall {
     }
 
     /// @inheritdoc IUniswapV3Staker
-    function getRewardAmount(IncentiveId.Key memory key, uint256 tokenId)
+    function getRewardAmount(IncentiveKey memory key, uint256 tokenId)
         external
         view
         override
@@ -283,7 +301,7 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall {
         );
     }
 
-    function _stakeToken(IncentiveId.Key memory key, uint256 tokenId) private {
+    function _stakeToken(IncentiveKey memory key, uint256 tokenId) private {
         require(block.timestamp >= key.startTime, 'incentive not started');
         require(block.timestamp < key.endTime, 'incentive ended');
 
