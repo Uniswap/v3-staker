@@ -2,4 +2,4 @@
 
 exports[`unit/Multicall can be used to exit a position from multiple incentives 1`] = `194477`;
 
-exports[`unit/Multicall can be used to stake an already deposited token for multiple incentives 1`] = `308371`;
+exports[`unit/Multicall can be used to stake an already deposited token for multiple incentives 1`] = `308407`;
