@@ -749,6 +749,9 @@ describe('UniswapV3Staker.unit', async () => {
           )
         })
 
+        it('increments the number of stakes on the deposit')
+        it('increments the number of stakes on the incentive')
+
         it('has gas cost', async () => {
           await snapshotGasCost(subject(tokenId))
         })
@@ -767,6 +770,9 @@ describe('UniswapV3Staker.unit', async () => {
             'only owner can stake token'
           )
         })
+
+        it('token id is for a different pool than the incentive')
+        it('incentive key does not exist')
 
         it('is past the end time', async () => {
           await Time.set(timestamps.endTime + 100)
@@ -876,6 +882,8 @@ describe('UniswapV3Staker.unit', async () => {
 
         expect(reward, 'reward is nonzero').to.not.equal(0)
       })
+
+      it('reverts if stake does not exist')
     })
 
     describe('#claimReward', () => {
