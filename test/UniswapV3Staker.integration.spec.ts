@@ -45,7 +45,7 @@ describe('integration', async () => {
 
   describe('there are three LPs in the same range', async () => {
     type TestSubject = {
-      stakes: Array<HelperTypes.MintStake.Result>
+      stakes: Array<HelperTypes.MintDepositStake.Result>
       createIncentiveResult: HelperTypes.CreateIncentive.Result
       helpers: HelperCommands
       context: TestContext
@@ -160,7 +160,7 @@ describe('integration', async () => {
 
           // Simple wrapper functions since we will call these several times
           const actions = {
-            doUnstake: (params: HelperTypes.MintStake.Result) =>
+            doUnstake: (params: HelperTypes.MintDepositStake.Result) =>
               staker
                 .connect(params.lp)
                 .unstakeToken(
@@ -168,12 +168,12 @@ describe('integration', async () => {
                   params.tokenId
                 ),
 
-            doWithdraw: (params: HelperTypes.MintStake.Result) =>
+            doWithdraw: (params: HelperTypes.MintDepositStake.Result) =>
               staker
                 .connect(params.lp)
                 .withdrawToken(params.tokenId, params.lp.address),
 
-            doClaimRewards: (params: HelperTypes.MintStake.Result) =>
+            doClaimRewards: (params: HelperTypes.MintDepositStake.Result) =>
               staker
                 .connect(params.lp)
                 .claimReward(
