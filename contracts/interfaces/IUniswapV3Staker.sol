@@ -22,13 +22,6 @@ interface IUniswapV3Staker {
         returns (INonfungiblePositionManager);
 
     /// @notice Represents a staking incentive
-    struct Incentive {
-        uint256 totalRewardUnclaimed;
-        uint160 totalSecondsClaimedX128;
-        uint96 numberOfStakes;
-    }
-
-    /// @notice Represents a staking incentive
     /// @param incentiveId The ID of the incentive computed from its parameters
     /// @return totalRewardUnclaimed The amount of reward token not yet claimed by users
     /// @return totalSecondsClaimedX128 Total liquidity-seconds claimed, represented as a UQ32.128
@@ -42,12 +35,6 @@ interface IUniswapV3Staker {
             uint96 numberOfStakes
         );
 
-    /// @notice Represents the deposit of a liquidity NFT
-    struct Deposit {
-        address owner;
-        uint96 numberOfStakes;
-    }
-
     /// @notice Returns information about a deposited NFT
     /// @return owner The owner of the deposited NFT
     /// @return numberOfStakes Counter of how many incentives for which the liquidity is staked
@@ -55,12 +42,6 @@ interface IUniswapV3Staker {
         external
         view
         returns (address owner, uint96 numberOfStakes);
-
-    /// @notice Represents a staked liquidity NFT
-    struct Stake {
-        uint160 secondsPerLiquidityInsideInitialX128;
-        uint128 liquidity;
-    }
 
     /// @notice Returns information about a staked liquidity NFT
     /// @param tokenId The ID of the staked token
