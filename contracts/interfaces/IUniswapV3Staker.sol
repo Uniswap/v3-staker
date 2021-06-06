@@ -2,16 +2,20 @@
 pragma solidity =0.7.6;
 pragma abicoder v2;
 
+import '@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol';
+
 import '@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol';
 import '@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol';
 import '@uniswap/v3-core/contracts/interfaces/IERC20Minimal.sol';
 
 import '@uniswap/v3-periphery/contracts/interfaces/INonfungiblePositionManager.sol';
+import '@uniswap/v3-periphery/contracts/interfaces/IMulticall.sol';
+
 import '../libraries/IncentiveId.sol';
 
 /// @title Uniswap V3 Staker Interface
 /// @notice Allows staking nonfungible liquidity tokens in exchange for reward tokens
-interface IUniswapV3Staker {
+interface IUniswapV3Staker is IERC721Receiver, IMulticall {
     /// @notice The Uniswap V3 Factory
     function factory() external view returns (IUniswapV3Factory);
 

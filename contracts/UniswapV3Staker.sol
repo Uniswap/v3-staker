@@ -16,11 +16,10 @@ import '@uniswap/v3-periphery/contracts/interfaces/INonfungiblePositionManager.s
 import '@uniswap/v3-periphery/contracts/libraries/TransferHelper.sol';
 import '@uniswap/v3-periphery/contracts/base/Multicall.sol';
 
-import '@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol';
 import '@openzeppelin/contracts/math/SafeMath.sol';
 
 /// @title Uniswap V3 canonical staking interface
-contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
+contract UniswapV3Staker is IUniswapV3Staker, Multicall {
     /// @inheritdoc IUniswapV3Staker
     IUniswapV3Factory public immutable override factory;
     /// @inheritdoc IUniswapV3Staker
