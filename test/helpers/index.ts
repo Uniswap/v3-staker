@@ -24,6 +24,7 @@ import { mintPosition } from '../shared/fixtures'
 import { ISwapRouter } from '../../types/ISwapRouter'
 import { ethers } from 'hardhat'
 import { ContractParams } from '../../types/contractParams'
+import { TestContext } from '../types'
 
 /**
  * HelperCommands is a utility that abstracts away lower-level ethereum details
@@ -67,6 +68,22 @@ export class HelperCommands {
     this.router = router
     this.pool = pool
     this.testIncentiveId = testIncentiveId
+  }
+
+  static fromTestContext = (
+    context: TestContext,
+    actors: ActorFixture,
+    provider: MockProvider
+  ): HelperCommands => {
+    return new HelperCommands({
+      actors,
+      provider,
+      nft: context.nft,
+      router: context.router,
+      staker: context.staker,
+      pool: context.poolObj,
+      testIncentiveId: context.testIncentiveId,
+    })
   }
 
   /**

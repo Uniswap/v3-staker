@@ -1,8 +1,6 @@
 import { BigNumber, Wallet } from 'ethers'
 import { TestERC20 } from '../../typechain'
 
-import { UniswapV3Staker } from '../../typechain'
-
 export module HelperTypes {
   export type CommandFunction<Input, Output> = (input: Input) => Promise<Output>
 

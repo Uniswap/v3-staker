@@ -33,7 +33,7 @@ import { Wallet } from '@ethersproject/wallet'
 
 let loadFixture: LoadFixtureFunction
 
-describe('UniswapV3Staker.integration', async () => {
+describe('integration', async () => {
   const wallets = provider.getWallets()
   const Time = createTimeMachine(provider)
   const actors = new ActorFixture(wallets, provider)
