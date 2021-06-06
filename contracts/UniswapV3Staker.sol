@@ -55,7 +55,7 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
     }
 
     /// @inheritdoc IUniswapV3Staker
-    function createIncentive(IncentiveId.Key memory key, uint128 reward)
+    function createIncentive(IncentiveId.Key memory key, uint256 reward)
         external
         override
     {
@@ -106,7 +106,7 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
         bytes32 incentiveId = IncentiveId.compute(key);
         Incentive storage incentive = incentives[incentiveId];
 
-        uint128 refund = incentive.totalRewardUnclaimed;
+        uint256 refund = incentive.totalRewardUnclaimed;
 
         require(refund > 0, 'no refund available');
         require(
@@ -227,10 +227,8 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
 
             incentive.totalSecondsClaimedX128 += secondsInsideX128;
 
-            // TODO: is SafeMath necessary here? Could we do just a subtraction?
-            incentive.totalRewardUnclaimed = uint128(
-                SafeMath.sub(incentive.totalRewardUnclaimed, reward)
-            );
+            // TODO: verify that reward is never greater than totalRewardUnclaimed
+            incentive.totalRewardUnclaimed -= reward;
 
             // Makes rewards available to claimReward
             rewards[key.rewardToken][depositOwner] = SafeMath.add(
