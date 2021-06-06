@@ -1,0 +1,3 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`unit/Multicall can be used to exit a position from multiple incentives 1`] = `194477`;

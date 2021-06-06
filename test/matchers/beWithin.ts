@@ -13,7 +13,7 @@ declare global {
   }
 }
 
-chai.use((chai, utils) => {
+chai.use((chai) => {
   const Assertion = chai.Assertion
 
   Assertion.addMethod(
