@@ -23,8 +23,8 @@ import {
   ERC20Helper,
   incentiveResultToStakeAdapter,
 } from '../helpers'
-
 import { createTimeMachine } from '../shared/time'
+import { HelperTypes } from '../helpers/types'
 
 let loadFixture: LoadFixtureFunction
 
@@ -101,17 +101,54 @@ describe('unit/Multicall', () => {
   })
 
   it('can be used to stake an already deposited token for multiple incentives', async () => {
-    // const createIncentiveResult = await helpers.createIncentiveFlow({})
-    // await helpers.mintDepositStakeFlow({
-    //   lp: multicaller,
-    //   tokensToStake: [context.token0, context.token1],
-    //   amountsToStake: [amountDesired, amountDesired],
-    //   ticks: [
-    //     getMinTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
-    //     getMaxTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
-    //   ],
-    //   createIncentiveResult,
-    // })
+    const timestamp = await blockTimestamp()
+
+    const { tokenId } = await helpers.mintFlow({
+      lp: multicaller,
+      tokens: [context.token0, context.token1],
+    })
+
+    await helpers.depositFlow({ lp: multicaller, tokenId })
+
+    // Create three incentives
+    const incentiveParams: HelperTypes.CreateIncentive.Args = {
+      rewardToken: context.rewardToken,
+      poolAddress: context.poolObj.address,
+      totalReward,
+      ...makeTimestamps(timestamp + 100),
+    }
+
+    const incentive0 = await helpers.createIncentiveFlow(incentiveParams)
+
+    const incentive1 = await helpers.createIncentiveFlow({
+      ...incentiveParams,
+      startTime: incentive0.startTime + 1,
+    })
+    const incentive2 = await helpers.createIncentiveFlow({
+      ...incentiveParams,
+      startTime: incentive0.startTime + 2,
+    })
+
+    await Time.setAndMine(incentive2.startTime)
+
+    const tx = await context.staker
+      .connect(multicaller)
+      .multicall([
+        context.staker.interface.encodeFunctionData('stakeToken', [
+          incentiveResultToStakeAdapter(incentive0),
+          tokenId,
+        ]),
+        context.staker.interface.encodeFunctionData('stakeToken', [
+          incentiveResultToStakeAdapter(incentive1),
+          tokenId,
+        ]),
+        context.staker.interface.encodeFunctionData('stakeToken', [
+          incentiveResultToStakeAdapter(incentive2),
+          tokenId,
+        ]),
+      ])
+
+    await snapshotGasCost(tx)
   })
 
   it('can be used to exit a position from multiple incentives', async () => {

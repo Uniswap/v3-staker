@@ -4,6 +4,7 @@ export * from './external/v3-periphery/tokenSort'
 export * from './fixtures'
 export * from './actors'
 export * from './logging'
+export * from './ticks'
 
 import { FeeAmount } from './external/v3-periphery/constants'
 import { provider } from './provider'

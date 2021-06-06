@@ -9,6 +9,9 @@ import {
   MaxUint256,
   encodePath,
   arrayWrap,
+  defaultTicks,
+  getMinTick,
+  getMaxTick,
 } from '../shared/index'
 import _ from 'lodash'
 import {
@@ -43,6 +46,8 @@ export class HelperCommands {
 
   DEFAULT_INCENTIVE_DURATION = 2_000
   DEFAULT_CLAIM_DURATION = 1_000
+  DEFAULT_LP_AMOUNT = BNe18(10)
+  DEFAULT_FEE_AMOUNT = FeeAmount.MEDIUM
 
   constructor({
     provider,
@@ -139,7 +144,9 @@ export class HelperCommands {
    *  Funds `params.lp` with enough `params.tokensToStake` if they do not have enough.
    *  Handles the ERC20 and ERC721 permits.
    */
-  mintDepositStakeFlow: HelperTypes.MintStake.Command = async (params) => {
+  mintDepositStakeFlow: HelperTypes.MintDepositStake.Command = async (
+    params
+  ) => {
     // Make sure LP has enough balance
     const bal0 = await params.tokensToStake[0].balanceOf(params.lp.address)
     if (bal0 < params.amountsToStake[0])
@@ -185,7 +192,6 @@ export class HelperCommands {
       .approve(this.staker.address, params.amountsToStake[1])
 
     // The LP approves and stakes their NFT
-
     await this.nft.connect(params.lp).approve(this.staker.address, tokenId)
     await this.nft
       .connect(params.lp)
@@ -208,6 +214,63 @@ export class HelperCommands {
       stakedAt,
       lp: params.lp,
     }
+  }
+
+  depositFlow: HelperTypes.Deposit.Command = async (params) => {
+    await this.nft
+      .connect(params.lp)
+      .approve(this.staker.address, params.tokenId)
+
+    await this.nft
+      .connect(params.lp)
+      ['safeTransferFrom(address,address,uint256)'](
+        params.lp.address,
+        this.staker.address,
+        params.tokenId
+      )
+  }
+
+  mintFlow: HelperTypes.Mint.Command = async (params) => {
+    const fee = params.fee || FeeAmount.MEDIUM
+    const e20h = new ERC20Helper()
+
+    const amount0Desired = params.amounts
+      ? params.amounts[0]
+      : this.DEFAULT_LP_AMOUNT
+
+    await e20h.ensureBalancesAndApprovals(
+      params.lp,
+      params.tokens[0],
+      amount0Desired,
+      this.nft.address
+    )
+
+    const amount1Desired = params.amounts
+      ? params.amounts[1]
+      : this.DEFAULT_LP_AMOUNT
+
+    await e20h.ensureBalancesAndApprovals(
+      params.lp,
+      params.tokens[1],
+      amount1Desired,
+      this.nft.address
+    )
+
+    const tokenId = await mintPosition(this.nft.connect(params.lp), {
+      token0: params.tokens[0].address,
+      token1: params.tokens[1].address,
+      fee,
+      tickLower: params.tickLower || getMinTick(fee),
+      tickUpper: params.tickUpper || getMaxTick(fee),
+      recipient: params.lp.address,
+      amount0Desired,
+      amount1Desired,
+      amount0Min: 0,
+      amount1Min: 0,
+      deadline: (await blockTimestamp()) + 1000,
+    })
+
+    return { tokenId, lp: params.lp }
   }
 
   unstakeCollectBurnFlow: HelperTypes.UnstakeCollectBurn.Command = async (
