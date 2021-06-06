@@ -28,7 +28,7 @@ import { createTimeMachine } from '../shared/time'
 
 let loadFixture: LoadFixtureFunction
 
-describe('unit.Multicall', async () => {
+describe('unit/Multicall', () => {
   const actors = new ActorFixture(provider.getWallets(), provider)
   const incentiveCreator = actors.incentiveCreator()
   const lpUser0 = actors.lpUser0()

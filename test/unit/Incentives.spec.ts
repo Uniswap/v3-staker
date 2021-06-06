@@ -22,7 +22,7 @@ import { HelperTypes } from '../helpers/types'
 
 let loadFixture: LoadFixtureFunction
 
-describe('unit.Incentives', async () => {
+describe('unit/Incentives', async () => {
   const actors = new ActorFixture(provider.getWallets(), provider)
   const incentiveCreator = actors.incentiveCreator()
   const totalReward = BNe18(100)

@@ -33,7 +33,7 @@ import { HelperTypes } from '../helpers/types'
 
 let loadFixture: LoadFixtureFunction
 
-describe('unit.Deposits', () => {
+describe('unit/Deposits', () => {
   const actors = new ActorFixture(provider.getWallets(), provider)
   const lpUser0 = actors.lpUser0()
   const amountDesired = BNe18(10)
@@ -303,7 +303,7 @@ describe('unit.Deposits', () => {
       })
 
       it('deposits the token', async () => {
-        expect((await context.staker.deposits(1)).owner).to.equal(
+        expect((await context.staker.deposits(tokenId)).owner).to.equal(
           constants.AddressZero
         )
         await context.nft
@@ -314,9 +314,11 @@ describe('unit.Deposits', () => {
             tokenId,
             {
               ...maxGas,
+              from: lpUser0.address,
             }
           )
-        expect((await context.staker.deposits(1)).owner).to.equal(
+
+        expect((await context.staker.deposits(tokenId)).owner).to.equal(
           lpUser0.address
         )
       })

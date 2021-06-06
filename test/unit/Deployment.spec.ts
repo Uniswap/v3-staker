@@ -7,7 +7,7 @@ import { createFixtureLoader, provider } from '../shared/provider'
 
 let loadFixture: LoadFixtureFunction
 
-describe('unit.Deployment', async () => {
+describe('unit/Deployment', () => {
   let context: UniswapFixtureType
 
   before('loader', async () => {
