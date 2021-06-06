@@ -2,7 +2,7 @@
 
 exports[`UniswapV3Staker.unit #multicall can be used to exit a position from multiple incentives 1`] = `196029`;
 
-exports[`UniswapV3Staker.unit #onERC721Received on successful transfer with staking data has gas cost 1`] = `217554`;
+exports[`UniswapV3Staker.unit #onERC721Received on successful transfer with staking data has gas cost 1`] = `216506`;
 
 exports[`UniswapV3Staker.unit Deposits #withdrawToken works and has gas cost 1`] = `74247`;
 
@@ -12,6 +12,6 @@ exports[`UniswapV3Staker.unit Incentives #endIncentive works and has gas cost 1`
 
 exports[`UniswapV3Staker.unit Stakes #claimReward has gas cost 1`] = `46900`;
 
-exports[`UniswapV3Staker.unit Stakes #stakeToken works and has gas cost 1`] = `138592`;
+exports[`UniswapV3Staker.unit Stakes #stakeToken works and has gas cost 1`] = `137545`;
 
 exports[`UniswapV3Staker.unit Stakes #unstakeToken works and has gas cost 1`] = `83197`;

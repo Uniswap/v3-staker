@@ -5,13 +5,12 @@ pragma abicoder v2;
 import './interfaces/IUniswapV3Staker.sol';
 import './libraries/IncentiveId.sol';
 import './libraries/RewardMath.sol';
+import './libraries/NFTPositionInfo.sol';
 
-import '@uniswap/v3-core/contracts/libraries/FixedPoint96.sol';
 import '@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol';
 import '@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol';
 import '@uniswap/v3-core/contracts/interfaces/IERC20Minimal.sol';
 
-import '@uniswap/v3-periphery/contracts/libraries/PoolAddress.sol';
 import '@uniswap/v3-periphery/contracts/interfaces/INonfungiblePositionManager.sol';
 import '@uniswap/v3-periphery/contracts/libraries/TransferHelper.sol';
 import '@uniswap/v3-periphery/contracts/base/Multicall.sol';
@@ -280,7 +279,11 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall {
         returns (uint256 reward)
     {
         (IUniswapV3Pool pool, int24 tickLower, int24 tickUpper, ) =
-            _getPositionDetails(tokenId);
+            NFTPositionInfo.getPositionInfo(
+                factory,
+                nonfungiblePositionManager,
+                tokenId
+            );
 
         bytes32 incentiveId = IncentiveId.compute(key);
 
@@ -321,7 +324,12 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall {
             int24 tickLower,
             int24 tickUpper,
             uint128 liquidity
-        ) = _getPositionDetails(tokenId);
+        ) =
+            NFTPositionInfo.getPositionInfo(
+                factory,
+                nonfungiblePositionManager,
+                tokenId
+            );
 
         require(pool == key.pool, 'token pool is not the incentivized pool');
 
@@ -337,46 +345,5 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall {
         });
 
         emit TokenStaked(tokenId, incentiveId, liquidity);
-    }
-
-    /// @param tokenId The unique identifier of an Uniswap V3 LP token
-    /// @return pool The address of the Uniswap V3 pool
-    /// @return tickLower The lower tick of the Uniswap V3 position
-    /// @return tickUpper The upper tick of the Uniswap V3 position
-    /// @return liquidity The amount of liquidity staked
-    function _getPositionDetails(uint256 tokenId)
-        private
-        view
-        returns (
-            IUniswapV3Pool pool,
-            int24 tickLower,
-            int24 tickUpper,
-            uint128 liquidity
-        )
-    {
-        address token0;
-        address token1;
-        uint24 fee;
-        (
-            ,
-            ,
-            token0,
-            token1,
-            fee,
-            tickLower,
-            tickUpper,
-            liquidity,
-            ,
-            ,
-            ,
-
-        ) = nonfungiblePositionManager.positions(tokenId);
-
-        pool = IUniswapV3Pool(
-            PoolAddress.computeAddress(
-                address(factory),
-                PoolAddress.PoolKey({token0: token0, token1: token1, fee: fee})
-            )
-        );
     }
 }
