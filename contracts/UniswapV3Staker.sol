@@ -294,6 +294,22 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall {
         emit RewardClaimed(to, reward);
     }
 
+    function claimReward(
+        IERC20Minimal rewardToken,
+        address to,
+        uint256 amountRequested
+    ) external override returns (uint256 reward) {
+        reward = (amountRequested > 0 &&
+            amountRequested <= rewards[rewardToken][msg.sender])
+            ? amountRequested
+            : rewards[rewardToken][msg.sender];
+
+        rewards[rewardToken][msg.sender] -= reward;
+        TransferHelper.safeTransfer(address(rewardToken), to, reward);
+
+        emit RewardClaimed(to, reward);
+    }
+
     /// @inheritdoc IUniswapV3Staker
     function getRewardAmount(IncentiveKey memory key, uint256 tokenId)
         external
