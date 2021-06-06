@@ -294,7 +294,7 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall {
         emit RewardClaimed(to, reward);
     }
 
-    function claimReward(
+    function claimRewardAmount(
         IERC20Minimal rewardToken,
         address to,
         uint256 amountRequested

@@ -1,4 +1,4 @@
-import { Wallet } from 'ethers'
+import { BigNumberish, BigNumber, Wallet } from 'ethers'
 import { LoadFixtureFunction } from '../types'
 import { TestERC20 } from '../../typechain'
 import {
@@ -22,14 +22,13 @@ import {
 } from '../shared'
 import { createFixtureLoader, provider } from '../shared/provider'
 import { HelperCommands, ERC20Helper } from '../helpers'
-
 import { ContractParams } from '../../types/contractParams'
 import { createTimeMachine } from '../shared/time'
 import { HelperTypes } from '../helpers/types'
 
 let loadFixture: LoadFixtureFunction
 
-describe('unit/Stakes', async () => {
+describe('unit/Stakes', () => {
   const actors = new ActorFixture(provider.getWallets(), provider)
   const incentiveCreator = actors.incentiveCreator()
   const lpUser0 = actors.lpUser0()
@@ -61,6 +60,9 @@ describe('unit/Stakes', async () => {
     let timestamps: ContractParams.Timestamps
 
     beforeEach(async () => {
+      context = await loadFixture(uniswapFixture)
+      helpers = HelperCommands.fromTestContext(context, actors, provider)
+
       /* We will be doing a lot of time-testing here, so leave some room between
         and when the incentive starts */
       timestamps = makeTimestamps(1_000 + (await blockTimestamp()))
@@ -189,32 +191,16 @@ describe('unit/Stakes', async () => {
     })
   })
 
-  describe('#getRewardAmount', async () => {
+  describe('#getRewardAmount', () => {
     let incentiveId: string
     let stakeIncentiveKey: ContractParams.IncentiveKey
 
     beforeEach('set up incentive and stake', async () => {
       timestamps = makeTimestamps((await blockTimestamp()) + 1_000)
 
-      await erc20Helper.ensureBalancesAndApprovals(
-        lpUser0,
-        [context.token0, context.token1],
-        amountDesired,
-        context.nft.address
-      )
-
-      tokenId = await mintPosition(context.nft.connect(lpUser0), {
-        token0: context.token0.address,
-        token1: context.token1.address,
-        fee: FeeAmount.MEDIUM,
-        tickLower: getMinTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
-        tickUpper: getMaxTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
-        recipient: lpUser0.address,
-        amount0Desired: amountDesired,
-        amount1Desired: amountDesired,
-        amount0Min: 0,
-        amount1Min: 0,
-        deadline: (await blockTimestamp()) + 1000,
+      const { tokenId } = await helpers.mintFlow({
+        lp: lpUser0,
+        tokens: [context.token0, context.token1],
       })
 
       await context.nft
@@ -281,13 +267,15 @@ describe('unit/Stakes', async () => {
     it('reverts if stake does not exist')
   })
 
-  describe('#claimReward', () => {
-    let subject: (token: string, to?: string) => Promise<any>
+  describe('claim reward', () => {
+    let createIncentiveResult: HelperTypes.CreateIncentive.Result
 
     beforeEach('setup', async () => {
-      const { token0, token1, rewardToken } = context
       timestamps = makeTimestamps(await blockTimestamp())
-      const tokensToStake = [token0, token1] as [TestERC20, TestERC20]
+      const tokensToStake = [context.token0, context.token1] as [
+        TestERC20,
+        TestERC20
+      ]
 
       await erc20Helper.ensureBalancesAndApprovals(
         lpUser0,
@@ -296,12 +284,13 @@ describe('unit/Stakes', async () => {
         context.nft.address
       )
 
-      const createIncentiveResult = await helpers.createIncentiveFlow({
+      createIncentiveResult = await helpers.createIncentiveFlow({
         rewardToken: context.rewardToken,
         totalReward,
         poolAddress: context.poolObj.address,
         ...timestamps,
       })
+
       await Time.setAndMine(timestamps.startTime + 1)
       const { tokenId } = await helpers.mintDepositStakeFlow({
         lp: lpUser0,
@@ -314,59 +303,164 @@ describe('unit/Stakes', async () => {
         createIncentiveResult,
       })
 
+      await Time.setAndMine(timestamps.endTime - 1)
       await context.staker.connect(lpUser0).unstakeToken(
         {
           refundee: incentiveCreator.address,
-          rewardToken: rewardToken.address,
+          rewardToken: context.rewardToken.address,
           pool: context.pool01,
           ...timestamps,
         },
         tokenId
       )
-
-      subject = (_token: string, _to: string = lpUser0.address) =>
-        context.staker.connect(lpUser0).claimReward(_token, _to)
     })
 
-    it('emits RewardClaimed event', async () => {
-      const { rewardToken } = context
-      const claimable = await context.staker.rewards(
-        rewardToken.address,
-        lpUser0.address
-      )
-      await expect(subject(rewardToken.address))
-        .to.emit(context.staker, 'RewardClaimed')
-        .withArgs(lpUser0.address, claimable)
+    describe('#claimReward', () => {
+      type TestSubject = (token: string, to?: string) => Promise<any>
+      let subject: TestSubject
+
+      beforeEach(() => {
+        subject = (_token: string, _to: string = lpUser0.address) =>
+          context.staker.connect(lpUser0).claimReward(_token, _to)
+      })
+
+      it('emits RewardClaimed event', async () => {
+        const { rewardToken } = context
+        const claimable = await context.staker.rewards(
+          rewardToken.address,
+          lpUser0.address
+        )
+        await expect(subject(rewardToken.address))
+          .to.emit(context.staker, 'RewardClaimed')
+          .withArgs(lpUser0.address, claimable)
+      })
+
+      it('transfers the correct reward amount to destination address', async () => {
+        const { rewardToken } = context
+        const claimable = await context.staker.rewards(
+          rewardToken.address,
+          lpUser0.address
+        )
+        const balance = await rewardToken.balanceOf(lpUser0.address)
+        await subject(rewardToken.address)
+        expect(await rewardToken.balanceOf(lpUser0.address)).to.equal(
+          balance.add(claimable)
+        )
+      })
+
+      it('sets the claimed reward amount to zero', async () => {
+        const { rewardToken } = context
+        expect(
+          await context.staker.rewards(rewardToken.address, lpUser0.address)
+        ).to.not.equal(0)
+
+        await subject(rewardToken.address)
+
+        expect(
+          await context.staker.rewards(rewardToken.address, lpUser0.address)
+        ).to.equal(0)
+      })
+
+      it('has gas cost', async () =>
+        await snapshotGasCost(subject(context.rewardToken.address)))
     })
 
-    it('transfers the correct reward amount to destination address', async () => {
-      const { rewardToken } = context
-      const claimable = await context.staker.rewards(
-        rewardToken.address,
-        lpUser0.address
-      )
-      const balance = await rewardToken.balanceOf(lpUser0.address)
-      await subject(rewardToken.address)
-      expect(await rewardToken.balanceOf(lpUser0.address)).to.equal(
-        balance.add(claimable)
-      )
+    describe('#claimRewardAmount', () => {
+      type TestSubject = (
+        token: string,
+        to: string,
+        amount: BigNumberish
+      ) => Promise<any>
+
+      let subject: TestSubject
+      let claimable: BigNumber
+
+      beforeEach(async () => {
+        claimable = await context.staker.rewards(
+          context.rewardToken.address,
+          lpUser0.address
+        )
+
+        subject = (_token: string, _to: string, _amount: BigNumberish) =>
+          context.staker
+            .connect(lpUser0)
+            .claimRewardAmount(_token, _to, _amount)
+      })
+
+      it('emits RewardClaimed event', async () => {
+        const { rewardToken } = context
+        await expect(subject(rewardToken.address, lpUser0.address, claimable))
+          .to.emit(context.staker, 'RewardClaimed')
+          .withArgs(lpUser0.address, claimable)
+      })
+
+      it('transfers the correct reward amount to destination address', async () => {
+        const { rewardToken } = context
+        const claimable = await context.staker.rewards(
+          rewardToken.address,
+          lpUser0.address
+        )
+        const balance = await rewardToken.balanceOf(lpUser0.address)
+        await subject(rewardToken.address, lpUser0.address, claimable)
+        expect(await rewardToken.balanceOf(lpUser0.address)).to.equal(
+          balance.add(claimable)
+        )
+      })
+
+      it('sets the claimed reward amount to the correct amount', async () => {
+        const { rewardToken, staker } = context
+
+        const initialRewardBalance = await staker.rewards(
+          rewardToken.address,
+          lpUser0.address
+        )
+        expect(initialRewardBalance).to.not.equal(BN('0'))
+
+        const partialClaim = initialRewardBalance.div(BN('3'))
+        await subject(rewardToken.address, lpUser0.address, partialClaim)
+
+        expect(
+          await staker.rewards(rewardToken.address, lpUser0.address)
+        ).to.eq(initialRewardBalance.sub(partialClaim))
+      })
+
+      it('has gas cost', async () =>
+        await snapshotGasCost(
+          subject(context.rewardToken.address, lpUser0.address, claimable)
+        ))
+
+      describe('when user claims more than they have', () => {
+        it('only transfers what they have', async () => {
+          const { rewardToken, staker } = context
+          const amountBefore = await rewardToken.balanceOf(lpUser0.address)
+          await subject(
+            rewardToken.address,
+            lpUser0.address,
+            claimable.mul(BN('3'))
+          )
+          expect(
+            await staker.rewards(rewardToken.address, lpUser0.address)
+          ).to.eq(BN('0'))
+          expect(await rewardToken.balanceOf(lpUser0.address)).to.eq(
+            amountBefore.add(claimable)
+          )
+        })
+      })
+
+      describe('when user requests 0', () => {
+        it('returns their claimable amount', async () => {
+          const { rewardToken, staker } = context
+          const amountBefore = await rewardToken.balanceOf(lpUser0.address)
+          await subject(rewardToken.address, lpUser0.address, BN('0'))
+          expect(
+            await staker.rewards(rewardToken.address, lpUser0.address)
+          ).to.eq(BN('0'))
+          expect(await rewardToken.balanceOf(lpUser0.address)).to.eq(
+            amountBefore.add(claimable)
+          )
+        })
+      })
     })
-
-    it('sets the claimed reward amount to zero', async () => {
-      const { rewardToken } = context
-      expect(
-        await context.staker.rewards(rewardToken.address, lpUser0.address)
-      ).to.not.equal(0)
-
-      await subject(rewardToken.address)
-
-      expect(
-        await context.staker.rewards(rewardToken.address, lpUser0.address)
-      ).to.equal(0)
-    })
-
-    it('has gas cost', async () =>
-      await snapshotGasCost(subject(context.rewardToken.address)))
   })
 
   describe('#unstakeToken', () => {
