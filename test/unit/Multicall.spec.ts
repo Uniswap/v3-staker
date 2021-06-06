@@ -23,7 +23,6 @@ import {
   ERC20Helper,
   incentiveResultToStakeAdapter,
 } from '../helpers'
-import _ from 'lodash'
 import { createTimeMachine } from '../shared/time'
 import { HelperTypes } from '../helpers/types'
 
