@@ -26,10 +26,7 @@ import { ActorFixture } from './actors'
 
 type WETH9Fixture = { weth9: IWETH9 }
 
-export const wethFixture: Fixture<WETH9Fixture> = async (
-  [wallet],
-  provider
-) => {
+export const wethFixture: Fixture<WETH9Fixture> = async ([wallet]) => {
   const weth9 = (await waffle.deployContract(wallet, {
     bytecode: WETH9.bytecode,
     abi: WETH9.abi,

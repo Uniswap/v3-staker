@@ -23,7 +23,7 @@ import {
 import { createFixtureLoader, provider } from '../shared/provider'
 import { HelperCommands, ERC20Helper } from '../helpers'
 
-import { ContractParams, ContractStructs } from '../../types/contractParams'
+import { ContractParams } from '../../types/contractParams'
 import { createTimeMachine } from '../shared/time'
 import { HelperTypes } from '../helpers/types'
 
@@ -191,7 +191,6 @@ describe('unit.Stakes', async () => {
 
   describe('#getRewardAmount', async () => {
     let incentiveId: string
-    let stake: ContractStructs.Stake
     let stakeIncentiveKey: ContractParams.IncentiveKey
 
     beforeEach('set up incentive and stake', async () => {
@@ -246,7 +245,7 @@ describe('unit.Stakes', async () => {
       await context.staker
         .connect(lpUser0)
         .stakeToken(stakeIncentiveKey, tokenId)
-      stake = await context.staker.stakes(tokenId, incentiveId)
+      await context.staker.stakes(tokenId, incentiveId)
     })
 
     it('returns correct rewardAmount and secondsInPeriodX128 for the position', async () => {
@@ -259,13 +258,11 @@ describe('unit.Stakes', async () => {
         .getRewardAmount(stakeIncentiveKey, tokenId)
 
       const { tickLower, tickUpper } = await context.nft.positions(tokenId)
-      const {
-        secondsPerLiquidityInsideX128,
-      } = await pool.snapshotCumulativesInside(tickLower, tickUpper)
+      await pool.snapshotCumulativesInside(tickLower, tickUpper)
 
-      const expectedSecondsInPeriod = secondsPerLiquidityInsideX128
-        .sub(stake.secondsPerLiquidityInsideInitialX128)
-        .mul(stake.liquidity)
+      // const expectedSecondsInPeriod = secondsPerLiquidityInsideX128
+      //   .sub(stake.secondsPerLiquidityInsideInitialX128)
+      //   .mul(stake.liquidity)
 
       // @ts-ignore
       expect(reward).to.be.closeTo(BNe(1, 19), BN(1))

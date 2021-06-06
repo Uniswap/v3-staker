@@ -24,7 +24,6 @@ import {
   incentiveResultToStakeAdapter,
 } from '../helpers'
 
-import { ContractParams } from '../../types/contractParams'
 import { createTimeMachine } from '../shared/time'
 
 let loadFixture: LoadFixtureFunction
@@ -39,7 +38,7 @@ describe('unit.Multicall', async () => {
   const Time = createTimeMachine(provider)
   let helpers: HelperCommands
   let context: UniswapFixtureType
-  let timestamps: ContractParams.Timestamps
+  const multicaller = actors.traderUser2()
 
   before('loader', async () => {
     loadFixture = createFixtureLoader(provider.getWallets(), provider)
@@ -50,13 +49,6 @@ describe('unit.Multicall', async () => {
     helpers = HelperCommands.fromTestContext(context, actors, provider)
   })
 
-  /**
-   * lpUser0 stakes and unstakes
-   */
-  let tokenId: string
-
-  const multicaller = actors.traderUser2()
-
   it('is implemented', async () => {
     const currentTime = await blockTimestamp()
 
@@ -66,7 +58,7 @@ describe('unit.Multicall', async () => {
       amountDesired,
       context.nft.address
     )
-    const tokenId = await mintPosition(context.nft.connect(multicaller), {
+    await mintPosition(context.nft.connect(multicaller), {
       token0: context.token0.address,
       token1: context.token1.address,
       fee: FeeAmount.MEDIUM,
@@ -132,7 +124,7 @@ describe('unit.Multicall', async () => {
       totalReward: BN(10000),
       poolAddress: context.pool01,
     })
-    const incentiveId0 = await helpers.getIncentiveId(incentive0)
+    await helpers.getIncentiveId(incentive0)
     const incentive1 = await helpers.createIncentiveFlow({
       rewardToken: context.token1,
       startTime,
@@ -141,7 +133,7 @@ describe('unit.Multicall', async () => {
       totalReward: BN(10000),
       poolAddress: context.pool01,
     })
-    const incentiveId1 = await helpers.getIncentiveId(incentive1)
+    await helpers.getIncentiveId(incentive1)
 
     await Time.set(startTime)
 
