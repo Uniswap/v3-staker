@@ -11,11 +11,23 @@ import '@uniswap/v3-core/contracts/interfaces/IERC20Minimal.sol';
 import '@uniswap/v3-periphery/contracts/interfaces/INonfungiblePositionManager.sol';
 import '@uniswap/v3-periphery/contracts/interfaces/IMulticall.sol';
 
-import '../libraries/IncentiveId.sol';
-
 /// @title Uniswap V3 Staker Interface
 /// @notice Allows staking nonfungible liquidity tokens in exchange for reward tokens
 interface IUniswapV3Staker is IERC721Receiver, IMulticall {
+    /// @param rewardToken The token being distributed as a reward
+    /// @param pool The Uniswap V3 pool
+    /// @param startTime The time when the incentive program begins
+    /// @param endTime The time when rewards stop accruing
+    /// @param claimDeadline Time after which anoyne can cause unaccounted-for rewards to be sent to the refundee
+    /// @param refundee The address which receives any remaining reward tokens after the claimDeadline
+    struct IncentiveKey {
+        IERC20Minimal rewardToken;
+        IUniswapV3Pool pool;
+        uint256 startTime;
+        uint256 endTime;
+        address refundee;
+    }
+
     /// @notice The Uniswap V3 Factory
     function factory() external view returns (IUniswapV3Factory);
 
@@ -72,12 +84,11 @@ interface IUniswapV3Staker is IERC721Receiver, IMulticall {
     /// @notice Creates a new liquidity mining incentive program
     /// @param key Details of the incentive to create
     /// @param reward The amount of reward tokens to be distributed
-    function createIncentive(IncentiveId.Key memory key, uint256 reward)
-        external;
+    function createIncentive(IncentiveKey memory key, uint256 reward) external;
 
     /// @notice Ends an incentive after the incentive end time has passed and all stakes have been withdrawn
     /// @param key Details of the incentive to end
-    function endIncentive(IncentiveId.Key memory key) external;
+    function endIncentive(IncentiveKey memory key) external;
 
     /// @notice Withdraws a Uniswap V3 LP token `tokenId` from this contract to the recipient `to`
     /// @param tokenId The unique identifier of an Uniswap V3 LP token
@@ -87,12 +98,12 @@ interface IUniswapV3Staker is IERC721Receiver, IMulticall {
     /// @notice Stakes a Uniswap V3 LP token
     /// @param key The key of the incentive for which to stake the NFT
     /// @param tokenId The ID of the token to stake
-    function stakeToken(IncentiveId.Key memory key, uint256 tokenId) external;
+    function stakeToken(IncentiveKey memory key, uint256 tokenId) external;
 
     /// @notice Unstakes a Uniswap V3 LP token
     /// @param key The key of the incentive for which to unstake the NFT
     /// @param tokenId The ID of the token to unstake
-    function unstakeToken(IncentiveId.Key memory key, uint256 tokenId) external;
+    function unstakeToken(IncentiveKey memory key, uint256 tokenId) external;
 
     /// @notice Transfers accrued `rewardToken` rewards from the contarct to the recipient `to`
     /// @param rewardToken The token being distributed as a reward
@@ -103,7 +114,7 @@ interface IUniswapV3Staker is IERC721Receiver, IMulticall {
     /// @param key The key of the incentive
     /// @param tokenId The ID of the token
     /// @return reward The reward accrued to the NFT for the given incentive thus far
-    function getRewardAmount(IncentiveId.Key memory key, uint256 tokenId)
+    function getRewardAmount(IncentiveKey memory key, uint256 tokenId)
         external
         returns (uint256 reward);
 
