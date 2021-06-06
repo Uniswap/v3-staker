@@ -4,9 +4,9 @@ pragma abicoder v2;
 
 import './interfaces/IUniswapV3Staker.sol';
 import './libraries/IncentiveId.sol';
+import './libraries/RewardMath.sol';
 
 import '@uniswap/v3-core/contracts/libraries/FixedPoint96.sol';
-import '@uniswap/v3-core/contracts/libraries/FullMath.sol';
 import '@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol';
 import '@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol';
 import '@uniswap/v3-core/contracts/interfaces/IERC20Minimal.sol';
@@ -17,7 +17,6 @@ import '@uniswap/v3-periphery/contracts/libraries/TransferHelper.sol';
 import '@uniswap/v3-periphery/contracts/base/Multicall.sol';
 
 import '@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol';
-import '@openzeppelin/contracts/math/Math.sol';
 import '@openzeppelin/contracts/math/SafeMath.sol';
 
 /// @title Uniswap V3 canonical staking interface
@@ -217,11 +216,13 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
             (, uint160 secondsPerLiquidityInsideX128, ) =
                 key.pool.snapshotCumulativesInside(tickLower, tickUpper);
             (uint256 reward, uint160 secondsInsideX128) =
-                _getRewardAmount(
-                    stake,
-                    incentive,
+                RewardMath.computeRewardAmount(
+                    incentive.totalRewardUnclaimed,
+                    incentive.totalSecondsClaimedX128,
                     key.startTime,
                     key.endTime,
+                    stake.liquidity,
+                    stake.secondsPerLiquidityInsideInitialX128,
                     secondsPerLiquidityInsideX128
                 );
 
@@ -266,41 +267,20 @@ contract UniswapV3Staker is IUniswapV3Staker, IERC721Receiver, Multicall {
 
         bytes32 incentiveId = IncentiveId.compute(key);
 
-        Incentive memory incentive = incentives[incentiveId];
-        Stake memory stake = stakes[tokenId][incentiveId];
+        Incentive storage incentive = incentives[incentiveId];
+        Stake storage stake = stakes[tokenId][incentiveId];
+
         (, uint160 secondsPerLiquidityInsideX128, ) =
             pool.snapshotCumulativesInside(tickLower, tickUpper);
 
-        (reward, ) = _getRewardAmount(
-            stake,
-            incentive,
+        (reward, ) = RewardMath.computeRewardAmount(
+            incentive.totalRewardUnclaimed,
+            incentive.totalSecondsClaimedX128,
             key.startTime,
             key.endTime,
+            stake.liquidity,
+            stake.secondsPerLiquidityInsideInitialX128,
             secondsPerLiquidityInsideX128
-        );
-    }
-
-    function _getRewardAmount(
-        Stake memory stake,
-        Incentive memory incentive,
-        uint256 startTime,
-        uint256 endTime,
-        uint160 secondsPerLiquidityInsideX128
-    ) private view returns (uint256 reward, uint160 secondsInsideX128) {
-        // this operation is safe, as the difference cannot be greater than 1/stake.liquidity
-        secondsInsideX128 =
-            (secondsPerLiquidityInsideX128 -
-                stake.secondsPerLiquidityInsideInitialX128) *
-            stake.liquidity;
-
-        uint256 totalSecondsUnclaimedX128 =
-            ((Math.max(endTime, block.timestamp) - startTime) << 128) -
-                incentive.totalSecondsClaimedX128;
-
-        reward = FullMath.mulDiv(
-            incentive.totalRewardUnclaimed,
-            secondsInsideX128,
-            totalSecondsUnclaimedX128
         );
     }
 
