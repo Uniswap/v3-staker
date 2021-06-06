@@ -1103,6 +1103,8 @@ describe('UniswapV3Staker.unit', async () => {
 
         it('calculates the right secondsPerLiquidity')
         it('does not overflow totalSecondsUnclaimed')
+        it('anyone can unstake after the end time')
+        it('owner can unstake after the end time')
       })
 
       describe('fails if', () => {
@@ -1110,6 +1112,8 @@ describe('UniswapV3Staker.unit', async () => {
           await subject()
           await expect(subject()).to.revertedWith('stake does not exist')
         })
+        it('stake has already been unstaked')
+        it('non-owner tries to unstake before the end time')
       })
     })
   })
