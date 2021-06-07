@@ -118,7 +118,7 @@ describe('unit/Stakes', () => {
         )
     })
 
-    describe('works and', async () => {
+    describe.only('works and', () => {
       // Make sure the incentive has started
       beforeEach(async () => {
         await Time.set(timestamps.startTime + 100)
@@ -149,7 +149,17 @@ describe('unit/Stakes', () => {
         )
       })
 
-      it('increments the number of stakes on the deposit')
+      it('increments the number of stakes on the deposit', async () => {
+        const { numberOfStakes: stakesBefore } = await context.staker.deposits(
+          tokenId
+        )
+        await subject(tokenId)
+        const { numberOfStakes: stakesAfter } = await context.staker.deposits(
+          tokenId
+        )
+        expect(stakesAfter.sub(stakesBefore)).to.eq(BN('1'))
+      })
+
       it('increments the number of stakes on the incentive')
 
       it('has gas cost', async () => {
