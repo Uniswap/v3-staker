@@ -93,14 +93,17 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall {
         external
         override
     {
-        require(reward > 0, 'reward must be positive');
+        require(
+            reward > 0,
+            'UniswapV3Staker::createIncentive: reward must be positive'
+        );
         require(
             block.timestamp <= key.startTime,
-            'start time must be now or in the future'
+            'UniswapV3Staker::createIncentive: start time must be now or in the future'
         );
         require(
             key.startTime < key.endTime,
-            'start time must be before end time'
+            'UniswapV3Staker::createIncentive: start time must be before end time'
         );
 
         bytes32 incentiveId = IncentiveId.compute(key);
@@ -108,7 +111,7 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall {
         // totalRewardUnclaimed cannot decrease until key.startTime has passed, meaning this check is safe
         require(
             incentives[incentiveId].totalRewardUnclaimed == 0,
-            'incentive already exists'
+            'UniswapV3Staker::createIncentive: incentive already exists'
         );
 
         incentives[incentiveId] = Incentive({
@@ -139,7 +142,7 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall {
     function endIncentive(IncentiveKey memory key) external override {
         require(
             block.timestamp >= key.endTime,
-            'cannot end incentive before end time'
+            'UniswapV3Staker::endIncentive: cannot end incentive before end time'
         );
 
         bytes32 incentiveId = IncentiveId.compute(key);
@@ -150,7 +153,7 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall {
         require(refund > 0, 'no refund available');
         require(
             incentive.numberOfStakes == 0,
-            'cannot end incentive while deposits are staked'
+            'UniswapV3Staker::endIncentive: cannot end incentive while deposits are staked'
         );
 
         // issue the refund
@@ -175,7 +178,7 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall {
     ) external override returns (bytes4) {
         require(
             msg.sender == address(nonfungiblePositionManager),
-            'not a univ3 nft'
+            'UniswapV3Staker::onERC721Received: not a univ3 nft'
         );
 
         deposits[tokenId] = Deposit({owner: from, numberOfStakes: 0});
@@ -199,9 +202,12 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall {
         Deposit memory deposit = deposits[tokenId];
         require(
             deposit.numberOfStakes == 0,
-            'cannot withdraw token while staked'
+            'UniswapV3Staker::withdrawToken: cannot withdraw token while staked'
         );
-        require(deposit.owner == msg.sender, 'only owner can withdraw token');
+        require(
+            deposit.owner == msg.sender,
+            'UniswapV3Staker::withdrawToken: only owner can withdraw token'
+        );
 
         delete deposits[tokenId];
         nonfungiblePositionManager.safeTransferFrom(address(this), to, tokenId);
@@ -215,7 +221,7 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall {
     {
         require(
             deposits[tokenId].owner == msg.sender,
-            'only owner can stake token'
+            'UniswapV3Staker::stakeToken: only owner can stake token'
         );
 
         _stakeToken(key, tokenId);
@@ -231,7 +237,7 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall {
         if (block.timestamp < key.endTime) {
             require(
                 depositOwner == msg.sender,
-                'only owner can withdraw token before incentive end time'
+                'UniswapV3Staker::unstakeToken: only owner can withdraw token before incentive end time'
             );
         }
 
@@ -240,7 +246,10 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall {
         (uint160 secondsPerLiquidityInsideInitialX128, uint128 liquidity) =
             stakes(tokenId, incentiveId);
 
-        require(liquidity != 0, 'stake does not exist');
+        require(
+            liquidity != 0,
+            'UniswapV3Staker::unstakeToken: stake does not exist'
+        );
 
         Incentive storage incentive = incentives[incentiveId];
 
@@ -310,7 +319,10 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall {
 
         (uint160 secondsPerLiquidityInsideInitialX128, uint128 liquidity) =
             stakes(tokenId, incentiveId);
-        require(liquidity > 0, 'stake does not exist');
+        require(
+            liquidity > 0,
+            'UniswapV3Staker::getRewardAmount: stake does not exist'
+        );
 
         Incentive storage incentive = incentives[incentiveId];
 
@@ -336,18 +348,24 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall {
     }
 
     function _stakeToken(IncentiveKey memory key, uint256 tokenId) private {
-        require(block.timestamp >= key.startTime, 'incentive not started');
-        require(block.timestamp < key.endTime, 'incentive ended');
+        require(
+            block.timestamp >= key.startTime,
+            'UniswapV3Staker::stakeToken: incentive not started'
+        );
+        require(
+            block.timestamp < key.endTime,
+            'UniswapV3Staker::stakeToken: incentive ended'
+        );
 
         bytes32 incentiveId = IncentiveId.compute(key);
 
         require(
             incentives[incentiveId].totalRewardUnclaimed > 0,
-            'non-existent incentive'
+            'UniswapV3Staker::stakeToken: non-existent incentive'
         );
         require(
             _stakes[tokenId][incentiveId].liquidityNoOverflow == 0,
-            'token already staked'
+            'UniswapV3Staker::stakeToken: token already staked'
         );
 
         (
@@ -362,8 +380,14 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall {
                 tokenId
             );
 
-        require(pool == key.pool, 'token pool is not the incentive pool');
-        require(liquidity > 0, 'cannot stake token with 0 liquidity');
+        require(
+            pool == key.pool,
+            'UniswapV3Staker::stakeToken: token pool is not the incentive pool'
+        );
+        require(
+            liquidity > 0,
+            'UniswapV3Staker::stakeToken: cannot stake token with 0 liquidity'
+        );
 
         deposits[tokenId].numberOfStakes++;
         incentives[incentiveId].numberOfStakes++;
