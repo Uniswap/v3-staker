@@ -13,5 +13,6 @@ module.exports = {
   rules: {
     "@typescript-eslint/no-unused-vars": 1,
     "unused-imports/no-unused-imports-ts": 1,
+    "no-shadow": 1
   }
 };
