@@ -56,7 +56,12 @@ interface IUniswapV3Staker is IERC721Receiver, IMulticall {
     function deposits(uint256 tokenId)
         external
         view
-        returns (address owner, uint96 numberOfStakes);
+        returns (
+            address owner,
+            uint48 numberOfStakes,
+            int24 tickLower,
+            int24 tickUpper
+        );
 
     /// @notice Returns information about a staked liquidity NFT
     /// @param tokenId The ID of the staked token
