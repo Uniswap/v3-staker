@@ -27,7 +27,7 @@ export module HelperTypes {
   }
 
   export module MintDepositStake {
-    type Args = {
+    export type Args = {
       lp: Wallet
       tokensToStake: [TestERC20, TestERC20]
       amountsToStake: [BigNumber, BigNumber]
