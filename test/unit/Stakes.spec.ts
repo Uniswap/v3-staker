@@ -1,4 +1,4 @@
-import { BigNumberish, BigNumber, Wallet } from 'ethers'
+import { BigNumber, Wallet } from 'ethers'
 import { LoadFixtureFunction } from '../types'
 import { TestERC20 } from '../../typechain'
 import {
@@ -57,7 +57,6 @@ describe('unit/Stakes', () => {
   describe('#stakeToken', () => {
     let incentiveId: string
     let subject: (_tokenId: string, _actor?: Wallet) => Promise<any>
-    let timestamps: ContractParams.Timestamps
 
     beforeEach(async () => {
       context = await loadFixture(uniswapFixture)
@@ -118,7 +117,7 @@ describe('unit/Stakes', () => {
         )
     })
 
-    describe.only('works and', () => {
+    describe('works and', () => {
       // Make sure the incentive has started
       beforeEach(async () => {
         await Time.set(timestamps.startTime + 100)
@@ -160,7 +159,18 @@ describe('unit/Stakes', () => {
         expect(stakesAfter.sub(stakesBefore)).to.eq(BN('1'))
       })
 
-      it('increments the number of stakes on the incentive')
+      it('increments the number of stakes on the incentive', async () => {
+        const {
+          numberOfStakes: stakesBefore,
+        } = await context.staker.incentives(incentiveId)
+
+        await subject(tokenId)
+
+        const { numberOfStakes: stakesAfter } = await context.staker.incentives(
+          incentiveId
+        )
+        expect(stakesAfter.sub(stakesBefore)).to.eq(BN('1'))
+      })
 
       it('has gas cost', async () => {
         await snapshotGasCost(subject(tokenId))
@@ -339,7 +349,7 @@ describe('unit/Stakes', () => {
     describe('when requesting the full amount', () => {
       it('emits RewardClaimed event', async () => {
         const { rewardToken } = context
-        const claimable = await context.staker.rewards(
+        claimable = await context.staker.rewards(
           rewardToken.address,
           lpUser0.address
         )
@@ -350,7 +360,7 @@ describe('unit/Stakes', () => {
 
       it('transfers the correct reward amount to destination address', async () => {
         const { rewardToken } = context
-        const claimable = await context.staker.rewards(
+        claimable = await context.staker.rewards(
           rewardToken.address,
           lpUser0.address
         )
@@ -402,7 +412,7 @@ describe('unit/Stakes', () => {
 
       it('transfers the correct reward amount to destination address', async () => {
         const { rewardToken } = context
-        const claimable = await context.staker.rewards(
+        claimable = await context.staker.rewards(
           rewardToken.address,
           lpUser0.address
         )
