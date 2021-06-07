@@ -28,6 +28,8 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall {
     struct Deposit {
         address owner;
         uint96 numberOfStakes;
+        int24 tickLower;
+        int24 tickUpper;
     }
 
     /// @notice Represents a staked liquidity NFT
@@ -185,7 +187,15 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall {
             'UniswapV3Staker::onERC721Received: not a univ3 nft'
         );
 
-        deposits[tokenId] = Deposit({owner: from, numberOfStakes: 0});
+        (, , , , , int24 tickLower, int24 tickUpper, , , , , ) =
+            nonfungiblePositionManager.positions(tokenId);
+
+        deposits[tokenId] = Deposit({
+            owner: from,
+            numberOfStakes: 0,
+            tickLower: tickLower,
+            tickUpper: tickUpper
+        });
         emit TokenDeposited(tokenId, from);
 
         if (data.length > 0) {
@@ -236,11 +246,11 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall {
         external
         override
     {
-        address depositOwner = deposits[tokenId].owner;
+        Deposit memory deposit = deposits[tokenId];
         // anyone can call unstakeToken if the block time is after the end time of the incentive
         if (block.timestamp < key.endTime) {
             require(
-                depositOwner == msg.sender,
+                deposit.owner == msg.sender,
                 'UniswapV3Staker::unstakeToken: only owner can withdraw token before incentive end time'
             );
         }
@@ -262,12 +272,11 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall {
 
         // if incentive still has rewards to claim
         if (incentive.totalRewardUnclaimed > 0) {
-            // NFTPositionInfo is not used here because we do not need to compute the pool address
-            (, , , , , int24 tickLower, int24 tickUpper, , , , , ) =
-                nonfungiblePositionManager.positions(tokenId);
-
             (, uint160 secondsPerLiquidityInsideX128, ) =
-                key.pool.snapshotCumulativesInside(tickLower, tickUpper);
+                key.pool.snapshotCumulativesInside(
+                    deposit.tickLower,
+                    deposit.tickUpper
+                );
             (uint256 reward, uint160 secondsInsideX128) =
                 RewardMath.computeRewardAmount(
                     incentive.totalRewardUnclaimed,
@@ -284,7 +293,7 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall {
             // TODO: verify that reward is never greater than totalRewardUnclaimed
             incentive.totalRewardUnclaimed -= reward;
             // this only overflows if a token has a total supply greater than type(uint256).max
-            rewards[key.rewardToken][depositOwner] += reward;
+            rewards[key.rewardToken][deposit.owner] += reward;
         }
 
         Stake storage stake = _stakes[tokenId][incentiveId];
