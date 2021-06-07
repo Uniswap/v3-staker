@@ -132,8 +132,6 @@ describe('unit/Stakes', () => {
         const liquidity = (await context.nft.positions(tokenId)).liquidity
 
         const stakeBefore = await context.staker.stakes(tokenId, incentiveId)
-        const nStakesBefore = (await context.staker.deposits(tokenId))
-          .numberOfStakes
         await subject(tokenId, lpUser0)
         const stakeAfter = await context.staker.stakes(tokenId, incentiveId)
 
@@ -141,20 +139,16 @@ describe('unit/Stakes', () => {
         expect(stakeBefore.liquidity).to.eq(0)
         expect(stakeAfter.secondsPerLiquidityInsideInitialX128).to.be.gt(0)
         expect(stakeAfter.liquidity).to.eq(liquidity)
-        expect((await context.staker.deposits(tokenId)).numberOfStakes).to.eq(
-          nStakesBefore.add(1)
-        )
       })
 
       it('increments the number of stakes on the deposit', async () => {
-        const { numberOfStakes: stakesBefore } = await context.staker.deposits(
-          tokenId
-        )
+        const nStakesBefore: number = (await context.staker.deposits(tokenId))
+          .numberOfStakes
         await subject(tokenId, lpUser0)
-        const { numberOfStakes: stakesAfter } = await context.staker.deposits(
-          tokenId
+
+        expect((await context.staker.deposits(tokenId)).numberOfStakes).to.eq(
+          nStakesBefore + 1
         )
-        expect(stakesAfter.sub(stakesBefore)).to.eq(BN('1'))
       })
 
       it('increments the number of stakes on the incentive', async () => {
@@ -592,7 +586,7 @@ describe('unit/Stakes', () => {
         const { numberOfStakes: stakesPost } = await context.staker.deposits(
           tokenId
         )
-        expect(stakesPre).to.not.equal(stakesPost.sub(1))
+        expect(stakesPre).to.not.equal(stakesPost - 1)
       })
 
       it('decrements incentive numberOfStakes by 1', async () => {

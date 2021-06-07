@@ -58,7 +58,7 @@ interface IUniswapV3Staker is IERC721Receiver, IMulticall {
         view
         returns (
             address owner,
-            uint96 numberOfStakes,
+            uint48 numberOfStakes,
             int24 tickLower,
             int24 tickUpper
         );

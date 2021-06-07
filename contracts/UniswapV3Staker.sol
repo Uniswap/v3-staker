@@ -27,7 +27,7 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall {
     /// @notice Represents the deposit of a liquidity NFT
     struct Deposit {
         address owner;
-        uint96 numberOfStakes;
+        uint48 numberOfStakes;
         int24 tickLower;
         int24 tickUpper;
     }
