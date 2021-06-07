@@ -104,7 +104,7 @@ interface IUniswapV3Staker is IERC721Receiver, IMulticall {
     /// @param tokenId The ID of the token to unstake
     function unstakeToken(IncentiveKey memory key, uint256 tokenId) external;
 
-    /// @notice Transfers `amountRequested` of accrued `rewardToken` rewards from the contarct to the recipient `to`
+    /// @notice Transfers `amountRequested` of accrued `rewardToken` rewards from the contract to the recipient `to`
     /// @param rewardToken The token being distributed as a reward
     /// @param to The address where claimed rewards will be sent to
     /// @param amountRequested The amount of rewardToken to claim
