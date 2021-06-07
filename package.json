@@ -69,8 +69,9 @@
   },
   "scripts": {
     "compile": "hardhat compile",
+    "lint": "eslint . --ext .ts",
+    "prettier:check": "prettier-check contracts/**/*.sol test/**/*.ts types/*.ts",
     "size-contracts": "hardhat compile && hardhat size-contracts",
-    "test": "hardhat test",
-    "prettier:check": "prettier-check contracts/**/*.sol test/**/*.ts types/*.ts"
+    "test": "hardhat test"
   }
 }
