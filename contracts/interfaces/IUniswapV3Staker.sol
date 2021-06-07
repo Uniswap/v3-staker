@@ -108,12 +108,11 @@ interface IUniswapV3Staker is IERC721Receiver, IMulticall {
     /// @param rewardToken The token being distributed as a reward
     /// @param to The address where claimed rewards will be sent to
     /// @param amountRequested The amount of rewardToken to claim
-    /// @return reward The amount of reward transferred
     function claimReward(
         IERC20Minimal rewardToken,
         address to,
         uint256 amountRequested
-    ) external returns (uint256 reward);
+    ) external;
 
     /// @notice Calculates the reward amount that will be received for the given stake
     /// @param key The key of the incentive
