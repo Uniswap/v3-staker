@@ -221,7 +221,22 @@ describe('unit/Stakes', () => {
         ).to.be.revertedWith('token pool is not the incentive pool')
       })
 
-      it('incentive key does not exist', async () => {})
+      it('incentive key does not exist', async () => {
+        await Time.setAndMine(timestamps.startTime + 20)
+
+        await expect(
+          context.staker.connect(lpUser0).stakeToken(
+            {
+              refundee: incentiveCreator.address,
+              pool: context.pool01,
+              rewardToken: context.rewardToken.address,
+              ...timestamps,
+              startTime: timestamps.startTime + 10,
+            },
+            tokenId
+          )
+        ).to.be.revertedWith('non-existent incentive')
+      })
 
       it('is past the end time', async () => {
         await Time.set(timestamps.endTime + 100)
