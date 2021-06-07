@@ -200,13 +200,6 @@ describe('integration', async () => {
           // It does not allow them to claim rewards (since we're past end time)
           await actions.doClaimRewards(stakes[0])
 
-          // Right now they're still getting rewards since rewards can be claimed past claimDeadline
-          // expect(
-          //   await createIncentiveResult.rewardToken.balanceOf(
-          //     stakes[0].lp.address
-          //   )
-          // ).to.eq(BN('0'))
-
           // Owner is still the staker
           expect(await nft.ownerOf(stakes[0].tokenId)).to.eq(staker.address)
 

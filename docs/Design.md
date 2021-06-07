@@ -66,13 +66,13 @@ struct EndIncentiveParams {
 
 ### `createIncentive(CreateIncentiveParams memory params)`
 
-`createIncentive` creates a liquidity mining incentive program. The key used to look up an Incentive is the hash of its immutable properties, see `getIncentiveId`.
+`createIncentive` creates a liquidity mining incentive program. The key used to look up an Incentive is the hash of its immutable properties.
 
 **Check:**
 
 - Incentive with these params does not already exist
 - Timestamps: `params.endTime >= params.startTime`, `params.startTime >= block.timestamp`
-- Incentive with this ID does not already exist. See `getIncentiveId`.
+- Incentive with this ID does not already exist.
 
 **Effects:**
 
@@ -90,9 +90,8 @@ struct EndIncentiveParams {
 
 **Check:**
 
-- Implicit check: the caller is incentiveCreator since it gets passed to getIncentiveId
-- `block.timestamp` > `params.claimDeadline`
-- Incentive exists (incentive.rewardToken != address(0))
+- `block.timestamp > params.endTime`
+- Incentive exists (`incentive.totalRewardUnclaimed != 0`)
 
 **Effects:**
 
@@ -185,8 +184,3 @@ To unstake an NFT, you call `unstakeToken`, which takes all the same arguments a
 
 - `reward` is then calculated as `secondsInPeriodX128` times the `rewardRate`, scaled down to a regular uint128.
 
-## Misc
-
-#### `getIncentiveId(address incentiveCreator, address rewardToken, address pool, uint32 startTime, uint32 endTime, uint32 claimDeadline): bytes32`
-
-- Hashes all the immutable parameters of the incentive together to get the canonical ID for the incentive
