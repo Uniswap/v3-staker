@@ -53,6 +53,7 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall {
     /// @dev stakes[tokenId][incentiveHash] => Stake
     mapping(uint256 => mapping(bytes32 => Stake)) private _stakes;
 
+    /// @inheritdoc IUniswapV3Staker
     function stakes(uint256 tokenId, bytes32 incentiveId)
         public
         view
@@ -65,10 +66,8 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall {
         Stake storage stake = _stakes[tokenId][incentiveId];
         secondsPerLiquidityInsideInitialX128 = stake
             .secondsPerLiquidityInsideInitialX128;
-        uint96 liquidityIfNoOverflow = stake.liquidityNoOverflow;
-        if (liquidityIfNoOverflow != type(uint96).max) {
-            liquidity = uint128(liquidityIfNoOverflow);
-        } else {
+        liquidity = stake.liquidityNoOverflow;
+        if (liquidity == type(uint96).max) {
             liquidity = stake.liquidityIfOverflow;
         }
     }
@@ -235,14 +234,15 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall {
 
         bytes32 incentiveId = IncentiveId.compute(key);
 
-        Incentive storage incentive = incentives[incentiveId];
         (uint160 secondsPerLiquidityInsideInitialX128, uint128 liquidity) =
             stakes(tokenId, incentiveId);
 
         require(liquidity != 0, 'stake does not exist');
 
-        incentive.numberOfStakes--;
+        Incentive storage incentive = incentives[incentiveId];
+
         deposits[tokenId].numberOfStakes--;
+        incentive.numberOfStakes--;
 
         // if incentive still has rewards to claim
         if (incentive.totalRewardUnclaimed > 0) {
