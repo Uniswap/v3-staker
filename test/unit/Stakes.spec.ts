@@ -330,7 +330,15 @@ describe('unit/Stakes', () => {
       expect(reward, 'reward is nonzero').to.not.equal(0)
     })
 
-    it('reverts if stake does not exist')
+    it('reverts if stake does not exist', async () => {
+      await Time.setAndMine(timestamps.endTime + 1)
+
+      await expect(
+        context.staker
+          .connect(lpUser0)
+          .getRewardAmount(stakeIncentiveKey, '100')
+      ).to.be.revertedWith('stake does not exist')
+    })
   })
 
   describe('#claimReward', () => {
