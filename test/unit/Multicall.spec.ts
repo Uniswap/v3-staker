@@ -27,7 +27,6 @@ import {
 } from '../helpers'
 import { createTimeMachine } from '../shared/time'
 import { HelperTypes } from '../helpers/types'
-import { TestERC20 } from '../../typechain'
 
 let loadFixture: LoadFixtureFunction
 

@@ -39,6 +39,7 @@ describe('unit/Stakes', () => {
   let helpers: HelperCommands
   let context: UniswapFixtureType
   let timestamps: ContractParams.Timestamps
+  let tokenId: string
 
   before('loader', async () => {
     loadFixture = createFixtureLoader(provider.getWallets(), provider)
@@ -49,14 +50,10 @@ describe('unit/Stakes', () => {
     helpers = HelperCommands.fromTestContext(context, actors, provider)
   })
 
-  /**
-   * lpUser0 stakes and unstakes
-   */
-  let tokenId: string
-
   describe('#stakeToken', () => {
     let incentiveId: string
-    let subject: (_tokenId: string, _actor?: Wallet) => Promise<any>
+    let incentiveArgs: HelperTypes.CreateIncentive.Args
+    let subject: (_tokenId: string, _actor: Wallet) => Promise<any>
 
     beforeEach(async () => {
       context = await loadFixture(uniswapFixture)
@@ -94,7 +91,8 @@ describe('unit/Stakes', () => {
           context.staker.address,
           tokenId
         )
-      const incentiveParams: HelperTypes.CreateIncentive.Args = {
+
+      incentiveArgs = {
         rewardToken: context.rewardToken,
         totalReward,
         poolAddress: context.poolObj.address,
@@ -102,10 +100,10 @@ describe('unit/Stakes', () => {
       }
 
       incentiveId = await helpers.getIncentiveId(
-        await helpers.createIncentiveFlow(incentiveParams)
+        await helpers.createIncentiveFlow(incentiveArgs)
       )
 
-      subject = (_tokenId: string, _actor: Wallet = lpUser0) =>
+      subject = (_tokenId: string, _actor: Wallet) =>
         context.staker.connect(_actor).stakeToken(
           {
             refundee: incentiveCreator.address,
@@ -125,7 +123,7 @@ describe('unit/Stakes', () => {
 
       it('emits the stake event', async () => {
         const { liquidity } = await context.nft.positions(tokenId)
-        await expect(subject(tokenId))
+        await expect(subject(tokenId, lpUser0))
           .to.emit(context.staker, 'TokenStaked')
           .withArgs(tokenId, incentiveId, liquidity)
       })
@@ -136,7 +134,7 @@ describe('unit/Stakes', () => {
         const stakeBefore = await context.staker.stakes(tokenId, incentiveId)
         const nStakesBefore = (await context.staker.deposits(tokenId))
           .numberOfStakes
-        await subject(tokenId)
+        await subject(tokenId, lpUser0)
         const stakeAfter = await context.staker.stakes(tokenId, incentiveId)
 
         expect(stakeBefore.secondsPerLiquidityInsideInitialX128).to.eq(0)
@@ -152,7 +150,7 @@ describe('unit/Stakes', () => {
         const { numberOfStakes: stakesBefore } = await context.staker.deposits(
           tokenId
         )
-        await subject(tokenId)
+        await subject(tokenId, lpUser0)
         const { numberOfStakes: stakesAfter } = await context.staker.deposits(
           tokenId
         )
@@ -164,7 +162,7 @@ describe('unit/Stakes', () => {
           numberOfStakes: stakesBefore,
         } = await context.staker.incentives(incentiveId)
 
-        await subject(tokenId)
+        await subject(tokenId, lpUser0)
 
         const { numberOfStakes: stakesAfter } = await context.staker.incentives(
           incentiveId
@@ -172,31 +170,64 @@ describe('unit/Stakes', () => {
         expect(stakesAfter.sub(stakesBefore)).to.eq(BN('1'))
       })
 
-      it('has gas cost', async () => {
-        await snapshotGasCost(subject(tokenId))
-      })
+      it('has gas cost', async () =>
+        await snapshotGasCost(subject(tokenId, lpUser0)))
     })
 
     describe('fails when', () => {
       it('deposit is already staked in the incentive', async () => {
         await Time.set(timestamps.startTime + 500)
-        await subject(tokenId)
-        await expect(subject(tokenId)).to.be.revertedWith('already staked')
+        await subject(tokenId, lpUser0)
+        await expect(subject(tokenId, lpUser0)).to.be.revertedWith(
+          'already staked'
+        )
       })
 
       it('you are not the owner of the deposit', async () => {
         await Time.set(timestamps.startTime + 500)
+        // lpUser2 calls, we're using lpUser0 elsewhere.
         await expect(subject(tokenId, actors.lpUser2())).to.be.revertedWith(
           'only owner can stake token'
         )
       })
 
-      it('token id is for a different pool than the incentive')
-      it('incentive key does not exist')
+      it('token id is for a different pool than the incentive', async () => {
+        const incentive2 = await helpers.createIncentiveFlow({
+          ...incentiveArgs,
+          poolAddress: context.pool12,
+        })
+        const { tokenId: otherTokenId } = await helpers.mintFlow({
+          lp: lpUser0,
+          tokens: [context.token1, context.rewardToken],
+        })
+
+        await Time.setAndMine(incentive2.startTime + 1)
+
+        await helpers.depositFlow({
+          lp: lpUser0,
+          tokenId: otherTokenId,
+        })
+
+        await expect(
+          context.staker.connect(lpUser0).stakeToken(
+            {
+              refundee: incentiveCreator.address,
+              pool: context.pool01,
+              rewardToken: context.rewardToken.address,
+              ...timestamps,
+            },
+            otherTokenId
+          )
+        ).to.be.revertedWith('token pool is not the incentive pool')
+      })
+
+      it('incentive key does not exist', async () => {})
 
       it('is past the end time', async () => {
         await Time.set(timestamps.endTime + 100)
-        await expect(subject(tokenId)).to.be.revertedWith('incentive ended')
+        await expect(subject(tokenId, lpUser0)).to.be.revertedWith(
+          'incentive ended'
+        )
       })
 
       it('is before the start time', async () => {
@@ -204,7 +235,7 @@ describe('unit/Stakes', () => {
           throw new Error('no good')
         }
         await Time.set(timestamps.startTime - 2)
-        await expect(subject(tokenId)).to.be.revertedWith(
+        await expect(subject(tokenId, lpUser0)).to.be.revertedWith(
           'incentive not started'
         )
       })

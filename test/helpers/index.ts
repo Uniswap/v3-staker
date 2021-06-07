@@ -362,8 +362,13 @@ export class HelperCommands {
       null
     )
     const transferTopic = rewardToken.interface.getEventTopic('Transfer')
-    const log = receipt.logs.find((log) => log.topics.includes(transferTopic))
-    const events = await rewardToken.queryFilter(transferFilter, log?.blockHash)
+    const logItem = receipt.logs.find((log) =>
+      log.topics.includes(transferTopic)
+    )
+    const events = await rewardToken.queryFilter(
+      transferFilter,
+      logItem?.blockHash
+    )
     let amountTransferred: BigNumber
 
     if (events.length === 1) {
