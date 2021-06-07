@@ -665,12 +665,23 @@ describe('unit/Stakes', () => {
     })
 
     describe('fails if', () => {
-      it('you have not staked', async () => {
+      it('stake has already been unstaked', async () => {
+        await Time.setAndMine(timestamps.endTime + 1)
         await subject(lpUser0)
         await expect(subject(lpUser0)).to.revertedWith('stake does not exist')
       })
-      it('stake has already been unstaked')
-      it('non-owner tries to unstake before the end time')
+
+      it('you have not staked', async () => {
+        await expect(subject(actors.lpUser2())).to.revertedWith(
+          'only owner can withdraw token'
+        )
+      })
+
+      it('non-owner tries to unstake before the end time', async () => {
+        await expect(subject(actors.lpUser2())).to.revertedWith(
+          'only owner can withdraw token'
+        )
+      })
     })
   })
 })
