@@ -139,7 +139,11 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall {
     }
 
     /// @inheritdoc IUniswapV3Staker
-    function endIncentive(IncentiveKey memory key) external override {
+    function endIncentive(IncentiveKey memory key)
+        external
+        override
+        returns (uint256 refund)
+    {
         require(
             block.timestamp >= key.endTime,
             'UniswapV3Staker::endIncentive: cannot end incentive before end time'
@@ -148,7 +152,7 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall {
         bytes32 incentiveId = IncentiveId.compute(key);
         Incentive storage incentive = incentives[incentiveId];
 
-        uint256 refund = incentive.totalRewardUnclaimed;
+        refund = incentive.totalRewardUnclaimed;
 
         require(refund > 0, 'no refund available');
         require(
@@ -295,12 +299,11 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall {
         IERC20Minimal rewardToken,
         address to,
         uint256 amountRequested
-    ) external override {
-        uint256 reward =
-            (amountRequested > 0 &&
-                amountRequested <= rewards[rewardToken][msg.sender])
-                ? amountRequested
-                : rewards[rewardToken][msg.sender];
+    ) external override returns (uint256 reward) {
+        reward = (amountRequested > 0 &&
+            amountRequested <= rewards[rewardToken][msg.sender])
+            ? amountRequested
+            : rewards[rewardToken][msg.sender];
 
         rewards[rewardToken][msg.sender] -= reward;
         TransferHelper.safeTransfer(address(rewardToken), to, reward);

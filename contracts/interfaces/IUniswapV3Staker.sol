@@ -87,7 +87,9 @@ interface IUniswapV3Staker is IERC721Receiver, IMulticall {
 
     /// @notice Ends an incentive after the incentive end time has passed and all stakes have been withdrawn
     /// @param key Details of the incentive to end
-    function endIncentive(IncentiveKey memory key) external;
+    function endIncentive(IncentiveKey memory key)
+        external
+        returns (uint256 refund);
 
     /// @notice Withdraws a Uniswap V3 LP token `tokenId` from this contract to the recipient `to`
     /// @param tokenId The unique identifier of an Uniswap V3 LP token
@@ -112,7 +114,7 @@ interface IUniswapV3Staker is IERC721Receiver, IMulticall {
         IERC20Minimal rewardToken,
         address to,
         uint256 amountRequested
-    ) external;
+    ) external returns (uint256 reward);
 
     /// @notice Calculates the reward amount that will be received for the given stake
     /// @param key The key of the incentive

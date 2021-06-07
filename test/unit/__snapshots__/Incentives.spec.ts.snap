@@ -2,4 +2,4 @@
 
 exports[`unit/Incentives #createIncentive works and has gas cost 1`] = `59914`;
 
-exports[`unit/Incentives #endIncentive works and has gas cost 1`] = `35426`;
+exports[`unit/Incentives #endIncentive works and has gas cost 1`] = `35507`;
