@@ -27,7 +27,7 @@ import {
   incentiveResultToStakeAdapter,
 } from '../helpers'
 
-import { ContractStructs, ContractParams } from '../../types/contractParams'
+import { ContractParams } from '../../types/contractParams'
 import { createTimeMachine } from '../shared/time'
 import { HelperTypes } from '../helpers/types'
 
@@ -89,16 +89,22 @@ describe('unit/Deposits', () => {
     /**
      * We're ultimately checking these variables, so subject calls with calldata (from actor)
      * and returns those three objects. */
-    let subject: (
-      calldata: string,
-      actor?: Wallet
-    ) => Promise<{
-      deposit: ContractStructs.Deposit
-      stake: ContractStructs.Stake
-      incentive: ContractStructs.Incentive
-    }>
+    let subject: (calldata: string, actor?: Wallet) => Promise<void>
 
     let createIncentiveResult: HelperTypes.CreateIncentive.Result
+
+    async function getTokenInfo(
+      tokenId: string,
+      _createIncentiveResult: HelperTypes.CreateIncentive.Result = createIncentiveResult
+    ) {
+      const incentiveId = await helpers.getIncentiveId(_createIncentiveResult)
+
+      return {
+        deposit: await context.staker.deposits(tokenId),
+        incentive: await context.staker.incentives(incentiveId),
+        stake: await context.staker.stakes(tokenId, incentiveId),
+      }
+    }
 
     beforeEach('setup', async () => {
       const { startTime } = makeTimestamps(await blockTimestamp())
@@ -130,29 +136,13 @@ describe('unit/Deposits', () => {
               from: actor.address,
             }
           )
-
-        const incentiveId = await helpers.getIncentiveId(createIncentiveResult)
-
-        return {
-          deposit: (await context.staker.deposits(
-            tokenId
-          )) as ContractStructs.Deposit,
-          incentive: (await context.staker.incentives(
-            incentiveId
-          )) as ContractStructs.Incentive,
-          stake: (await context.staker.stakes(
-            tokenId,
-            incentiveId
-          )) as ContractStructs.Stake,
-        }
       }
     })
 
     it('allows depositing without staking', async () => {
       // Pass empty data
-      const { deposit, incentive, stake } = await subject(
-        ethers.utils.defaultAbiCoder.encode([], [])
-      )
+      await subject(ethers.utils.defaultAbiCoder.encode([], []))
+      const { deposit, incentive, stake } = await getTokenInfo(tokenId)
 
       expect(deposit.owner).to.eq(lpUser0.address)
       expect(deposit.numberOfStakes).to.eq(BN('0'))
@@ -165,7 +155,8 @@ describe('unit/Deposits', () => {
         [INCENTIVE_KEY_ABI],
         [incentiveResultToStakeAdapter(createIncentiveResult)]
       )
-      const { deposit, incentive, stake } = await subject(data, lpUser0)
+      await subject(data, lpUser0)
+      const { deposit, incentive, stake } = await getTokenInfo(tokenId)
       expect(deposit.owner).to.eq(lpUser0.address)
       expect(deposit.numberOfStakes).to.eq(BN('1'))
       expect(incentive.numberOfStakes).to.eq(BN('1'))
@@ -191,21 +182,17 @@ describe('unit/Deposits', () => {
         ]
       )
 
-      const { deposit, incentive, stake } = await subject(data)
+      await subject(data)
+      const { deposit, incentive, stake } = await getTokenInfo(tokenId)
       expect(deposit.owner).to.eq(lpUser0.address)
       expect(deposit.numberOfStakes).to.eq(BN('2'))
       expect(incentive.numberOfStakes).to.eq(BN('1'))
       expect(stake.secondsPerLiquidityInsideInitialX128).not.to.eq(BN('0'))
 
-      const incentiveId2 = await helpers.getIncentiveId(createIncentiveResult2)
-      const incentive2 = (await context.staker.incentives(
-        incentiveId2
-      )) as ContractStructs.Incentive
-
-      const stake2 = (await context.staker.stakes(
+      const { incentive: incentive2, stake: stake2 } = await getTokenInfo(
         tokenId,
-        incentiveId2
-      )) as ContractStructs.Stake
+        createIncentiveResult2
+      )
 
       expect(incentive2.numberOfStakes).to.eq(BN('1'))
       expect(stake2.secondsPerLiquidityInsideInitialX128).not.to.eq(BN('0'))
