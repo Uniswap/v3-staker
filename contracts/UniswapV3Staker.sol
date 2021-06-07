@@ -33,7 +33,8 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall {
     /// @notice Represents a staked liquidity NFT
     struct Stake {
         uint160 secondsPerLiquidityInsideInitialX128;
-        uint128 liquidity;
+        uint96 liquidityNoOverflow;
+        uint128 liquidityIfOverflow;
     }
 
     /// @inheritdoc IUniswapV3Staker
@@ -50,7 +51,26 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall {
     mapping(uint256 => Deposit) public override deposits;
 
     /// @dev stakes[tokenId][incentiveHash] => Stake
-    mapping(uint256 => mapping(bytes32 => Stake)) public override stakes;
+    mapping(uint256 => mapping(bytes32 => Stake)) private _stakes;
+
+    /// @inheritdoc IUniswapV3Staker
+    function stakes(uint256 tokenId, bytes32 incentiveId)
+        public
+        view
+        override
+        returns (
+            uint160 secondsPerLiquidityInsideInitialX128,
+            uint128 liquidity
+        )
+    {
+        Stake storage stake = _stakes[tokenId][incentiveId];
+        secondsPerLiquidityInsideInitialX128 = stake
+            .secondsPerLiquidityInsideInitialX128;
+        liquidity = stake.liquidityNoOverflow;
+        if (liquidity == type(uint96).max) {
+            liquidity = stake.liquidityIfOverflow;
+        }
+    }
 
     /// @inheritdoc IUniswapV3Staker
     /// @dev rewards[rewardToken][owner] => uint256
@@ -217,13 +237,15 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall {
 
         bytes32 incentiveId = IncentiveId.compute(key);
 
+        (uint160 secondsPerLiquidityInsideInitialX128, uint128 liquidity) =
+            stakes(tokenId, incentiveId);
+
+        require(liquidity != 0, 'stake does not exist');
+
         Incentive storage incentive = incentives[incentiveId];
-        Stake storage stake = stakes[tokenId][incentiveId];
 
-        require(stake.liquidity != 0, 'stake does not exist');
-
-        incentive.numberOfStakes--;
         deposits[tokenId].numberOfStakes--;
+        incentive.numberOfStakes--;
 
         // if incentive still has rewards to claim
         if (incentive.totalRewardUnclaimed > 0) {
@@ -239,8 +261,8 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall {
                     incentive.totalSecondsClaimedX128,
                     key.startTime,
                     key.endTime,
-                    stake.liquidity,
-                    stake.secondsPerLiquidityInsideInitialX128,
+                    liquidity,
+                    secondsPerLiquidityInsideInitialX128,
                     secondsPerLiquidityInsideX128
                 );
 
@@ -252,7 +274,10 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall {
             rewards[key.rewardToken][depositOwner] += reward;
         }
 
-        delete stakes[tokenId][incentiveId];
+        Stake storage stake = _stakes[tokenId][incentiveId];
+        delete stake.secondsPerLiquidityInsideInitialX128;
+        delete stake.liquidityNoOverflow;
+        if (liquidity >= type(uint96).max) delete stake.liquidityIfOverflow;
         emit TokenUnstaked(tokenId, incentiveId);
     }
 
@@ -278,8 +303,9 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall {
     {
         bytes32 incentiveId = IncentiveId.compute(key);
 
-        Stake storage stake = stakes[tokenId][incentiveId];
-        require(stake.liquidity != 0, 'stake does not exist');
+        (uint160 secondsPerLiquidityInsideInitialX128, uint128 liquidity) =
+            stakes(tokenId, incentiveId);
+        require(liquidity > 0, 'stake does not exist');
 
         Incentive storage incentive = incentives[incentiveId];
 
@@ -298,8 +324,8 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall {
             incentive.totalSecondsClaimedX128,
             key.startTime,
             key.endTime,
-            stake.liquidity,
-            stake.secondsPerLiquidityInsideInitialX128,
+            liquidity,
+            secondsPerLiquidityInsideInitialX128,
             secondsPerLiquidityInsideX128
         );
     }
@@ -315,7 +341,7 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall {
             'non-existent incentive'
         );
         require(
-            stakes[tokenId][incentiveId].liquidity == 0,
+            _stakes[tokenId][incentiveId].liquidityNoOverflow == 0,
             'token already staked'
         );
 
@@ -331,7 +357,8 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall {
                 tokenId
             );
 
-        require(pool == key.pool, 'token pool is not the incentivized pool');
+        require(pool == key.pool, 'token pool is not the incentive pool');
+        require(liquidity > 0, 'cannot stake token with 0 liquidity');
 
         deposits[tokenId].numberOfStakes++;
         incentives[incentiveId].numberOfStakes++;
@@ -339,10 +366,19 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall {
         (, uint160 secondsPerLiquidityInsideX128, ) =
             pool.snapshotCumulativesInside(tickLower, tickUpper);
 
-        stakes[tokenId][incentiveId] = Stake({
-            secondsPerLiquidityInsideInitialX128: secondsPerLiquidityInsideX128,
-            liquidity: liquidity
-        });
+        if (liquidity >= type(uint96).max) {
+            _stakes[tokenId][incentiveId] = Stake({
+                secondsPerLiquidityInsideInitialX128: secondsPerLiquidityInsideX128,
+                liquidityNoOverflow: type(uint96).max,
+                liquidityIfOverflow: liquidity
+            });
+        } else {
+            _stakes[tokenId][incentiveId] = Stake({
+                secondsPerLiquidityInsideInitialX128: secondsPerLiquidityInsideX128,
+                liquidityNoOverflow: uint96(liquidity),
+                liquidityIfOverflow: 0
+            });
+        }
 
         emit TokenStaked(tokenId, incentiveId, liquidity);
     }
