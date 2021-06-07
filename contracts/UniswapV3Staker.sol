@@ -137,6 +137,11 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall {
 
     /// @inheritdoc IUniswapV3Staker
     function endIncentive(IncentiveKey memory key) external override {
+        require(
+            block.timestamp >= key.endTime,
+            'cannot end incentive before end time'
+        );
+
         bytes32 incentiveId = IncentiveId.compute(key);
         Incentive storage incentive = incentives[incentiveId];
 
@@ -144,21 +149,19 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall {
 
         require(refund > 0, 'no refund available');
         require(
-            block.timestamp >= key.endTime,
-            'cannot end incentive before end time'
-        );
-        require(
             incentive.numberOfStakes == 0,
             'cannot end incentive while deposits are staked'
         );
 
-        // if any unclaimed rewards remain, and we're past the claim deadline, issue a refund
+        // issue the refund
         incentive.totalRewardUnclaimed = 0;
         TransferHelper.safeTransfer(
             address(key.rewardToken),
             key.refundee,
             refund
         );
+
+        // note we never clear totalSecondsClaimedX128
 
         emit IncentiveEnded(incentiveId, refund);
     }

@@ -24,8 +24,8 @@ library RewardMath {
         uint160 secondsPerLiquidityInsideInitialX128,
         uint160 secondsPerLiquidityInsideX128
     ) internal view returns (uint256 reward, uint160 secondsInsideX128) {
+        // this should never be called before the start time
         assert(block.timestamp >= startTime);
-        assert(endTime - startTime <= type(uint32).max);
 
         // this operation is safe, as the difference cannot be greater than 1/stake.liquidity
         secondsInsideX128 =

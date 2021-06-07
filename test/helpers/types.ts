@@ -1,5 +1,6 @@
 import { BigNumber, Wallet } from 'ethers'
 import { TestERC20 } from '../../typechain'
+import { FeeAmount } from '../shared'
 
 export module HelperTypes {
   export type CommandFunction<Input, Output> = (input: Input) => Promise<Output>
@@ -25,7 +26,7 @@ export module HelperTypes {
     export type Command = CommandFunction<Args, Result>
   }
 
-  export module MintStake {
+  export module MintDepositStake {
     type Args = {
       lp: Wallet
       tokensToStake: [TestERC20, TestERC20]
@@ -40,6 +41,33 @@ export module HelperTypes {
       stakedAt: number
     }
 
+    export type Command = CommandFunction<Args, Result>
+  }
+
+  export module Mint {
+    type Args = {
+      lp: Wallet
+      tokens: [TestERC20, TestERC20]
+      amounts?: [BigNumber, BigNumber]
+      fee?: FeeAmount
+      tickLower?: number
+      tickUpper?: number
+    }
+
+    export type Result = {
+      lp: Wallet
+      tokenId: string
+    }
+
+    export type Command = CommandFunction<Args, Result>
+  }
+
+  export module Deposit {
+    type Args = {
+      lp: Wallet
+      tokenId: string
+    }
+    type Result = void
     export type Command = CommandFunction<Args, Result>
   }
 
