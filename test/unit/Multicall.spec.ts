@@ -16,6 +16,8 @@ import {
   ActorFixture,
   makeTimestamps,
   maxGas,
+  defaultTicksArray,
+  expect,
 } from '../shared'
 import { createFixtureLoader, provider } from '../shared/provider'
 import {
@@ -25,6 +27,7 @@ import {
 } from '../helpers'
 import { createTimeMachine } from '../shared/time'
 import { HelperTypes } from '../helpers/types'
+import { TestERC20 } from '../../typechain'
 
 let loadFixture: LoadFixtureFunction
 
@@ -219,5 +222,45 @@ describe('unit/Multicall', () => {
     await snapshotGasCost(tx)
   })
 
-  it('can be used to exit multiple tokens from one incentive')
+  it('can be used to exit multiple tokens from one incentive', async () => {
+    const timestamp = await blockTimestamp()
+
+    const incentive = await helpers.createIncentiveFlow({
+      rewardToken: context.rewardToken,
+      poolAddress: context.poolObj.address,
+      totalReward,
+      ...makeTimestamps(timestamp + 100),
+    })
+
+    const params: HelperTypes.MintDepositStake.Args = {
+      lp: multicaller,
+      tokensToStake: [context.token0, context.token1],
+      amountsToStake: [amountDesired, amountDesired],
+      ticks: defaultTicksArray(),
+      createIncentiveResult: incentive,
+    }
+
+    await Time.setAndMine(incentive.startTime + 1)
+
+    const { tokenId: tokenId0 } = await helpers.mintDepositStakeFlow(params)
+    const { tokenId: tokenId1 } = await helpers.mintDepositStakeFlow(params)
+    const { tokenId: tokenId2 } = await helpers.mintDepositStakeFlow(params)
+
+    const unstake = (tokenId) =>
+      context.staker.interface.encodeFunctionData('unstakeToken', [
+        incentiveResultToStakeAdapter(incentive),
+        tokenId,
+      ])
+
+    await context.staker
+      .connect(multicaller)
+      .multicall([unstake(tokenId0), unstake(tokenId1), unstake(tokenId2)])
+
+    const { numberOfStakes: n0 } = await context.staker.deposits(tokenId0)
+    expect(n0).to.eq(BN('0'))
+    const { numberOfStakes: n1 } = await context.staker.deposits(tokenId1)
+    expect(n1).to.eq(BN('0'))
+    const { numberOfStakes: n2 } = await context.staker.deposits(tokenId2)
+    expect(n2).to.eq(BN('0'))
+  })
 })
