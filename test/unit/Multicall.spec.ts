@@ -208,10 +208,12 @@ describe('unit/Multicall', () => {
         context.staker.interface.encodeFunctionData('claimReward', [
           context.token0.address,
           lpUser0.address,
+          BN('0'),
         ]),
         context.staker.interface.encodeFunctionData('claimReward', [
           context.token1.address,
           lpUser0.address,
+          BN('0'),
         ]),
       ])
     await snapshotGasCost(tx)

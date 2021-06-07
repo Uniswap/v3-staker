@@ -178,7 +178,8 @@ describe('integration', async () => {
                 .connect(params.lp)
                 .claimReward(
                   createIncentiveResult.rewardToken.address,
-                  params.lp.address
+                  params.lp.address,
+                  BN('0')
                 ),
           }
 
