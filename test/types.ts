@@ -8,7 +8,3 @@ export type LoadFixtureFunction = ReturnType<typeof createFixtureLoader>
 export type TestContext = UniswapFixtureType & {
   subject?: Function
 }
-
-export type TokenIDs = {
-  tokenIds: Array<string>
-}

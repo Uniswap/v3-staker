@@ -132,13 +132,19 @@ describe('unit/Stakes', () => {
         const liquidity = (await context.nft.positions(tokenId)).liquidity
 
         const stakeBefore = await context.staker.stakes(tokenId, incentiveId)
+        const depositStakesBefore = (await context.staker.deposits(tokenId))
+          .numberOfStakes
         await subject(tokenId, lpUser0)
         const stakeAfter = await context.staker.stakes(tokenId, incentiveId)
+        const depositStakesAfter = (await context.staker.deposits(tokenId))
+          .numberOfStakes
 
         expect(stakeBefore.secondsPerLiquidityInsideInitialX128).to.eq(0)
         expect(stakeBefore.liquidity).to.eq(0)
+        expect(depositStakesBefore).to.eq(0)
         expect(stakeAfter.secondsPerLiquidityInsideInitialX128).to.be.gt(0)
         expect(stakeAfter.liquidity).to.eq(liquidity)
+        expect(depositStakesAfter).to.eq(1)
       })
 
       it('increments the number of stakes on the deposit', async () => {
