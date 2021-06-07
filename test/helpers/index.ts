@@ -9,9 +9,9 @@ import {
   MaxUint256,
   encodePath,
   arrayWrap,
-  defaultTicks,
   getMinTick,
   getMaxTick,
+  BN,
 } from '../shared/index'
 import _ from 'lodash'
 import {
@@ -289,7 +289,8 @@ export class HelperCommands {
       .connect(params.lp)
       .claimReward(
         params.createIncentiveResult.rewardToken.address,
-        params.lp.address
+        params.lp.address,
+        BN('0')
       )
 
     await this.staker
