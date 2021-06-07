@@ -656,12 +656,8 @@ describe('unit/Stakes', () => {
         })
       })
 
-      it('calculates the right secondsPerLiquidity', () => {
-        // TODO
-      })
-      it('does not overflow totalSecondsUnclaimed', () => {
-        // TODO
-      })
+      it('calculates the right secondsPerLiquidity')
+      it('does not overflow totalSecondsUnclaimed')
     })
 
     describe('fails if', () => {
