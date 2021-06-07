@@ -515,7 +515,7 @@ describe('unit/Stakes', () => {
 
   describe('#unstakeToken', () => {
     let incentiveId: string
-    let subject: () => Promise<any>
+    let subject: (actor: Wallet) => Promise<any>
     let createIncentiveResult: HelperTypes.CreateIncentive.Result
 
     beforeEach('create the incentive and nft and stake it', async () => {
@@ -558,6 +558,7 @@ describe('unit/Stakes', () => {
         )
 
       await Time.setAndMine(timestamps.startTime + 1)
+
       await context.staker.connect(lpUser0).stakeToken(
         {
           refundee: incentiveCreator.address,
@@ -570,8 +571,8 @@ describe('unit/Stakes', () => {
 
       incentiveId = await helpers.getIncentiveId(createIncentiveResult)
 
-      subject = () =>
-        context.staker.connect(lpUser0).unstakeToken(
+      subject = (_actor: Wallet) =>
+        context.staker.connect(_actor).unstakeToken(
           {
             refundee: incentiveCreator.address,
             pool: context.pool01,
@@ -587,7 +588,7 @@ describe('unit/Stakes', () => {
         const { numberOfStakes: stakesPre } = await context.staker.deposits(
           tokenId
         )
-        await subject()
+        await subject(lpUser0)
         const { numberOfStakes: stakesPost } = await context.staker.deposits(
           tokenId
         )
@@ -598,7 +599,7 @@ describe('unit/Stakes', () => {
         const { numberOfStakes: stakesPre } = await context.staker.incentives(
           incentiveId
         )
-        await subject()
+        await subject(lpUser0)
         const { numberOfStakes: stakesPost } = await context.staker.incentives(
           incentiveId
         )
@@ -606,13 +607,13 @@ describe('unit/Stakes', () => {
       })
 
       it('emits an unstaked event', async () => {
-        await expect(subject())
+        await expect(subject(lpUser0))
           .to.emit(context.staker, 'TokenUnstaked')
           .withArgs(tokenId, incentiveId)
       })
 
       it('has gas cost', async () => {
-        await snapshotGasCost(subject())
+        await snapshotGasCost(subject(lpUser0))
       })
 
       it('updates the reward available for the context.staker', async () => {
@@ -620,7 +621,7 @@ describe('unit/Stakes', () => {
           context.rewardToken.address,
           lpUser0.address
         )
-        await subject()
+        await subject(lpUser0)
         expect(
           await context.staker.rewards(
             context.rewardToken.address,
@@ -631,7 +632,7 @@ describe('unit/Stakes', () => {
 
       it('updates the stake struct', async () => {
         const stakeBefore = await context.staker.stakes(tokenId, incentiveId)
-        await subject()
+        await subject(lpUser0)
         const stakeAfter = await context.staker.stakes(tokenId, incentiveId)
 
         expect(stakeBefore.secondsPerLiquidityInsideInitialX128).to.gt(0)
@@ -640,16 +641,33 @@ describe('unit/Stakes', () => {
         expect(stakeAfter.liquidity).to.eq(0)
       })
 
-      it('calculates the right secondsPerLiquidity')
-      it('does not overflow totalSecondsUnclaimed')
-      it('anyone can unstake after the end time')
-      it('owner can unstake after the end time')
+      describe('after the end time', () => {
+        beforeEach(async () => {
+          // Fast-forward to after the end time
+          await Time.setAndMine(timestamps.endTime + 1)
+        })
+
+        it('anyone can unstake', async () => {
+          await subject(actors.lpUser1())
+        })
+
+        it('owner can unstake', async () => {
+          await subject(lpUser0)
+        })
+      })
+
+      it('calculates the right secondsPerLiquidity', () => {
+        // TODO
+      })
+      it('does not overflow totalSecondsUnclaimed', () => {
+        // TODO
+      })
     })
 
     describe('fails if', () => {
       it('you have not staked', async () => {
-        await subject()
-        await expect(subject()).to.revertedWith('stake does not exist')
+        await subject(lpUser0)
+        await expect(subject(lpUser0)).to.revertedWith('stake does not exist')
       })
       it('stake has already been unstaked')
       it('non-owner tries to unstake before the end time')
