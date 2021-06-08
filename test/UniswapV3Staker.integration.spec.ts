@@ -1,3 +1,4 @@
+import { constants } from 'ethers'
 import { TestContext, LoadFixtureFunction } from './types'
 import { TestERC20 } from '../typechain'
 import {
@@ -206,8 +207,12 @@ describe('integration', async () => {
 
           // Now withdraw it
           await expect(actions.doWithdraw(stakes[0]))
-            .to.emit(staker, 'TokenWithdrawn')
-            .withArgs(stakes[0].tokenId, stakes[0].lp.address)
+            .to.emit(staker, 'DepositTransferred')
+            .withArgs(
+              stakes[0].tokenId,
+              stakes[0].lp.address,
+              constants.AddressZero
+            )
 
           // Owner is now the LP
           expect(await nft.ownerOf(stakes[0].tokenId)).to.eq(

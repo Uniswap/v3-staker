@@ -99,6 +99,11 @@ interface IUniswapV3Staker is IERC721Receiver, IMulticall {
         external
         returns (uint256 refund);
 
+    /// @notice Transfers ownership of a deposit from the sender to the given recipient
+    /// @param tokenId The ID of the token (and the deposit) to transfer
+    /// @param to The new owner of the deposit
+    function transferDeposit(uint256 tokenId, address to) external;
+
     /// @notice Withdraws a Uniswap V3 LP token `tokenId` from this contract to the recipient `to`
     /// @param tokenId The unique identifier of an Uniswap V3 LP token
     /// @param to The address where the LP token will be sent
@@ -155,15 +160,15 @@ interface IUniswapV3Staker is IERC721Receiver, IMulticall {
     /// @param refund The amount of reward tokens refunded
     event IncentiveEnded(bytes32 indexed incentiveId, uint256 refund);
 
-    /// @notice Event emitted when a Uniswap V3 LP token has been deposited
-    /// @param tokenId The unique identifier of an Uniswap V3 LP token
-    /// @param owner The owner of the LP token
-    event TokenDeposited(uint256 indexed tokenId, address indexed owner);
-
-    /// @notice Event emitted when a Uniswap V3 LP token has been withdrawn
-    /// @param tokenId The unique identifier of an Uniswap V3 LP token
-    /// @param to The address that the token will be withdawn to
-    event TokenWithdrawn(uint256 indexed tokenId, address to);
+    /// @notice Emitted when ownership of a deposit changes
+    /// @param tokenId The ID of the deposit (and token) that is being transferred
+    /// @param oldOwner The owner before the deposit was transferred
+    /// @param newOwner The owner after the deposit was transferred
+    event DepositTransferred(
+        uint256 indexed tokenId,
+        address indexed oldOwner,
+        address indexed newOwner
+    );
 
     /// @notice Event emitted when a Uniswap V3 LP token has been staked
     /// @param tokenId The unique identifier of an Uniswap V3 LP token

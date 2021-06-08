@@ -420,10 +420,10 @@ describe('unit/Deposits', () => {
     })
 
     describe('works and', () => {
-      it('emits a TokenWithdrawn event', async () =>
+      it('emits a DepositTransferred event', async () =>
         await expect(subject(tokenId, recipient))
-          .to.emit(context.staker, 'TokenWithdrawn')
-          .withArgs(tokenId, recipient))
+          .to.emit(context.staker, 'DepositTransferred')
+          .withArgs(tokenId, recipient, constants.AddressZero))
 
       it('transfers nft ownership', async () => {
         await subject(tokenId, recipient)
