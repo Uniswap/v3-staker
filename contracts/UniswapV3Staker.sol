@@ -138,7 +138,6 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall {
             numberOfStakes: 0
         });
 
-        // this is effectively a validity check on key.rewardToken
         TransferHelper.safeTransferFrom(
             address(key.rewardToken),
             msg.sender,
@@ -212,7 +211,7 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall {
             tickLower: tickLower,
             tickUpper: tickUpper
         });
-        emit TokenDeposited(tokenId, from);
+        emit DepositTransferred(tokenId, address(0), from);
 
         if (data.length > 0) {
             if (data.length == 160) {
@@ -228,6 +227,21 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall {
     }
 
     /// @inheritdoc IUniswapV3Staker
+    function transferDeposit(uint256 tokenId, address to) external override {
+        require(
+            to != address(0),
+            'UniswapV3Staker::transferDeposit: invalid transfer recipient'
+        );
+        address owner = deposits[tokenId].owner;
+        require(
+            owner == msg.sender,
+            'UniswapV3Staker::transferDeposit: can only be called by deposit owner'
+        );
+        deposits[tokenId].owner = to;
+        emit DepositTransferred(tokenId, owner, to);
+    }
+
+    /// @inheritdoc IUniswapV3Staker
     function withdrawToken(uint256 tokenId, address to) external override {
         Deposit memory deposit = deposits[tokenId];
         require(
@@ -240,8 +254,9 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall {
         );
 
         delete deposits[tokenId];
+        emit DepositTransferred(tokenId, deposit.owner, address(0));
+
         nonfungiblePositionManager.safeTransferFrom(address(this), to, tokenId);
-        emit TokenWithdrawn(tokenId, to);
     }
 
     /// @inheritdoc IUniswapV3Staker
@@ -326,10 +341,10 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall {
         address to,
         uint256 amountRequested
     ) external override returns (uint256 reward) {
-        reward = (amountRequested > 0 &&
-            amountRequested <= rewards[rewardToken][msg.sender])
-            ? amountRequested
-            : rewards[rewardToken][msg.sender];
+        reward = rewards[rewardToken][msg.sender];
+        if (amountRequested != 0 && amountRequested < reward) {
+            reward = amountRequested;
+        }
 
         rewards[rewardToken][msg.sender] -= reward;
         TransferHelper.safeTransfer(address(rewardToken), to, reward);
@@ -353,17 +368,14 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall {
             'UniswapV3Staker::getRewardAmount: stake does not exist'
         );
 
-        Incentive storage incentive = incentives[incentiveId];
-
-        (IUniswapV3Pool pool, int24 tickLower, int24 tickUpper, ) =
-            NFTPositionInfo.getPositionInfo(
-                factory,
-                nonfungiblePositionManager,
-                tokenId
-            );
+        Deposit memory deposit = deposits[tokenId];
+        Incentive memory incentive = incentives[incentiveId];
 
         (, uint160 secondsPerLiquidityInsideX128, ) =
-            pool.snapshotCumulativesInside(tickLower, tickUpper);
+            key.pool.snapshotCumulativesInside(
+                deposit.tickLower,
+                deposit.tickUpper
+            );
 
         (reward, ) = RewardMath.computeRewardAmount(
             incentive.totalRewardUnclaimed,
