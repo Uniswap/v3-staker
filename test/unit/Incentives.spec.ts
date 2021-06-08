@@ -168,7 +168,7 @@ describe('unit/Incentives', async () => {
         })
 
         it('start time is too far into the future', async () => {
-          const params = makeTimestamps(await blockTimestamp() + 2 ** 32)
+          const params = makeTimestamps((await blockTimestamp()) + 2 ** 32)
           await expect(subject(params)).to.be.revertedWith(
             'UniswapV3Staker::createIncentive: start time too far into future'
           )
