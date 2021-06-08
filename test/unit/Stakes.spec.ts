@@ -201,7 +201,7 @@ describe('unit/Stakes', () => {
           context.nft.address
         )
 
-        const tokenId2 =  await mintPosition(context.nft.connect(lpUser0), {
+        const tokenId2 = await mintPosition(context.nft.connect(lpUser0), {
           token0: context.token0.address,
           token1: context.token1.address,
           fee: FeeAmount.MEDIUM,
@@ -229,10 +229,12 @@ describe('unit/Stakes', () => {
             lpUser0.address,
             context.staker.address,
             tokenId2,
-            {...maxGas}
+            { ...maxGas }
           )
 
-        await expect(subject(tokenId2, lpUser0)).to.be.revertedWith('UniswapV3Staker::stakeToken: cannot stake token with 0 liquidity')
+        await expect(subject(tokenId2, lpUser0)).to.be.revertedWith(
+          'UniswapV3Staker::stakeToken: cannot stake token with 0 liquidity'
+        )
       })
 
       it('token id is for a different pool than the incentive', async () => {
