@@ -154,7 +154,7 @@ interface IUniswapV3Staker is IERC721Receiver, IMulticall {
     /// @param refund The amount of reward tokens refunded
     event IncentiveEnded(bytes32 indexed incentiveId, uint256 refund);
 
-    /// @notice Emitted when transferDeposit succeeds
+    /// @notice Emitted when ownership of a deposit changes
     /// @param tokenId The ID of the deposit (and token) that is being transferred
     /// @param oldOwner The owner before the deposit was transferred
     /// @param newOwner The owner after the deposit was transferred
