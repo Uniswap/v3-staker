@@ -1,5 +1,5 @@
 // Jest Snapshot v1, https://goo.gl/fbAQLP
 
-exports[`unit/Multicall can be used to exit a position from multiple incentives 1`] = `196659`;
+exports[`unit/Multicall can be used to exit a position from multiple incentives 1`] = `196593`;
 
-exports[`unit/Multicall can be used to stake an already deposited token for multiple incentives 1`] = `249125`;
+exports[`unit/Multicall can be used to stake an already deposited token for multiple incentives 1`] = `249059`;

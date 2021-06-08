@@ -46,8 +46,8 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall {
         public immutable
         override nonfungiblePositionManager;
 
-    uint256 immutable maxIncentiveDuration;
-    uint256 immutable maxIncentiveStartLeadTime;
+    uint256 public immutable override maxIncentiveDuration;
+    uint256 public immutable override maxIncentiveStartLeadTime;
 
     /// @dev bytes32 refers to the return value of IncentiveId.compute
     mapping(bytes32 => Incentive) public override incentives;
