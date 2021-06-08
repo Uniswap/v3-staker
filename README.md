@@ -1,12 +1,14 @@
 # uniswap-v3-staker
 
-This is a canonical staking contract designed for [Uniswap V3](https://github.com/Uniswap/uniswap-v3-core).
+This is the canonical staking contract designed for [Uniswap V3](https://github.com/Uniswap/uniswap-v3-core).
 
-**This is still under active development and not yet production ready.** This section will be updated once the contract is ready.
+## Security audit is in progress.
+
+- **This is still under security audit and not yet ready for production.** This section will be updated with relevant addresses once it's ready and live.
 
 ## Links:
 
-* [Contract Design](docs/Design.md)
+- [Contract Design](docs/Design.md)
 
 ## Development and Testing
 
