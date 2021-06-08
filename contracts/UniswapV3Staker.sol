@@ -172,7 +172,10 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall {
 
         refund = incentive.totalRewardUnclaimed;
 
-        require(refund > 0, 'no refund available');
+        require(
+            refund > 0,
+            'UniswapV3Staker::endIncentive: no refund available'
+        );
         require(
             incentive.numberOfStakes == 0,
             'UniswapV3Staker::endIncentive: cannot end incentive while deposits are staked'
@@ -399,6 +402,7 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall {
         );
     }
 
+    /// @dev Stakes a deposited token without doing an ownership check
     function _stakeToken(IncentiveKey memory key, uint256 tokenId) private {
         require(
             block.timestamp >= key.startTime,
