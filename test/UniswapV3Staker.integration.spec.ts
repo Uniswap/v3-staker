@@ -61,22 +61,15 @@ describe('integration', async () => {
     ]
     const amountsToStake: [BigNumber, BigNumber] = [BNe18(1_000), BNe18(1_000)]
 
-    const scenario: Fixture<TestSubject> = async (wallets, provider) => {
-      const context = await uniswapFixture(wallets, provider)
+    const scenario: Fixture<TestSubject> = async (_wallets, _provider) => {
+      const context = await uniswapFixture(_wallets, _provider)
       const epoch = await blockTimestamp()
 
       const {
         tokens: [token0, token1, rewardToken],
       } = context
-      const helpers = new HelperCommands({
-        provider,
-        actors,
-        staker: context.staker,
-        router: context.router,
-        nft: context.nft,
-        pool: context.poolObj,
-        testIncentiveId: context.testIncentiveId,
-      })
+      const helpers = HelperCommands.fromTestContext(context, actors, provider)
+
       const tokensToStake: [TestERC20, TestERC20] = [token0, token1]
 
       const startTime = epoch + 1_000
@@ -232,7 +225,7 @@ describe('integration', async () => {
         // Halfway through, lp0 decides they want out. Pauvre lp0.
         await Time.setAndMine(startTime + duration / 2)
 
-        const [lpUser0, lpUser1, lpUser2] = actors.lpUsers()
+        const [lpUser0] = actors.lpUsers()
         let unstakes: Array<HelperTypes.UnstakeCollectBurn.Result> = []
 
         unstakes.push(
@@ -302,7 +295,7 @@ describe('integration', async () => {
           const { startTime, endTime } = createIncentiveResult
 
           // Halfway through, lp0 decides they want out. Pauvre lp0.
-          const [lpUser0, lpUser1, lpUser2] = actors.lpUsers()
+          const [lpUser0] = actors.lpUsers()
 
           // lpUser0 unstakes at the halfway mark
           await Time.set(startTime + duration / 2)
@@ -496,22 +489,14 @@ describe('integration', async () => {
     const duration = days(100)
     const baseAmount = BNe18(2)
 
-    const scenario: Fixture<TestSubject> = async (wallets, provider) => {
-      const context = await uniswapFixture(wallets, provider)
-      const actors = new ActorFixture(wallets, provider)
+    const scenario: Fixture<TestSubject> = async (_wallets, _provider) => {
+      const context = await uniswapFixture(_wallets, _provider)
 
-      const {
-        tokens: [token0, token1, rewardToken],
-      } = context
-      const helpers = new HelperCommands({
-        provider,
-        staker: context.staker,
-        nft: context.nft,
-        pool: context.poolObj,
-        router: context.router,
-        actors,
-        testIncentiveId: context.testIncentiveId,
-      })
+      const helpers = HelperCommands.fromTestContext(
+        context,
+        new ActorFixture(_wallets, _provider),
+        _provider
+      )
 
       const epoch = await blockTimestamp()
       const startTime = epoch + 1_000
@@ -520,7 +505,7 @@ describe('integration', async () => {
       const createIncentiveResult = await helpers.createIncentiveFlow({
         startTime,
         endTime,
-        rewardToken,
+        rewardToken: context.rewardToken,
         poolAddress: context.pool01,
         totalReward,
       })

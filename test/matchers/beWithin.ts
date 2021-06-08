@@ -13,9 +13,7 @@ declare global {
   }
 }
 
-chai.use((chai) => {
-  const Assertion = chai.Assertion
-
+chai.use(({ Assertion }) => {
   Assertion.addMethod(
     'beWithin',
     function (marginOfError: BigNumberish, actual: BigNumberish) {
