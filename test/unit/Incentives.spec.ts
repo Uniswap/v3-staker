@@ -166,6 +166,21 @@ describe('unit/Incentives', async () => {
             'start time must be before end time'
           )
         })
+
+        it('start time is too far into the future', async () => {
+          const params = makeTimestamps(await blockTimestamp() + 2 ** 32)
+          await expect(subject(params)).to.be.revertedWith(
+            'UniswapV3Staker::createIncentive: start time must be within maxTimeUntilStart'
+          )
+        })
+
+        it('end time is within valid duration of start time', async () => {
+          const params = makeTimestamps(await blockTimestamp())
+          params.endTime = params.startTime + 2 ** 32
+          await expect(subject(params)).to.be.revertedWith(
+            'UniswapV3Staker::createIncentive: incentive duration must be less than maxDuration'
+          )
+        })
       })
 
       describe('invalid reward', () => {
