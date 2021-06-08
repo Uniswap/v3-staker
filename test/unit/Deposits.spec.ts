@@ -414,7 +414,9 @@ describe('unit/Deposits', () => {
         )
 
       subject = (_tokenId, _recipient) =>
-        context.staker.connect(lpUser0).withdrawToken(_tokenId, _recipient)
+        context.staker
+          .connect(lpUser0)
+          .withdrawToken(_tokenId, _recipient, '0x')
     })
 
     describe('works and', () => {
@@ -454,7 +456,7 @@ describe('unit/Deposits', () => {
         await expect(
           context.staker
             .connect(notOwner)
-            .withdrawToken(tokenId, notOwner.address)
+            .withdrawToken(tokenId, notOwner.address, '0x')
         ).to.revertedWith('only owner can withdraw token')
       })
 

@@ -119,7 +119,7 @@ struct EndIncentiveParams {
 
 - if `data.length>0`, stakes the token as well
 
-### `withdrawToken(uint256 tokenId, address to)`
+### `withdrawToken(uint256 tokenId, address to, bytes memory data)`
 
 **Checks**
 
@@ -132,7 +132,7 @@ struct EndIncentiveParams {
 
 **Interactions**
 
-- `safeTransferFrom` the token to `to`.
+- `safeTransferFrom` the token to `to` with `data`.
 - emit `DepositTransferred(token, deposit.owner, address(0))`
 
 ## Stake/Unstake/Rewards
