@@ -16,6 +16,8 @@ library RewardMath {
     /// @param secondsPerLiquidityInsideInitialX128 The seconds per liquidity of the liquidity tick range as of the beginning of the period
     /// @param secondsPerLiquidityInsideX128 The seconds per liquidity of the liquidity tick range as of the current block timestamp
     /// @param currentTime The current block timestamp, which must be greater than or equal to the start time
+    /// @return reward The amount of rewards owed
+    /// @return secondsInsideX128 The total liquidity seconds inside the position's range for the duration of the stake
     function computeRewardAmount(
         uint256 totalRewardUnclaimed,
         uint160 totalSecondsClaimedX128,
