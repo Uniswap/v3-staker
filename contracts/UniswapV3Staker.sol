@@ -226,7 +226,11 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall {
     }
 
     /// @inheritdoc IUniswapV3Staker
-    function withdrawToken(uint256 tokenId, address to, bytes memory data) external override {
+    function withdrawToken(
+        uint256 tokenId,
+        address to,
+        bytes memory data
+    ) external override {
         Deposit memory deposit = deposits[tokenId];
         require(
             deposit.numberOfStakes == 0,
@@ -240,7 +244,12 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall {
         delete deposits[tokenId];
         emit DepositTransferred(tokenId, deposit.owner, address(0));
 
-        nonfungiblePositionManager.safeTransferFrom(address(this), to, tokenId, data);
+        nonfungiblePositionManager.safeTransferFrom(
+            address(this),
+            to,
+            tokenId,
+            data
+        );
     }
 
     /// @inheritdoc IUniswapV3Staker
