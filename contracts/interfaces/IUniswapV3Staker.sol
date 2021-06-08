@@ -102,7 +102,8 @@ interface IUniswapV3Staker is IERC721Receiver, IMulticall {
     /// @notice Withdraws a Uniswap V3 LP token `tokenId` from this contract to the recipient `to`
     /// @param tokenId The unique identifier of an Uniswap V3 LP token
     /// @param to The address where the LP token will be sent
-    function withdrawToken(uint256 tokenId, address to) external;
+    /// @param data An optional data array that will be passed along to the `to` address via the NFT safeTransferFrom
+    function withdrawToken(uint256 tokenId, address to, bytes memory data) external;
 
     /// @notice Stakes a Uniswap V3 LP token
     /// @param key The key of the incentive for which to stake the NFT
