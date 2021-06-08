@@ -1,9 +1,5 @@
 import { LoadFixtureFunction } from '../types'
-import {
-  uniswapFixture,
-  mintPosition,
-  UniswapFixtureType,
-} from '../shared/fixtures'
+import { uniswapFixture, mintPosition, UniswapFixtureType } from '../shared/fixtures'
 import {
   getMaxTick,
   getMinTick,
@@ -20,11 +16,7 @@ import {
   expect,
 } from '../shared'
 import { createFixtureLoader, provider } from '../shared/provider'
-import {
-  HelperCommands,
-  ERC20Helper,
-  incentiveResultToStakeAdapter,
-} from '../helpers'
+import { HelperCommands, ERC20Helper, incentiveResultToStakeAdapter } from '../helpers'
 import { createTimeMachine } from '../shared/time'
 import { HelperTypes } from '../helpers/types'
 
@@ -74,28 +66,18 @@ describe('unit/Multicall', () => {
       deadline: currentTime + 10_000,
     })
 
-    await erc20Helper.ensureBalancesAndApprovals(
-      multicaller,
-      context.rewardToken,
-      totalReward,
-      context.staker.address
-    )
+    await erc20Helper.ensureBalancesAndApprovals(multicaller, context.rewardToken, totalReward, context.staker.address)
 
-    const createIncentiveTx = context.staker.interface.encodeFunctionData(
-      'createIncentive',
-      [
-        {
-          pool: context.pool01,
-          rewardToken: context.rewardToken.address,
-          refundee: incentiveCreator.address,
-          ...makeTimestamps(currentTime + 100),
-        },
-        totalReward,
-      ]
-    )
-    await context.staker
-      .connect(multicaller)
-      .multicall([createIncentiveTx], maxGas)
+    const createIncentiveTx = context.staker.interface.encodeFunctionData('createIncentive', [
+      {
+        pool: context.pool01,
+        rewardToken: context.rewardToken.address,
+        refundee: incentiveCreator.address,
+        ...makeTimestamps(currentTime + 100),
+      },
+      totalReward,
+    ])
+    await context.staker.connect(multicaller).multicall([createIncentiveTx], maxGas)
 
     // expect((await context.staker.deposits(tokenId)).owner).to.eq(
     //   multicaller.address
@@ -136,18 +118,9 @@ describe('unit/Multicall', () => {
     const tx = await context.staker
       .connect(multicaller)
       .multicall([
-        context.staker.interface.encodeFunctionData('stakeToken', [
-          incentiveResultToStakeAdapter(incentive0),
-          tokenId,
-        ]),
-        context.staker.interface.encodeFunctionData('stakeToken', [
-          incentiveResultToStakeAdapter(incentive1),
-          tokenId,
-        ]),
-        context.staker.interface.encodeFunctionData('stakeToken', [
-          incentiveResultToStakeAdapter(incentive2),
-          tokenId,
-        ]),
+        context.staker.interface.encodeFunctionData('stakeToken', [incentiveResultToStakeAdapter(incentive0), tokenId]),
+        context.staker.interface.encodeFunctionData('stakeToken', [incentiveResultToStakeAdapter(incentive1), tokenId]),
+        context.staker.interface.encodeFunctionData('stakeToken', [incentiveResultToStakeAdapter(incentive2), tokenId]),
       ])
 
     await snapshotGasCost(tx)
@@ -180,15 +153,10 @@ describe('unit/Multicall', () => {
       lp: lpUser0,
       tokensToStake: [context.token0, context.token1],
       amountsToStake: [amountDesired, amountDesired],
-      ticks: [
-        getMinTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
-        getMaxTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
-      ],
+      ticks: [getMinTick(TICK_SPACINGS[FeeAmount.MEDIUM]), getMaxTick(TICK_SPACINGS[FeeAmount.MEDIUM])],
       createIncentiveResult: incentive0,
     })
-    await context.staker
-      .connect(lpUser0)
-      .stakeToken(incentiveResultToStakeAdapter(incentive1), tokenId)
+    await context.staker.connect(lpUser0).stakeToken(incentiveResultToStakeAdapter(incentive1), tokenId)
 
     await Time.set(endTime)
 
@@ -203,21 +171,9 @@ describe('unit/Multicall', () => {
           incentiveResultToStakeAdapter(incentive1),
           tokenId,
         ]),
-        context.staker.interface.encodeFunctionData('withdrawToken', [
-          tokenId,
-          lpUser0.address,
-          '0x',
-        ]),
-        context.staker.interface.encodeFunctionData('claimReward', [
-          context.token0.address,
-          lpUser0.address,
-          BN('0'),
-        ]),
-        context.staker.interface.encodeFunctionData('claimReward', [
-          context.token1.address,
-          lpUser0.address,
-          BN('0'),
-        ]),
+        context.staker.interface.encodeFunctionData('withdrawToken', [tokenId, lpUser0.address, '0x']),
+        context.staker.interface.encodeFunctionData('claimReward', [context.token0.address, lpUser0.address, BN('0')]),
+        context.staker.interface.encodeFunctionData('claimReward', [context.token1.address, lpUser0.address, BN('0')]),
       ])
     await snapshotGasCost(tx)
   })
@@ -247,14 +203,9 @@ describe('unit/Multicall', () => {
     const { tokenId: tokenId2 } = await helpers.mintDepositStakeFlow(params)
 
     const unstake = (tokenId) =>
-      context.staker.interface.encodeFunctionData('unstakeToken', [
-        incentiveResultToStakeAdapter(incentive),
-        tokenId,
-      ])
+      context.staker.interface.encodeFunctionData('unstakeToken', [incentiveResultToStakeAdapter(incentive), tokenId])
 
-    await context.staker
-      .connect(multicaller)
-      .multicall([unstake(tokenId0), unstake(tokenId1), unstake(tokenId2)])
+    await context.staker.connect(multicaller).multicall([unstake(tokenId0), unstake(tokenId1), unstake(tokenId2)])
 
     const { numberOfStakes: n0 } = await context.staker.deposits(tokenId0)
     expect(n0).to.eq(BN('0'))

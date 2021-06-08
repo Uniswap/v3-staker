@@ -75,11 +75,7 @@ export class HelperCommands {
     this.testIncentiveId = testIncentiveId
   }
 
-  static fromTestContext = (
-    context: TestContext,
-    actors: ActorFixture,
-    provider: MockProvider
-  ): HelperCommands => {
+  static fromTestContext = (context: TestContext, actors: ActorFixture, provider: MockProvider): HelperCommands => {
     return new HelperCommands({
       actors,
       provider,
@@ -99,8 +95,7 @@ export class HelperCommands {
    */
   createIncentiveFlow: HelperTypes.CreateIncentive.Command = async (params) => {
     const { startTime } = params
-    const endTime =
-      params.endTime || startTime + this.DEFAULT_INCENTIVE_DURATION
+    const endTime = params.endTime || startTime + this.DEFAULT_INCENTIVE_DURATION
 
     const incentiveCreator = this.actors.incentiveCreator()
     const times = {
@@ -110,15 +105,10 @@ export class HelperCommands {
     const bal = await params.rewardToken.balanceOf(incentiveCreator.address)
 
     if (bal < params.totalReward) {
-      await params.rewardToken.transfer(
-        incentiveCreator.address,
-        params.totalReward
-      )
+      await params.rewardToken.transfer(incentiveCreator.address, params.totalReward)
     }
 
-    await params.rewardToken
-      .connect(incentiveCreator)
-      .approve(this.staker.address, params.totalReward)
+    await params.rewardToken.connect(incentiveCreator).approve(this.staker.address, params.totalReward)
 
     await this.staker.connect(incentiveCreator).createIncentive(
       {
@@ -144,9 +134,7 @@ export class HelperCommands {
    *  Funds `params.lp` with enough `params.tokensToStake` if they do not have enough.
    *  Handles the ERC20 and ERC721 permits.
    */
-  mintDepositStakeFlow: HelperTypes.MintDepositStake.Command = async (
-    params
-  ) => {
+  mintDepositStakeFlow: HelperTypes.MintDepositStake.Command = async (params) => {
     // Make sure LP has enough balance
     const bal0 = await params.tokensToStake[0].balanceOf(params.lp.address)
     if (bal0 < params.amountsToStake[0])
@@ -161,12 +149,8 @@ export class HelperCommands {
         .transfer(params.lp.address, params.amountsToStake[1])
 
     // Make sure LP has authorized NFT to withdraw
-    await params.tokensToStake[0]
-      .connect(params.lp)
-      .approve(this.nft.address, params.amountsToStake[0])
-    await params.tokensToStake[1]
-      .connect(params.lp)
-      .approve(this.nft.address, params.amountsToStake[1])
+    await params.tokensToStake[0].connect(params.lp).approve(this.nft.address, params.amountsToStake[0])
+    await params.tokensToStake[1].connect(params.lp).approve(this.nft.address, params.amountsToStake[1])
 
     // The LP mints their NFT
     const tokenId = await mintPosition(this.nft.connect(params.lp), {
@@ -184,28 +168,17 @@ export class HelperCommands {
     })
 
     // Make sure LP has authorized staker
-    await params.tokensToStake[0]
-      .connect(params.lp)
-      .approve(this.staker.address, params.amountsToStake[0])
-    await params.tokensToStake[1]
-      .connect(params.lp)
-      .approve(this.staker.address, params.amountsToStake[1])
+    await params.tokensToStake[0].connect(params.lp).approve(this.staker.address, params.amountsToStake[0])
+    await params.tokensToStake[1].connect(params.lp).approve(this.staker.address, params.amountsToStake[1])
 
     // The LP approves and stakes their NFT
     await this.nft.connect(params.lp).approve(this.staker.address, tokenId)
     await this.nft
       .connect(params.lp)
-      ['safeTransferFrom(address,address,uint256)'](
-        params.lp.address,
-        this.staker.address,
-        tokenId
-      )
+      ['safeTransferFrom(address,address,uint256)'](params.lp.address, this.staker.address, tokenId)
     await this.staker
       .connect(params.lp)
-      .stakeToken(
-        incentiveResultToStakeAdapter(params.createIncentiveResult),
-        tokenId
-      )
+      .stakeToken(incentiveResultToStakeAdapter(params.createIncentiveResult), tokenId)
 
     const stakedAt = await blockTimestamp()
 
@@ -217,44 +190,24 @@ export class HelperCommands {
   }
 
   depositFlow: HelperTypes.Deposit.Command = async (params) => {
-    await this.nft
-      .connect(params.lp)
-      .approve(this.staker.address, params.tokenId)
+    await this.nft.connect(params.lp).approve(this.staker.address, params.tokenId)
 
     await this.nft
       .connect(params.lp)
-      ['safeTransferFrom(address,address,uint256)'](
-        params.lp.address,
-        this.staker.address,
-        params.tokenId
-      )
+      ['safeTransferFrom(address,address,uint256)'](params.lp.address, this.staker.address, params.tokenId)
   }
 
   mintFlow: HelperTypes.Mint.Command = async (params) => {
     const fee = params.fee || FeeAmount.MEDIUM
     const e20h = new ERC20Helper()
 
-    const amount0Desired = params.amounts
-      ? params.amounts[0]
-      : this.DEFAULT_LP_AMOUNT
+    const amount0Desired = params.amounts ? params.amounts[0] : this.DEFAULT_LP_AMOUNT
 
-    await e20h.ensureBalancesAndApprovals(
-      params.lp,
-      params.tokens[0],
-      amount0Desired,
-      this.nft.address
-    )
+    await e20h.ensureBalancesAndApprovals(params.lp, params.tokens[0], amount0Desired, this.nft.address)
 
-    const amount1Desired = params.amounts
-      ? params.amounts[1]
-      : this.DEFAULT_LP_AMOUNT
+    const amount1Desired = params.amounts ? params.amounts[1] : this.DEFAULT_LP_AMOUNT
 
-    await e20h.ensureBalancesAndApprovals(
-      params.lp,
-      params.tokens[1],
-      amount1Desired,
-      this.nft.address
-    )
+    await e20h.ensureBalancesAndApprovals(params.lp, params.tokens[1], amount1Desired, this.nft.address)
 
     const tokenId = await mintPosition(this.nft.connect(params.lp), {
       token0: params.tokens[0].address,
@@ -273,9 +226,7 @@ export class HelperCommands {
     return { tokenId, lp: params.lp }
   }
 
-  unstakeCollectBurnFlow: HelperTypes.UnstakeCollectBurn.Command = async (
-    params
-  ) => {
+  unstakeCollectBurnFlow: HelperTypes.UnstakeCollectBurn.Command = async (params) => {
     await this.staker.connect(params.lp).unstakeToken(
       incentiveResultToStakeAdapter(params.createIncentiveResult),
       params.tokenId,
@@ -287,19 +238,11 @@ export class HelperCommands {
 
     await this.staker
       .connect(params.lp)
-      .claimReward(
-        params.createIncentiveResult.rewardToken.address,
-        params.lp.address,
-        BN('0')
-      )
+      .claimReward(params.createIncentiveResult.rewardToken.address, params.lp.address, BN('0'))
 
-    await this.staker
-      .connect(params.lp)
-      .withdrawToken(params.tokenId, params.lp.address, '0x', maxGas)
+    await this.staker.connect(params.lp).withdrawToken(params.tokenId, params.lp.address, '0x', maxGas)
 
-    const { liquidity } = await this.nft
-      .connect(params.lp)
-      .positions(params.tokenId)
+    const { liquidity } = await this.nft.connect(params.lp).positions(params.tokenId)
 
     await this.nft.connect(params.lp).decreaseLiquidity(
       {
@@ -312,9 +255,7 @@ export class HelperCommands {
       maxGas
     )
 
-    const { tokensOwed0, tokensOwed1 } = await this.nft
-      .connect(params.lp)
-      .positions(params.tokenId)
+    const { tokensOwed0, tokensOwed1 } = await this.nft.connect(params.lp).positions(params.tokenId)
 
     await this.nft.connect(params.lp).collect(
       {
@@ -328,9 +269,7 @@ export class HelperCommands {
 
     await this.nft.connect(params.lp).burn(params.tokenId, maxGas)
 
-    const balance = await params.createIncentiveResult.rewardToken
-      .connect(params.lp)
-      .balanceOf(params.lp.address)
+    const balance = await params.createIncentiveResult.rewardToken.connect(params.lp).balanceOf(params.lp.address)
 
     return {
       balance,
@@ -344,31 +283,18 @@ export class HelperCommands {
 
     const receipt = await (
       await this.staker.connect(incentiveCreator).endIncentive(
-        _.assign(
-          {},
-          _.pick(params.createIncentiveResult, ['startTime', 'endTime']),
-          {
-            rewardToken: rewardToken.address,
-            pool: params.createIncentiveResult.poolAddress,
-            refundee: params.createIncentiveResult.refundee,
-          }
-        )
+        _.assign({}, _.pick(params.createIncentiveResult, ['startTime', 'endTime']), {
+          rewardToken: rewardToken.address,
+          pool: params.createIncentiveResult.poolAddress,
+          refundee: params.createIncentiveResult.refundee,
+        })
       )
     ).wait()
 
-    const transferFilter = rewardToken.filters.Transfer(
-      this.staker.address,
-      incentiveCreator.address,
-      null
-    )
+    const transferFilter = rewardToken.filters.Transfer(this.staker.address, incentiveCreator.address, null)
     const transferTopic = rewardToken.interface.getEventTopic('Transfer')
-    const logItem = receipt.logs.find((log) =>
-      log.topics.includes(transferTopic)
-    )
-    const events = await rewardToken.queryFilter(
-      transferFilter,
-      logItem?.blockHash
-    )
+    const logItem = receipt.logs.find((log) => log.topics.includes(transferTopic))
+    const events = await rewardToken.queryFilter(transferFilter, logItem?.blockHash)
     let amountTransferred: BigNumber
 
     if (events.length === 1) {
@@ -429,19 +355,11 @@ export class HelperCommands {
       const amountIn = BNe18(1)
 
       const erc20Helper = new ERC20Helper()
-      await erc20Helper.ensureBalancesAndApprovals(
-        actor,
-        [tok0, tok1],
-        amountIn,
-        this.router.address
-      )
+      await erc20Helper.ensureBalancesAndApprovals(actor, [tok0, tok1], amountIn, this.router.address)
 
-      const path = encodePath(
-        MAKE_TICK_GO_UP
-          ? [tok1Address, tok0Address]
-          : [tok0Address, tok1Address],
-        [FeeAmount.MEDIUM]
-      )
+      const path = encodePath(MAKE_TICK_GO_UP ? [tok1Address, tok0Address] : [tok0Address, tok1Address], [
+        FeeAmount.MEDIUM,
+      ])
 
       await this.router.connect(actor).exactInput(
         {
@@ -482,11 +400,7 @@ export class ERC20Helper {
     }
   }
 
-  ensureBalance = async (
-    actor: Wallet,
-    token: TestERC20,
-    balance: BigNumber
-  ) => {
+  ensureBalance = async (actor: Wallet, token: TestERC20, balance: BigNumber) => {
     const currentBalance = await token.balanceOf(actor.address)
     if (currentBalance.lt(balance)) {
       await token
@@ -501,12 +415,7 @@ export class ERC20Helper {
     return await token.balanceOf(actor.address)
   }
 
-  ensureApproval = async (
-    actor: Wallet,
-    token: TestERC20,
-    balance: BigNumber,
-    spender: string
-  ) => {
+  ensureApproval = async (actor: Wallet, token: TestERC20, balance: BigNumber, spender: string) => {
     const currentAllowance = await token.allowance(actor.address, actor.address)
     if (currentAllowance.lt(balance)) {
       await token.connect(actor).approve(spender, balance)
@@ -514,13 +423,9 @@ export class ERC20Helper {
   }
 }
 
-type IncentiveAdapterFunc = (
-  params: HelperTypes.CreateIncentive.Result
-) => ContractParams.IncentiveKey
+type IncentiveAdapterFunc = (params: HelperTypes.CreateIncentive.Result) => ContractParams.IncentiveKey
 
-export const incentiveResultToStakeAdapter: IncentiveAdapterFunc = (
-  params
-) => ({
+export const incentiveResultToStakeAdapter: IncentiveAdapterFunc = (params) => ({
   pool: params.poolAddress,
   startTime: params.startTime,
   endTime: params.endTime,

@@ -2,21 +2,8 @@
 /* tslint:disable */
 /* eslint-disable */
 
-import {
-  ethers,
-  EventFilter,
-  Signer,
-  BigNumber,
-  BigNumberish,
-  PopulatedTransaction,
-} from 'ethers'
-import {
-  Contract,
-  ContractTransaction,
-  Overrides,
-  PayableOverrides,
-  CallOverrides,
-} from '@ethersproject/contracts'
+import { ethers, EventFilter, Signer, BigNumber, BigNumberish, PopulatedTransaction } from 'ethers'
+import { Contract, ContractTransaction, Overrides, PayableOverrides, CallOverrides } from '@ethersproject/contracts'
 import { BytesLike } from '@ethersproject/bytes'
 import { Listener, Provider } from '@ethersproject/providers'
 import { FunctionFragment, EventFragment, Result } from '@ethersproject/abi'
@@ -84,25 +71,13 @@ interface ISwapRouterInterface extends ethers.utils.Interface {
       }
     ]
   ): string
-  encodeFunctionData(
-    functionFragment: 'uniswapV3SwapCallback',
-    values: [BigNumberish, BigNumberish, BytesLike]
-  ): string
+  encodeFunctionData(functionFragment: 'uniswapV3SwapCallback', values: [BigNumberish, BigNumberish, BytesLike]): string
 
   decodeFunctionResult(functionFragment: 'exactInput', data: BytesLike): Result
-  decodeFunctionResult(
-    functionFragment: 'exactInputSingle',
-    data: BytesLike
-  ): Result
+  decodeFunctionResult(functionFragment: 'exactInputSingle', data: BytesLike): Result
   decodeFunctionResult(functionFragment: 'exactOutput', data: BytesLike): Result
-  decodeFunctionResult(
-    functionFragment: 'exactOutputSingle',
-    data: BytesLike
-  ): Result
-  decodeFunctionResult(
-    functionFragment: 'uniswapV3SwapCallback',
-    data: BytesLike
-  ): Result
+  decodeFunctionResult(functionFragment: 'exactOutputSingle', data: BytesLike): Result
+  decodeFunctionResult(functionFragment: 'uniswapV3SwapCallback', data: BytesLike): Result
 
   events: {}
 }

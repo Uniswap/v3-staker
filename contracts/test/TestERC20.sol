@@ -18,31 +18,20 @@ contract TestERC20 is IERC20Minimal {
         balanceOf[to] = balanceNext;
     }
 
-    function transfer(address recipient, uint256 amount)
-        external
-        override
-        returns (bool)
-    {
+    function transfer(address recipient, uint256 amount) external override returns (bool) {
         uint256 balanceBefore = balanceOf[msg.sender];
         require(balanceBefore >= amount, 'insufficient balance');
         balanceOf[msg.sender] = balanceBefore - amount;
 
         uint256 balanceRecipient = balanceOf[recipient];
-        require(
-            balanceRecipient + amount >= balanceRecipient,
-            'recipient balance overflow'
-        );
+        require(balanceRecipient + amount >= balanceRecipient, 'recipient balance overflow');
         balanceOf[recipient] = balanceRecipient + amount;
 
         emit Transfer(msg.sender, recipient, amount);
         return true;
     }
 
-    function approve(address spender, uint256 amount)
-        external
-        override
-        returns (bool)
-    {
+    function approve(address spender, uint256 amount) external override returns (bool) {
         allowance[msg.sender][spender] = amount;
         emit Approval(msg.sender, spender, amount);
         return true;
@@ -59,10 +48,7 @@ contract TestERC20 is IERC20Minimal {
         allowance[sender][msg.sender] = allowanceBefore - amount;
 
         uint256 balanceRecipient = balanceOf[recipient];
-        require(
-            balanceRecipient + amount >= balanceRecipient,
-            'overflow balance recipient'
-        );
+        require(balanceRecipient + amount >= balanceRecipient, 'overflow balance recipient');
         balanceOf[recipient] = balanceRecipient + amount;
         uint256 balanceSender = balanceOf[sender];
         require(balanceSender >= amount, 'underflow balance sender');

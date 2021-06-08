@@ -39,9 +39,7 @@ describe('unit/Deployment', () => {
     )) as UniswapV3Staker
 
     expect(await staker.factory()).to.equal(context.factory.address)
-    expect(await staker.nonfungiblePositionManager()).to.equal(
-      context.nft.address
-    )
+    expect(await staker.nonfungiblePositionManager()).to.equal(context.nft.address)
     expect(await staker.maxIncentiveDuration()).to.equal(2 ** 32)
     expect(await staker.maxIncentiveStartLeadTime()).to.equal(2 ** 32)
   })

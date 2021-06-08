@@ -14,20 +14,11 @@ declare global {
 }
 
 chai.use(({ Assertion }) => {
-  Assertion.addMethod(
-    'beWithin',
-    function (marginOfError: BigNumberish, actual: BigNumberish) {
-      const result = BN(this._obj)
-        .abs()
-        .sub(BN(actual).abs())
-        .lte(BN(marginOfError))
+  Assertion.addMethod('beWithin', function (marginOfError: BigNumberish, actual: BigNumberish) {
+    const result = BN(this._obj).abs().sub(BN(actual).abs()).lte(BN(marginOfError))
 
-      new Assertion(
-        result,
-        `Expected ${this._obj} to be within ${marginOfError} of ${actual}`
-      )
-    }
-  )
+    new Assertion(result, `Expected ${this._obj} to be within ${marginOfError} of ${actual}`)
+  })
 })
 
 describe('BigNumber beWithin', () => {

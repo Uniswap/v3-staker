@@ -21,11 +21,7 @@ import {
   mintPosition,
 } from './shared'
 import { createTimeMachine } from './shared/time'
-import {
-  ERC20Helper,
-  HelperCommands,
-  incentiveResultToStakeAdapter,
-} from './helpers'
+import { ERC20Helper, HelperCommands, incentiveResultToStakeAdapter } from './helpers'
 import { createFixtureLoader, provider } from './shared/provider'
 import { ActorFixture } from './shared/actors'
 import { Fixture } from 'ethereum-waffle'
@@ -120,10 +116,9 @@ describe('integration', async () => {
         await Time.setAndMine(createIncentiveResult.endTime + 1)
 
         // Sanity check: make sure we go past the incentive end time.
-        expect(
-          await blockTimestamp(),
-          'test setup: must be run after start time'
-        ).to.be.gte(createIncentiveResult.endTime)
+        expect(await blockTimestamp(), 'test setup: must be run after start time').to.be.gte(
+          createIncentiveResult.endTime
+        )
 
         // Everyone pulls their liquidity at the same time
         const unstakes = await Promise.all(
@@ -157,24 +152,15 @@ describe('integration', async () => {
             doUnstake: (params: HelperTypes.MintDepositStake.Result) =>
               staker
                 .connect(params.lp)
-                .unstakeToken(
-                  incentiveResultToStakeAdapter(createIncentiveResult),
-                  params.tokenId
-                ),
+                .unstakeToken(incentiveResultToStakeAdapter(createIncentiveResult), params.tokenId),
 
             doWithdraw: (params: HelperTypes.MintDepositStake.Result) =>
-              staker
-                .connect(params.lp)
-                .withdrawToken(params.tokenId, params.lp.address, '0x'),
+              staker.connect(params.lp).withdrawToken(params.tokenId, params.lp.address, '0x'),
 
             doClaimRewards: (params: HelperTypes.MintDepositStake.Result) =>
               staker
                 .connect(params.lp)
-                .claimReward(
-                  createIncentiveResult.rewardToken.address,
-                  params.lp.address,
-                  BN('0')
-                ),
+                .claimReward(createIncentiveResult.rewardToken.address, params.lp.address, BN('0')),
           }
 
           await Time.set(createIncentiveResult.endTime + 1)
@@ -183,9 +169,7 @@ describe('integration', async () => {
           expect(await nft.ownerOf(stakes[0].tokenId)).to.eq(staker.address)
 
           // The incentive has not yet been ended by the creator
-          const incentiveId = await subject.helpers.getIncentiveId(
-            createIncentiveResult
-          )
+          const incentiveId = await subject.helpers.getIncentiveId(createIncentiveResult)
 
           // It allows the token to be unstaked the first time
           await expect(actions.doUnstake(stakes[0]))
@@ -201,16 +185,10 @@ describe('integration', async () => {
           // Now withdraw it
           await expect(actions.doWithdraw(stakes[0]))
             .to.emit(staker, 'DepositTransferred')
-            .withArgs(
-              stakes[0].tokenId,
-              stakes[0].lp.address,
-              constants.AddressZero
-            )
+            .withArgs(stakes[0].tokenId, stakes[0].lp.address, constants.AddressZero)
 
           // Owner is now the LP
-          expect(await nft.ownerOf(stakes[0].tokenId)).to.eq(
-            stakes[0].lp.address
-          )
+          expect(await nft.ownerOf(stakes[0].tokenId)).to.eq(stakes[0].lp.address)
         })
 
         it('does not allow the LP to claim rewards', async () => {})
@@ -245,10 +223,7 @@ describe('integration', async () => {
          * So that's (1/3)*(1/2)*3000e18 = ~50e18
          */
         // Uniswap/uniswap-v3-staker#144
-        expect(unstakes[0].balance).to.beWithin(
-          BNe(1, 15),
-          BN('499989197530864021534')
-        )
+        expect(unstakes[0].balance).to.beWithin(BNe(1, 15), BN('499989197530864021534'))
 
         // Now the other two LPs hold off till the end and unstake
         await Time.setAndMine(endTime + 1)
@@ -277,9 +252,7 @@ describe('integration', async () => {
         expect(ratioE18(unstakes[2].balance, unstakes[1].balance)).to.eq('1.00')
 
         // All should add up to totalReward
-        expect(
-          bnSum(unstakes.map((u) => u.balance)).add(amountReturnedToCreator)
-        ).to.eq(totalReward)
+        expect(bnSum(unstakes.map((u) => u.balance)).add(amountReturnedToCreator)).to.eq(totalReward)
       })
 
       describe('and then restakes at the 3/4 mark', () => {
@@ -327,19 +300,14 @@ describe('integration', async () => {
 
           await Time.set(endTime + 1)
 
-          const {
-            balance: lpUser0Balance,
-          } = await helpers.unstakeCollectBurnFlow({
+          const { balance: lpUser0Balance } = await helpers.unstakeCollectBurnFlow({
             lp: lpUser0,
             tokenId: restake.tokenId,
             createIncentiveResult,
           })
 
           // Uniswap/uniswap-v3-staker#144
-          expect(lpUser0Balance).to.beWithin(
-            BNe(1, 12),
-            BN('749985223767771705507')
-          )
+          expect(lpUser0Balance).to.beWithin(BNe(1, 12), BN('749985223767771705507'))
         })
       })
     })
@@ -354,17 +322,11 @@ describe('integration', async () => {
           await Time.set(startTime + duration / 2)
 
           const lpUser3 = actors.traderUser2()
-          const tokensToStake: [TestERC20, TestERC20] = [
-            context.tokens[0],
-            context.tokens[1],
-          ]
+          const tokensToStake: [TestERC20, TestERC20] = [context.tokens[0], context.tokens[1]]
 
           const extraStake = await helpers.mintDepositStakeFlow({
             tokensToStake,
-            amountsToStake: amountsToStake.map((a) => a.div(2)) as [
-              BigNumber,
-              BigNumber
-            ],
+            amountsToStake: amountsToStake.map((a) => a.div(2)) as [BigNumber, BigNumber],
             createIncentiveResult,
             ticks: ticksToStake,
             lp: lpUser3,
@@ -383,17 +345,13 @@ describe('integration', async () => {
             )
           )
 
-          expect(ratioE18(unstakes[2].balance, unstakes[3].balance)).to.eq(
-            '4.34'
-          )
+          expect(ratioE18(unstakes[2].balance, unstakes[3].balance)).to.eq('4.34')
 
           // await Time.set(endTime + 1)
           const { amountReturnedToCreator } = await helpers.endIncentiveFlow({
             createIncentiveResult,
           })
-          expect(
-            bnSum(unstakes.map((u) => u.balance)).add(amountReturnedToCreator)
-          ).to.eq(totalReward)
+          expect(bnSum(unstakes.map((u) => u.balance)).add(amountReturnedToCreator)).to.eq(totalReward)
         })
       })
     })
@@ -492,11 +450,7 @@ describe('integration', async () => {
     const scenario: Fixture<TestSubject> = async (_wallets, _provider) => {
       const context = await uniswapFixture(_wallets, _provider)
 
-      const helpers = HelperCommands.fromTestContext(
-        context,
-        new ActorFixture(_wallets, _provider),
-        _provider
-      )
+      const helpers = HelperCommands.fromTestContext(context, new ActorFixture(_wallets, _provider), _provider)
 
       const epoch = await blockTimestamp()
       const startTime = epoch + 1_000
@@ -529,9 +483,7 @@ describe('integration', async () => {
         ticks: [number, number]
       }
 
-      let midpoint = await getCurrentTick(
-        context.poolObj.connect(actors.lpUser0())
-      )
+      let midpoint = await getCurrentTick(context.poolObj.connect(actors.lpUser0()))
 
       const positions: Array<Position> = [
         // lpUser0 stakes 2e18 from min-0
@@ -554,10 +506,7 @@ describe('integration', async () => {
         },
       ]
 
-      const tokensToStake: [TestERC20, TestERC20] = [
-        context.tokens[0],
-        context.tokens[1],
-      ]
+      const tokensToStake: [TestERC20, TestERC20] = [context.tokens[0], context.tokens[1]]
 
       Time.set(createIncentiveResult.startTime + 1)
       const stakes = await Promise.all(

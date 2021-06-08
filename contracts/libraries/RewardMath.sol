@@ -32,19 +32,11 @@ library RewardMath {
         assert(currentTime >= startTime);
 
         // this operation is safe, as the difference cannot be greater than 1/stake.liquidity
-        secondsInsideX128 =
-            (secondsPerLiquidityInsideX128 -
-                secondsPerLiquidityInsideInitialX128) *
-            liquidity;
+        secondsInsideX128 = (secondsPerLiquidityInsideX128 - secondsPerLiquidityInsideInitialX128) * liquidity;
 
         uint256 totalSecondsUnclaimedX128 =
-            ((Math.max(endTime, currentTime) - startTime) << 128) -
-                totalSecondsClaimedX128;
+            ((Math.max(endTime, currentTime) - startTime) << 128) - totalSecondsClaimedX128;
 
-        reward = FullMath.mulDiv(
-            totalRewardUnclaimed,
-            secondsInsideX128,
-            totalSecondsUnclaimedX128
-        );
+        reward = FullMath.mulDiv(totalRewardUnclaimed, secondsInsideX128, totalSecondsUnclaimedX128);
     }
 }

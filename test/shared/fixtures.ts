@@ -61,9 +61,7 @@ export const v3RouterFixture: Fixture<{
   return { factory, weth9, router }
 }
 
-const nftDescriptorLibraryFixture: Fixture<NFTDescriptor> = async ([
-  wallet,
-]) => {
+const nftDescriptorLibraryFixture: Fixture<NFTDescriptor> = async ([wallet]) => {
   return (await waffle.deployContract(wallet, {
     bytecode: NFTDescriptorJson.bytecode,
     abi: NFTDescriptorJson.abi,
@@ -78,10 +76,7 @@ type UniswapFactoryFixture = {
   tokens: [TestERC20, TestERC20, TestERC20]
 }
 
-export const uniswapFactoryFixture: Fixture<UniswapFactoryFixture> = async (
-  wallets,
-  provider
-) => {
+export const uniswapFactoryFixture: Fixture<UniswapFactoryFixture> = async (wallets, provider) => {
   const { weth9, factory, router } = await v3RouterFixture(wallets, provider)
   const tokenFactory = await ethers.getContractFactory('TestERC20')
   const tokens = (await Promise.all([
@@ -90,10 +85,7 @@ export const uniswapFactoryFixture: Fixture<UniswapFactoryFixture> = async (
     tokenFactory.deploy(constants.MaxUint256.div(2)),
   ])) as [TestERC20, TestERC20, TestERC20]
 
-  const nftDescriptorLibrary = await nftDescriptorLibraryFixture(
-    wallets,
-    provider
-  )
+  const nftDescriptorLibrary = await nftDescriptorLibraryFixture(wallets, provider)
 
   const linkedBytecode = linkLibraries(
     {
@@ -134,9 +126,7 @@ export const uniswapFactoryFixture: Fixture<UniswapFactoryFixture> = async (
     positionDescriptor.address
   )) as INonfungiblePositionManager
 
-  tokens.sort((a, b) =>
-    a.address.toLowerCase() < b.address.toLowerCase() ? -1 : 1
-  )
+  tokens.sort((a, b) => (a.address.toLowerCase() < b.address.toLowerCase() ? -1 : 1))
 
   return {
     weth9,
@@ -223,30 +213,13 @@ export type UniswapFixtureType = {
   token1: TestERC20
   rewardToken: TestERC20
 }
-export const uniswapFixture: Fixture<UniswapFixtureType> = async (
-  wallets,
-  provider
-) => {
-  const { tokens, nft, factory, router } = await uniswapFactoryFixture(
-    wallets,
-    provider
-  )
+export const uniswapFixture: Fixture<UniswapFixtureType> = async (wallets, provider) => {
+  const { tokens, nft, factory, router } = await uniswapFactoryFixture(wallets, provider)
   const signer = new ActorFixture(wallets, provider).stakerDeployer()
-  const stakerFactory = await ethers.getContractFactory(
-    'UniswapV3Staker',
-    signer
-  )
-  const staker = (await stakerFactory.deploy(
-    factory.address,
-    nft.address,
-    2 ** 32,
-    2 ** 32
-  )) as UniswapV3Staker
+  const stakerFactory = await ethers.getContractFactory('UniswapV3Staker', signer)
+  const staker = (await stakerFactory.deploy(factory.address, nft.address, 2 ** 32, 2 ** 32)) as UniswapV3Staker
 
-  const testIncentiveIdFactory = await ethers.getContractFactory(
-    'TestIncentiveId',
-    signer
-  )
+  const testIncentiveIdFactory = await ethers.getContractFactory('TestIncentiveId', signer)
   const testIncentiveId = (await testIncentiveIdFactory.deploy()) as TestIncentiveId
 
   for (const token of tokens) {
@@ -254,31 +227,13 @@ export const uniswapFixture: Fixture<UniswapFixtureType> = async (
   }
 
   const fee = FeeAmount.MEDIUM
-  await nft.createAndInitializePoolIfNecessary(
-    tokens[0].address,
-    tokens[1].address,
-    fee,
-    encodePriceSqrt(1, 1)
-  )
+  await nft.createAndInitializePoolIfNecessary(tokens[0].address, tokens[1].address, fee, encodePriceSqrt(1, 1))
 
-  await nft.createAndInitializePoolIfNecessary(
-    tokens[1].address,
-    tokens[2].address,
-    fee,
-    encodePriceSqrt(1, 1)
-  )
+  await nft.createAndInitializePoolIfNecessary(tokens[1].address, tokens[2].address, fee, encodePriceSqrt(1, 1))
 
-  const pool01 = await factory.getPool(
-    tokens[0].address,
-    tokens[1].address,
-    fee
-  )
+  const pool01 = await factory.getPool(tokens[0].address, tokens[1].address, fee)
 
-  const pool12 = await factory.getPool(
-    tokens[1].address,
-    tokens[2].address,
-    fee
-  )
+  const pool12 = await factory.getPool(tokens[1].address, tokens[2].address, fee)
 
   const poolObj = poolFactory.attach(pool01) as IUniswapV3Pool
 
@@ -299,7 +254,4 @@ export const uniswapFixture: Fixture<UniswapFixtureType> = async (
   }
 }
 
-export const poolFactory = new ethers.ContractFactory(
-  UniswapV3Pool.abi,
-  UniswapV3Pool.bytecode
-)
+export const poolFactory = new ethers.ContractFactory(UniswapV3Pool.abi, UniswapV3Pool.bytecode)
