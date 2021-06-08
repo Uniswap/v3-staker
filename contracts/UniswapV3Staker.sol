@@ -46,6 +46,10 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall {
         public immutable
         override nonfungiblePositionManager;
 
+    uint256 immutable maxDuration;
+    uint256 immutable maxTimeUntilStart;
+
+
     /// @dev bytes32 refers to the return value of IncentiveId.compute
     mapping(bytes32 => Incentive) public override incentives;
 
@@ -84,10 +88,14 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall {
     /// @param _nonfungiblePositionManager the NFT position manager contract address
     constructor(
         IUniswapV3Factory _factory,
-        INonfungiblePositionManager _nonfungiblePositionManager
+        INonfungiblePositionManager _nonfungiblePositionManager,
+        uint256 _maxTimeUntilStart,
+        uint256 _maxDuration
     ) {
         factory = _factory;
         nonfungiblePositionManager = _nonfungiblePositionManager;
+        maxTimeUntilStart = _maxTimeUntilStart;
+        maxDuration = _maxDuration;
     }
 
     /// @inheritdoc IUniswapV3Staker
@@ -104,8 +112,8 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall {
             'UniswapV3Staker::createIncentive: start time must be now or in the future'
         );
         require(
-            key.startTime - block.timestamp <= 365 days,
-            'UniswapV3Staker::createIncentive: start time must be within one year of current time'
+            key.startTime - block.timestamp <= maxTimeUntilStart,
+            'UniswapV3Staker::createIncentive: start time must be within maxTimeUntilStart'
         );
         require(
             key.startTime < key.endTime,
@@ -113,7 +121,7 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall {
         );
         require(
             key.endTime - key.startTime < 36500 days,
-            'UniswapV3Staker::createIncentive: incentive duration must be less than 100 years'
+            'UniswapV3Staker::createIncentive: incentive duration must be less than maxDuration'
         );
 
         bytes32 incentiveId = IncentiveId.compute(key);

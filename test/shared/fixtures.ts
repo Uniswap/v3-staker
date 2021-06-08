@@ -238,7 +238,9 @@ export const uniswapFixture: Fixture<UniswapFixtureType> = async (
   )
   const staker = (await stakerFactory.deploy(
     factory.address,
-    nft.address
+    nft.address,
+    2**32,
+    2**32
   )) as UniswapV3Staker
 
   const testIncentiveIdFactory = await ethers.getContractFactory(
