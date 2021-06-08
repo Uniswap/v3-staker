@@ -2,19 +2,8 @@
 /* tslint:disable */
 /* eslint-disable */
 
-import {
-  ethers,
-  EventFilter,
-  Signer,
-  BigNumber,
-  BigNumberish,
-  PopulatedTransaction,
-} from 'ethers'
-import {
-  Contract,
-  ContractTransaction,
-  CallOverrides,
-} from '@ethersproject/contracts'
+import { ethers, EventFilter, Signer, BigNumber, BigNumberish, PopulatedTransaction } from 'ethers'
+import { Contract, ContractTransaction, CallOverrides } from '@ethersproject/contracts'
 import { BytesLike } from '@ethersproject/bytes'
 import { Listener, Provider } from '@ethersproject/providers'
 import { FunctionFragment, EventFragment, Result } from '@ethersproject/abi'
@@ -46,10 +35,7 @@ interface NFTDescriptorInterface extends ethers.utils.Interface {
     ]
   ): string
 
-  decodeFunctionResult(
-    functionFragment: 'constructTokenURI',
-    data: BytesLike
-  ): Result
+  decodeFunctionResult(functionFragment: 'constructTokenURI', data: BytesLike): Result
 
   events: {}
 }

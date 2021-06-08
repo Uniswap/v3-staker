@@ -97,9 +97,7 @@ describe('unit/RewardMath', () => {
       /*startTime=*/ 100,
       /*endTime=*/ 200,
       /*liquidity=*/ 5,
-      /*secondsPerLiquidityInsideInitialX128=*/ BigNumber.from(20)
-        .shl(128)
-        .div(10),
+      /*secondsPerLiquidityInsideInitialX128=*/ BigNumber.from(20).shl(128).div(10),
       /*secondsPerLiquidityInsideX128=*/ BigNumber.from(20).shl(128).div(10),
       /*currentTime=*/ 120
     )

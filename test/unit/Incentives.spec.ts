@@ -43,19 +43,13 @@ describe('unit/Incentives', async () => {
   })
 
   describe('#createIncentive', () => {
-    let subject: (
-      params: Partial<ContractParams.CreateIncentive>
-    ) => Promise<any>
+    let subject: (params: Partial<ContractParams.CreateIncentive>) => Promise<any>
 
     beforeEach('setup', async () => {
-      subject = async (
-        params: Partial<ContractParams.CreateIncentive> = {}
-      ) => {
+      subject = async (params: Partial<ContractParams.CreateIncentive> = {}) => {
         await erc20Helper.ensureBalancesAndApprovals(
           incentiveCreator,
-          params.rewardToken
-            ? await erc20Wrap(params?.rewardToken)
-            : context.rewardToken,
+          params.rewardToken ? await erc20Wrap(params?.rewardToken) : context.rewardToken,
           totalReward,
           context.staker.address
         )
@@ -77,16 +71,12 @@ describe('unit/Incentives', async () => {
 
     describe('works and', () => {
       it('transfers the right amount of rewardToken', async () => {
-        const balanceBefore = await context.rewardToken.balanceOf(
-          context.staker.address
-        )
+        const balanceBefore = await context.rewardToken.balanceOf(context.staker.address)
         await subject({
           reward: totalReward,
           rewardToken: context.rewardToken.address,
         })
-        expect(
-          await context.rewardToken.balanceOf(context.staker.address)
-        ).to.eq(balanceBefore.add(totalReward))
+        expect(await context.rewardToken.balanceOf(context.staker.address)).to.eq(balanceBefore.add(totalReward))
       })
 
       it('emits an event with valid parameters', async () => {
@@ -127,13 +117,8 @@ describe('unit/Incentives', async () => {
     describe('fails when', () => {
       it('there is already has an incentive with those params', async () => {
         const params = makeTimestamps(await blockTimestamp())
-        expect(await subject(params)).to.emit(
-          context.staker,
-          'IncentiveCreated'
-        )
-        await expect(subject(params)).to.be.revertedWith(
-          'UniswapV3Staker::createIncentive: incentive already exists'
-        )
+        expect(await subject(params)).to.emit(context.staker, 'IncentiveCreated')
+        await expect(subject(params)).to.be.revertedWith('UniswapV3Staker::createIncentive: incentive already exists')
       })
 
       describe('invalid timestamps', () => {
@@ -144,15 +129,9 @@ describe('unit/Incentives', async () => {
           await Time.setAndMine(params.startTime + 100)
 
           const now = await blockTimestamp()
-          expect(now).to.be.greaterThan(
-            params.startTime,
-            'test setup: before start time'
-          )
+          expect(now).to.be.greaterThan(params.startTime, 'test setup: before start time')
 
-          expect(now).to.be.lessThan(
-            params.endTime,
-            'test setup: after end time'
-          )
+          expect(now).to.be.lessThan(params.endTime, 'test setup: after end time')
 
           await expect(subject(params)).to.be.revertedWith(
             'UniswapV3Staker::createIncentive: start time must be now or in the future'
@@ -197,9 +176,7 @@ describe('unit/Incentives', async () => {
               },
               BNe18(0)
             )
-          ).to.be.revertedWith(
-            'UniswapV3Staker::createIncentive: reward must be positive'
-          )
+          ).to.be.revertedWith('UniswapV3Staker::createIncentive: reward must be positive')
         })
       })
     })
@@ -243,17 +220,13 @@ describe('unit/Incentives', async () => {
 
       it('deletes incentives[key]', async () => {
         const incentiveId = await helpers.getIncentiveId(createIncentiveResult)
-        expect(
-          (await context.staker.incentives(incentiveId)).totalRewardUnclaimed
-        ).to.be.gt(0)
+        expect((await context.staker.incentives(incentiveId)).totalRewardUnclaimed).to.be.gt(0)
 
         await Time.set(timestamps.endTime + 1)
         await subject({})
-        const {
-          totalRewardUnclaimed,
-          totalSecondsClaimedX128,
-          numberOfStakes,
-        } = await context.staker.incentives(incentiveId)
+        const { totalRewardUnclaimed, totalSecondsClaimedX128, numberOfStakes } = await context.staker.incentives(
+          incentiveId
+        )
         expect(totalRewardUnclaimed).to.eq(0)
         expect(totalSecondsClaimedX128).to.eq(0)
         expect(numberOfStakes).to.eq(0)
@@ -280,9 +253,7 @@ describe('unit/Incentives', async () => {
           subject({
             startTime: (await blockTimestamp()) + 1000,
           })
-        ).to.be.revertedWith(
-          'UniswapV3Staker::endIncentive: no refund available'
-        )
+        ).to.be.revertedWith('UniswapV3Staker::endIncentive: no refund available')
       })
 
       it('incentive has stakes', async () => {
@@ -293,10 +264,7 @@ describe('unit/Incentives', async () => {
           lp: actors.lpUser0(),
           createIncentiveResult,
           tokensToStake: [context.token0, context.token1],
-          ticks: [
-            getMinTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
-            getMaxTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
-          ],
+          ticks: [getMinTick(TICK_SPACINGS[FeeAmount.MEDIUM]), getMaxTick(TICK_SPACINGS[FeeAmount.MEDIUM])],
           amountsToStake: [amountDesired, amountDesired],
         })
 
