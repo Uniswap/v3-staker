@@ -314,10 +314,11 @@ describe('unit/Stakes', () => {
     beforeEach('set up incentive and stake', async () => {
       timestamps = makeTimestamps((await blockTimestamp()) + 1_000)
 
-      const { tokenId } = await helpers.mintFlow({
+      const mintResult = await helpers.mintFlow({
         lp: lpUser0,
         tokens: [context.token0, context.token1],
       })
+      tokenId = mintResult.tokenId
 
       await context.nft
         .connect(lpUser0)
@@ -421,7 +422,8 @@ describe('unit/Stakes', () => {
       })
 
       await Time.setAndMine(timestamps.startTime + 1)
-      const { tokenId } = await helpers.mintDepositStakeFlow({
+
+      const mintResult = await helpers.mintDepositStakeFlow({
         lp: lpUser0,
         tokensToStake,
         ticks: [
@@ -431,6 +433,7 @@ describe('unit/Stakes', () => {
         amountsToStake: [amountDesired, amountDesired],
         createIncentiveResult,
       })
+      tokenId = mintResult.tokenId
 
       await Time.setAndMine(timestamps.endTime - 1)
       await context.staker.connect(lpUser0).unstakeToken(
