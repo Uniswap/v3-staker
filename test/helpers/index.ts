@@ -295,7 +295,7 @@ export class HelperCommands {
 
     await this.staker
       .connect(params.lp)
-      .withdrawToken(params.tokenId, params.lp.address, maxGas)
+      .withdrawToken(params.tokenId, params.lp.address, '0x', maxGas)
 
     const { liquidity } = await this.nft
       .connect(params.lp)

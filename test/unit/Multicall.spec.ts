@@ -206,6 +206,7 @@ describe('unit/Multicall', () => {
         context.staker.interface.encodeFunctionData('withdrawToken', [
           tokenId,
           lpUser0.address,
+          '0x',
         ]),
         context.staker.interface.encodeFunctionData('claimReward', [
           context.token0.address,
