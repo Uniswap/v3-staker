@@ -180,7 +180,7 @@ describe('unit/Stakes', () => {
         await Time.set(timestamps.startTime + 500)
         await subject(tokenId, lpUser0)
         await expect(subject(tokenId, lpUser0)).to.be.revertedWith(
-          'already staked'
+          'UniswapV3Staker::stakeToken: token already staked'
         )
       })
 
@@ -188,7 +188,7 @@ describe('unit/Stakes', () => {
         await Time.set(timestamps.startTime + 500)
         // lpUser2 calls, we're using lpUser0 elsewhere.
         await expect(subject(tokenId, actors.lpUser2())).to.be.revertedWith(
-          'only owner can stake token'
+          'UniswapV3Staker::stakeToken: only owner can stake token'
         )
       })
 
@@ -264,7 +264,9 @@ describe('unit/Stakes', () => {
             },
             otherTokenId
           )
-        ).to.be.revertedWith('token pool is not the incentive pool')
+        ).to.be.revertedWith(
+          'UniswapV3Staker::stakeToken: token pool is not the incentive pool'
+        )
       })
 
       it('incentive key does not exist', async () => {
@@ -281,13 +283,15 @@ describe('unit/Stakes', () => {
             },
             tokenId
           )
-        ).to.be.revertedWith('non-existent incentive')
+        ).to.be.revertedWith(
+          'UniswapV3Staker::stakeToken: non-existent incentive'
+        )
       })
 
       it('is past the end time', async () => {
         await Time.set(timestamps.endTime + 100)
         await expect(subject(tokenId, lpUser0)).to.be.revertedWith(
-          'incentive ended'
+          'UniswapV3Staker::stakeToken: incentive ended'
         )
       })
 
@@ -297,7 +301,7 @@ describe('unit/Stakes', () => {
         }
         await Time.set(timestamps.startTime - 2)
         await expect(subject(tokenId, lpUser0)).to.be.revertedWith(
-          'incentive not started'
+          'UniswapV3Staker::stakeToken: incentive not started'
         )
       })
     })
@@ -383,7 +387,9 @@ describe('unit/Stakes', () => {
         context.staker
           .connect(lpUser0)
           .getRewardAmount(stakeIncentiveKey, '100')
-      ).to.be.revertedWith('stake does not exist')
+      ).to.be.revertedWith(
+        'UniswapV3Staker::getRewardAmount: stake does not exist'
+      )
     })
   })
 
@@ -710,18 +716,20 @@ describe('unit/Stakes', () => {
       it('stake has already been unstaked', async () => {
         await Time.setAndMine(timestamps.endTime + 1)
         await subject(lpUser0)
-        await expect(subject(lpUser0)).to.revertedWith('stake does not exist')
+        await expect(subject(lpUser0)).to.revertedWith(
+          'UniswapV3Staker::unstakeToken: stake does not exist'
+        )
       })
 
       it('you have not staked', async () => {
         await expect(subject(actors.lpUser2())).to.revertedWith(
-          'only owner can withdraw token'
+          'UniswapV3Staker::unstakeToken: only owner can withdraw token'
         )
       })
 
       it('non-owner tries to unstake before the end time', async () => {
         await expect(subject(actors.lpUser2())).to.revertedWith(
-          'only owner can withdraw token'
+          'UniswapV3Staker::unstakeToken: only owner can withdraw token'
         )
       })
     })

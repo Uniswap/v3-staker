@@ -132,7 +132,7 @@ describe('unit/Incentives', async () => {
           'IncentiveCreated'
         )
         await expect(subject(params)).to.be.revertedWith(
-          'incentive already exists'
+          'UniswapV3Staker::createIncentive: incentive already exists'
         )
       })
 
@@ -155,7 +155,7 @@ describe('unit/Incentives', async () => {
           )
 
           await expect(subject(params)).to.be.revertedWith(
-            'start time must be now or in the future'
+            'UniswapV3Staker::createIncentive: start time must be now or in the future'
           )
         })
 
@@ -163,14 +163,12 @@ describe('unit/Incentives', async () => {
           const params = makeTimestamps(await blockTimestamp())
           params.endTime = params.startTime - 10
           await expect(subject(params)).to.be.revertedWith(
-            'start time must be before end time'
+            'UniswapV3Staker::createIncentive: start time must be before end time'
           )
         })
       })
 
       describe('invalid reward', () => {
-        const ERR_REWARD_INVALID = 'reward must be positive'
-
         it('totalReward is 0 or an invalid amount', async () => {
           const now = await blockTimestamp()
 
@@ -184,7 +182,9 @@ describe('unit/Incentives', async () => {
               },
               BNe18(0)
             )
-          ).to.be.revertedWith(ERR_REWARD_INVALID)
+          ).to.be.revertedWith(
+            'UniswapV3Staker::createIncentive: reward must be positive'
+          )
         })
       })
     })
@@ -254,7 +254,7 @@ describe('unit/Incentives', async () => {
       it('block.timestamp <= end time', async () => {
         await Time.set(timestamps.endTime - 10)
         await expect(subject({})).to.be.revertedWith(
-          'cannot end incentive before end time'
+          'UniswapV3Staker::endIncentive: cannot end incentive before end time'
         )
       })
 
@@ -265,7 +265,9 @@ describe('unit/Incentives', async () => {
           subject({
             startTime: (await blockTimestamp()) + 1000,
           })
-        ).to.be.revertedWith('no refund available')
+        ).to.be.revertedWith(
+          'UniswapV3Staker::endIncentive: no refund available'
+        )
       })
 
       it('incentive has stakes', async () => {
@@ -286,7 +288,7 @@ describe('unit/Incentives', async () => {
         // Adjust the block.timestamp so it is after the claim deadline
         await Time.set(timestamps.endTime + 1)
         await expect(subject({})).to.be.revertedWith(
-          'cannot end incentive while deposits are staked'
+          'UniswapV3Staker::endIncentive: cannot end incentive while deposits are staked'
         )
       })
     })

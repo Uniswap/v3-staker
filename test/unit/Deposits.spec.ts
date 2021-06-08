@@ -372,7 +372,9 @@ describe('unit/Deposits', () => {
               1,
               data
             )
-        ).to.be.revertedWith('not a univ3 nft')
+        ).to.be.revertedWith(
+          'UniswapV3Staker::onERC721Received: not a univ3 nft'
+        )
       })
 
       it('reverts when staking on invalid incentive', async () => {
@@ -398,7 +400,9 @@ describe('unit/Deposits', () => {
               tokenId,
               invalidData
             )
-        ).to.be.revertedWith('non-existent incentive')
+        ).to.be.revertedWith(
+          'UniswapV3Staker::stakeToken: non-existent incentive'
+        )
       })
     })
   })
@@ -457,7 +461,9 @@ describe('unit/Deposits', () => {
           context.staker
             .connect(notOwner)
             .withdrawToken(tokenId, notOwner.address, '0x')
-        ).to.revertedWith('only owner can withdraw token')
+        ).to.revertedWith(
+          'UniswapV3Staker::withdrawToken: only owner can withdraw token'
+        )
       })
 
       it('number of stakes is not 0', async () => {
@@ -480,7 +486,7 @@ describe('unit/Deposits', () => {
         )
 
         await expect(subject(tokenId, lpUser0.address)).to.revertedWith(
-          'cannot withdraw token while staked'
+          'UniswapV3Staker::withdrawToken: cannot withdraw token while staked'
         )
       })
     })
