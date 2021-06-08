@@ -297,32 +297,30 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall {
         deposits[tokenId].numberOfStakes--;
         incentive.numberOfStakes--;
 
-        // if incentive still has rewards to claim
-        if (incentive.totalRewardUnclaimed > 0) {
-            (, uint160 secondsPerLiquidityInsideX128, ) =
-                key.pool.snapshotCumulativesInside(
-                    deposit.tickLower,
-                    deposit.tickUpper
-                );
-            (uint256 reward, uint160 secondsInsideX128) =
-                RewardMath.computeRewardAmount(
-                    incentive.totalRewardUnclaimed,
-                    incentive.totalSecondsClaimedX128,
-                    key.startTime,
-                    key.endTime,
-                    liquidity,
-                    secondsPerLiquidityInsideInitialX128,
-                    secondsPerLiquidityInsideX128,
-                    block.timestamp
-                );
+        (, uint160 secondsPerLiquidityInsideX128, ) =
+            key.pool.snapshotCumulativesInside(
+                deposit.tickLower,
+                deposit.tickUpper
+            );
+        (uint256 reward, uint160 secondsInsideX128) =
+            RewardMath.computeRewardAmount(
+                incentive.totalRewardUnclaimed,
+                incentive.totalSecondsClaimedX128,
+                key.startTime,
+                key.endTime,
+                liquidity,
+                secondsPerLiquidityInsideInitialX128,
+                secondsPerLiquidityInsideX128,
+                block.timestamp
+            );
 
-            incentive.totalSecondsClaimedX128 += secondsInsideX128;
-
-            // TODO: verify that reward is never greater than totalRewardUnclaimed
-            incentive.totalRewardUnclaimed -= reward;
-            // this only overflows if a token has a total supply greater than type(uint256).max
-            rewards[key.rewardToken][deposit.owner] += reward;
-        }
+        // if this overflows, e.g. after 2^32-1 full liquidity seconds have been claimed,
+        // reward rate will fall drastically so it's safe
+        incentive.totalSecondsClaimedX128 += secondsInsideX128;
+        // reward is never greater than total reward unclaimed
+        incentive.totalRewardUnclaimed -= reward;
+        // this only overflows if a token has a total supply greater than type(uint256).max
+        rewards[key.rewardToken][deposit.owner] += reward;
 
         Stake storage stake = _stakes[tokenId][incentiveId];
         delete stake.secondsPerLiquidityInsideInitialX128;
