@@ -196,7 +196,7 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall {
             tickLower: tickLower,
             tickUpper: tickUpper
         });
-        emit TokenDeposited(tokenId, from);
+        emit DepositTransferred(tokenId, address(0), from);
 
         if (data.length > 0) {
             if (data.length == 160) {
@@ -212,7 +212,22 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall {
     }
 
     /// @inheritdoc IUniswapV3Staker
-    function withdrawToken(uint256 tokenId, address to) external override {
+    function transferDeposit(uint256 tokenId, address to) external override {
+        require(
+            to != address(0),
+            'UniswapV3Staker::transferDeposit: invalid transfer recipient'
+        );
+        address owner = deposits[tokenId].owner;
+        require(
+            owner == msg.sender,
+            'UniswapV3Staker::transferDeposit: can only be called by deposit owner'
+        );
+        deposits[tokenId].owner = to;
+        emit DepositTransferred(tokenId, owner, to);
+    }
+
+    /// @inheritdoc IUniswapV3Staker
+    function withdrawToken(uint256 tokenId) external override {
         Deposit memory deposit = deposits[tokenId];
         require(
             deposit.numberOfStakes == 0,
@@ -224,8 +239,12 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall {
         );
 
         delete deposits[tokenId];
-        nonfungiblePositionManager.safeTransferFrom(address(this), to, tokenId);
-        emit TokenWithdrawn(tokenId, to);
+        nonfungiblePositionManager.safeTransferFrom(
+            address(this),
+            deposit.owner,
+            tokenId
+        );
+        emit DepositTransferred(tokenId, deposit.owner, address(0));
     }
 
     /// @inheritdoc IUniswapV3Staker

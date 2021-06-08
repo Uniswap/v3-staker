@@ -203,10 +203,7 @@ describe('unit/Multicall', () => {
           incentiveResultToStakeAdapter(incentive1),
           tokenId,
         ]),
-        context.staker.interface.encodeFunctionData('withdrawToken', [
-          tokenId,
-          lpUser0.address,
-        ]),
+        context.staker.interface.encodeFunctionData('withdrawToken', [tokenId]),
         context.staker.interface.encodeFunctionData('claimReward', [
           context.token0.address,
           lpUser0.address,

@@ -413,15 +413,15 @@ describe('unit/Deposits', () => {
           tokenId
         )
 
-      subject = (_tokenId, _recipient) =>
-        context.staker.connect(lpUser0).withdrawToken(_tokenId, _recipient)
+      subject = (_tokenId) =>
+        context.staker.connect(lpUser0).withdrawToken(_tokenId)
     })
 
     describe('works and', () => {
-      it('emits a TokenWithdrawn event', async () =>
+      it('emits a DepositTransferred event', async () =>
         await expect(subject(tokenId, recipient))
-          .to.emit(context.staker, 'TokenWithdrawn')
-          .withArgs(tokenId, recipient))
+          .to.emit(context.staker, 'DepositTransferred')
+          .withArgs(tokenId, recipient, constants.AddressZero))
 
       it('transfers nft ownership', async () => {
         await subject(tokenId, recipient)
@@ -452,9 +452,7 @@ describe('unit/Deposits', () => {
       it('you are withdrawing a token that is not yours', async () => {
         const notOwner = actors.traderUser1()
         await expect(
-          context.staker
-            .connect(notOwner)
-            .withdrawToken(tokenId, notOwner.address)
+          context.staker.connect(notOwner).withdrawToken(tokenId)
         ).to.revertedWith('only owner can withdraw token')
       })
 
