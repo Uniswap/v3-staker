@@ -168,7 +168,7 @@ describe('unit/Incentives', async () => {
         })
 
         it('start time is too far into the future', async () => {
-          const params = makeTimestamps((await blockTimestamp()) + 2 ** 32)
+          const params = makeTimestamps((await blockTimestamp()) + 2 ** 32 + 1)
           await expect(subject(params)).to.be.revertedWith(
             'UniswapV3Staker::createIncentive: start time too far into future'
           )
@@ -176,7 +176,7 @@ describe('unit/Incentives', async () => {
 
         it('end time is within valid duration of start time', async () => {
           const params = makeTimestamps(await blockTimestamp())
-          params.endTime = params.startTime + 2 ** 32
+          params.endTime = params.startTime + 2 ** 32 + 1
           await expect(subject(params)).to.be.revertedWith(
             'UniswapV3Staker::createIncentive: incentive duration is too long'
           )
