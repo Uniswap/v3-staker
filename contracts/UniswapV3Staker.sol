@@ -46,7 +46,7 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall {
         public immutable
         override nonfungiblePositionManager;
 
-    uint256 immutable maxIncentiveDurationSeconds;
+    uint256 immutable maxIncentiveDuration;
     uint256 immutable maxIncentiveStartLeadTime;
 
     /// @dev bytes32 refers to the return value of IncentiveId.compute
@@ -89,12 +89,12 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall {
         IUniswapV3Factory _factory,
         INonfungiblePositionManager _nonfungiblePositionManager,
         uint256 _maxIncentiveStartLeadTime,
-        uint256 _maxIncentiveDurationSeconds
+        uint256 _maxIncentiveDuration
     ) {
         factory = _factory;
         nonfungiblePositionManager = _nonfungiblePositionManager;
         maxIncentiveStartLeadTime = _maxIncentiveStartLeadTime;
-        maxIncentiveDurationSeconds = _maxIncentiveDurationSeconds;
+        maxIncentiveDuration = _maxIncentiveDuration;
     }
 
     /// @inheritdoc IUniswapV3Staker
@@ -119,7 +119,7 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall {
             'UniswapV3Staker::createIncentive: start time must be before end time'
         );
         require(
-            key.endTime - key.startTime < maxIncentiveDurationSeconds,
+            key.endTime - key.startTime < maxIncentiveDuration,
             'UniswapV3Staker::createIncentive: incentive duration is too long'
         );
 
