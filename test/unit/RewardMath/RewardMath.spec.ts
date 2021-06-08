@@ -1,56 +1,30 @@
-import { expect } from 'chai'
+import { BigNumber } from 'ethers'
 import { ethers } from 'hardhat'
 import { TestRewardMath } from '../../../typechain'
-import { BN } from '../../shared'
-import {
-  writeDescription,
-  fillTestCase,
-  RewardMathTestCase,
-  ComputedRewardAmount,
-} from './helper'
-
-const TEST_CASES: Array<Partial<RewardMathTestCase>> = [
-  {
-    description: 'totalRewardUnclaimed is 0',
-    totalRewardUnclaimed: BN('0'),
-    totalSecondsClaimedX128: BN('1234'),
-  },
-  {
-    description: 'another scenario',
-    totalRewardUnclaimed: BN('1'),
-    totalSecondsClaimedX128: BN('2'),
-  },
-]
+import { expect } from '../../shared'
 
 describe('unit/RewardMath', () => {
   let rewardMath: TestRewardMath
+
   before('setup test reward math', async () => {
     const factory = await ethers.getContractFactory('TestRewardMath')
     rewardMath = (await factory.deploy()) as TestRewardMath
   })
 
-  type TestSubject = (
-    params: RewardMathTestCase
-  ) => Promise<ComputedRewardAmount>
-
-  const subject: TestSubject = async (params: RewardMathTestCase) => {
-    return await rewardMath.computeRewardAmount(
-      params.totalRewardUnclaimed,
-      params.totalSecondsClaimedX128,
-      params.startTime,
-      params.endTime,
-      params.liquidity,
-      params.secondsPerLiquidityInsideInitialX128,
-      params.secondsPerLiquidityInsideX128
+  it.only('half the liquidity over 20% of the total duration', async () => {
+    const { reward, secondsInsideX128 } = await rewardMath.computeRewardAmount(
+      /*totalRewardUnclaimed=*/ 1000,
+      /*totalSecondsClaimedX128=*/ 0,
+      /*startTime=*/ 100,
+      /*endTime=*/ 200,
+      /*liquidity=*/ 5,
+      /*secondsPerLiquidityInsideInitialX128=*/ 0,
+      /*secondsPerLiquidityInsideX128=*/ BigNumber.from(20).shl(128).div(10),
+      /*currentTime=*/ 120
     )
-  }
-
-  it('fails if block.timestamp >= startTime', () => {})
-
-  for (const testCase of TEST_CASES.map(fillTestCase)) {
-    it(writeDescription(testCase), async () => {
-      expect(true).to.be
-      await subject(testCase)
-    })
-  }
+    // 1000 * 0.5 * 0.2
+    expect(reward).to.eq(100)
+    // 20 seconds * 0.5 shl 128
+    expect(secondsInsideX128).to.eq(BigNumber.from(10).shl(128))
+  })
 })

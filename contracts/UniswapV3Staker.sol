@@ -285,7 +285,8 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall {
                     key.endTime,
                     liquidity,
                     secondsPerLiquidityInsideInitialX128,
-                    secondsPerLiquidityInsideX128
+                    secondsPerLiquidityInsideX128,
+                    block.timestamp
                 );
 
             incentive.totalSecondsClaimedX128 += secondsInsideX128;
@@ -355,7 +356,8 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall {
             key.endTime,
             liquidity,
             secondsPerLiquidityInsideInitialX128,
-            secondsPerLiquidityInsideX128
+            secondsPerLiquidityInsideX128,
+            block.timestamp
         );
     }
 
