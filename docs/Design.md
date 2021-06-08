@@ -132,7 +132,7 @@ struct EndIncentiveParams {
 
 **Interactions**
 
-- `safeTransferFrom` the token to `deposit.owner`.
+- `safeTransferFrom` the token to `to`.
 - emit `DepositTransferred(token, deposit.owner, address(0))`
 
 ## Stake/Unstake/Rewards

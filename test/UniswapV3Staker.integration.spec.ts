@@ -170,7 +170,9 @@ describe('integration', async () => {
                 ),
 
             doWithdraw: (params: HelperTypes.MintDepositStake.Result) =>
-              staker.connect(params.lp).withdrawToken(params.tokenId),
+              staker
+                .connect(params.lp)
+                .withdrawToken(params.tokenId, params.lp.address),
 
             doClaimRewards: (params: HelperTypes.MintDepositStake.Result) =>
               staker

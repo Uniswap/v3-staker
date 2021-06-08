@@ -413,8 +413,8 @@ describe('unit/Deposits', () => {
           tokenId
         )
 
-      subject = (_tokenId) =>
-        context.staker.connect(lpUser0).withdrawToken(_tokenId)
+      subject = (_tokenId, _recipient) =>
+        context.staker.connect(lpUser0).withdrawToken(_tokenId, _recipient)
     })
 
     describe('works and', () => {
@@ -452,7 +452,9 @@ describe('unit/Deposits', () => {
       it('you are withdrawing a token that is not yours', async () => {
         const notOwner = actors.traderUser1()
         await expect(
-          context.staker.connect(notOwner).withdrawToken(tokenId)
+          context.staker
+            .connect(notOwner)
+            .withdrawToken(tokenId, notOwner.address)
         ).to.revertedWith('only owner can withdraw token')
       })
 
