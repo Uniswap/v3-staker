@@ -28,6 +28,38 @@ describe('unit/RewardMath', () => {
     expect(secondsInsideX128).to.eq(BigNumber.from(10).shl(128))
   })
 
+  it('all the liquidity for the duration and none of the liquidity after the end time for a whole duration', async () => {
+    const { reward, secondsInsideX128 } = await rewardMath.computeRewardAmount(
+      /*totalRewardUnclaimed=*/ 1000,
+      /*totalSecondsClaimedX128=*/ 0,
+      /*startTime=*/ 100,
+      /*endTime=*/ 200,
+      /*liquidity=*/ 100,
+      /*secondsPerLiquidityInsideInitialX128=*/ 0,
+      /*secondsPerLiquidityInsideX128=*/ BigNumber.from(100).shl(128).div(100),
+      /*currentTime=*/ 300
+    )
+    // half the reward goes to the staker, the other half goes to those staking after the period
+    expect(reward).to.eq(500)
+    expect(secondsInsideX128).to.eq(BigNumber.from(100).shl(128))
+  })
+
+  it('all the liquidity for the duration and none of the liquidity after the end time for one second', async () => {
+    const { reward, secondsInsideX128 } = await rewardMath.computeRewardAmount(
+      /*totalRewardUnclaimed=*/ 1000,
+      /*totalSecondsClaimedX128=*/ 0,
+      /*startTime=*/ 100,
+      /*endTime=*/ 200,
+      /*liquidity=*/ 100,
+      /*secondsPerLiquidityInsideInitialX128=*/ 0,
+      /*secondsPerLiquidityInsideX128=*/ BigNumber.from(100).shl(128).div(100),
+      /*currentTime=*/ 201
+    )
+    // half the reward goes to the staker, the other half goes to those staking after the period
+    expect(reward).to.eq(990)
+    expect(secondsInsideX128).to.eq(BigNumber.from(100).shl(128))
+  })
+
   it('if some time is already claimed the reward is greater', async () => {
     const { reward, secondsInsideX128 } = await rewardMath.computeRewardAmount(
       /*totalRewardUnclaimed=*/ 1000,
