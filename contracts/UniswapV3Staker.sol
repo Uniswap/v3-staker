@@ -122,7 +122,6 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall {
             numberOfStakes: 0
         });
 
-        // this is effectively a validity check on key.rewardToken
         TransferHelper.safeTransferFrom(
             address(key.rewardToken),
             msg.sender,
