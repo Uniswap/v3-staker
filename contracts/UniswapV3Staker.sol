@@ -46,6 +46,11 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall {
         public immutable
         override nonfungiblePositionManager;
 
+    /// @inheritdoc IUniswapV3Staker
+    uint256 public immutable override maxIncentiveStartLeadTime;
+    /// @inheritdoc IUniswapV3Staker
+    uint256 public immutable override maxIncentiveDuration;
+
     /// @dev bytes32 refers to the return value of IncentiveId.compute
     mapping(bytes32 => Incentive) public override incentives;
 
@@ -82,12 +87,18 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall {
 
     /// @param _factory the Uniswap V3 factory
     /// @param _nonfungiblePositionManager the NFT position manager contract address
+    /// @param _maxIncentiveStartLeadTime the max duration of an incentive in seconds
+    /// @param _maxIncentiveDuration the max amount of seconds into the future the incentive startTime can be set
     constructor(
         IUniswapV3Factory _factory,
-        INonfungiblePositionManager _nonfungiblePositionManager
+        INonfungiblePositionManager _nonfungiblePositionManager,
+        uint256 _maxIncentiveStartLeadTime,
+        uint256 _maxIncentiveDuration
     ) {
         factory = _factory;
         nonfungiblePositionManager = _nonfungiblePositionManager;
+        maxIncentiveStartLeadTime = _maxIncentiveStartLeadTime;
+        maxIncentiveDuration = _maxIncentiveDuration;
     }
 
     /// @inheritdoc IUniswapV3Staker
@@ -104,8 +115,16 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall {
             'UniswapV3Staker::createIncentive: start time must be now or in the future'
         );
         require(
+            key.startTime - block.timestamp <= maxIncentiveStartLeadTime,
+            'UniswapV3Staker::createIncentive: start time too far into future'
+        );
+        require(
             key.startTime < key.endTime,
             'UniswapV3Staker::createIncentive: start time must be before end time'
+        );
+        require(
+            key.endTime - key.startTime <= maxIncentiveDuration,
+            'UniswapV3Staker::createIncentive: incentive duration is too long'
         );
 
         bytes32 incentiveId = IncentiveId.compute(key);
