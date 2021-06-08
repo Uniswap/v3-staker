@@ -325,10 +325,10 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall {
         address to,
         uint256 amountRequested
     ) external override returns (uint256 reward) {
-        reward = (amountRequested > 0 &&
-            amountRequested <= rewards[rewardToken][msg.sender])
-            ? amountRequested
-            : rewards[rewardToken][msg.sender];
+        reward = rewards[rewardToken][msg.sender];
+        if (amountRequested != 0 && amountRequested < reward) {
+            reward = amountRequested;
+        }
 
         rewards[rewardToken][msg.sender] -= reward;
         TransferHelper.safeTransfer(address(rewardToken), to, reward);
@@ -352,17 +352,14 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall {
             'UniswapV3Staker::getRewardAmount: stake does not exist'
         );
 
-        Incentive storage incentive = incentives[incentiveId];
-
-        (IUniswapV3Pool pool, int24 tickLower, int24 tickUpper, ) =
-            NFTPositionInfo.getPositionInfo(
-                factory,
-                nonfungiblePositionManager,
-                tokenId
-            );
+        Deposit memory deposit = deposits[tokenId];
+        Incentive memory incentive = incentives[incentiveId];
 
         (, uint160 secondsPerLiquidityInsideX128, ) =
-            pool.snapshotCumulativesInside(tickLower, tickUpper);
+            key.pool.snapshotCumulativesInside(
+                deposit.tickLower,
+                deposit.tickUpper
+            );
 
         (reward, ) = RewardMath.computeRewardAmount(
             incentive.totalRewardUnclaimed,

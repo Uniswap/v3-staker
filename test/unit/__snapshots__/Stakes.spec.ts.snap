@@ -1,6 +1,6 @@
 // Jest Snapshot v1, https://goo.gl/fbAQLP
 
-exports[`unit/Stakes #claimReward when requesting the full amount has gas cost 1`] = `47464`;
+exports[`unit/Stakes #claimReward when requesting the full amount has gas cost 1`] = `47448`;
 
 exports[`unit/Stakes #stakeToken works and has gas cost 1`] = `117777`;
 
