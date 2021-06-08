@@ -55,7 +55,7 @@ describe('unit/RewardMath', () => {
       /*secondsPerLiquidityInsideX128=*/ BigNumber.from(100).shl(128).div(100),
       /*currentTime=*/ 201
     )
-    // half the reward goes to the staker, the other half goes to those staking after the period
+    // the reward decays by up to the reward rate per second
     expect(reward).to.eq(990)
     expect(secondsInsideX128).to.eq(BigNumber.from(100).shl(128))
   })
