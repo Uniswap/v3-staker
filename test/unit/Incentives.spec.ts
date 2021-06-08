@@ -104,7 +104,7 @@ describe('unit/Incentives', async () => {
       })
 
       it('creates an incentive with the correct parameters', async () => {
-        const timestamps = makeTimestamps(await blockTimestamp())
+        timestamps = makeTimestamps(await blockTimestamp())
         await subject(timestamps)
         const incentiveId = await context.testIncentiveId.compute({
           rewardToken: context.rewardToken.address,

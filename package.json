@@ -66,6 +66,7 @@
     "lint": "eslint . --ext .ts",
     "prettier:check": "prettier-check contracts/**/*.sol test/**/*.ts types/*.ts",
     "size-contracts": "hardhat compile && hardhat size-contracts",
-    "test": "hardhat test"
+    "test": "hardhat test",
+    "clear-cache": "rm -rf artifacts/ cache/ typechain/"
   }
 }
