@@ -191,6 +191,10 @@ describe('unit/Stakes', () => {
         )
       })
 
+      it('has 0 liquidity in the position', async () => {
+
+      })
+
       it('token id is for a different pool than the incentive', async () => {
         const incentive2 = await helpers.createIncentiveFlow({
           ...incentiveArgs,
