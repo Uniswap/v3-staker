@@ -104,8 +104,16 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall {
             'UniswapV3Staker::createIncentive: start time must be now or in the future'
         );
         require(
+            key.startTime - block.timestamp <= 365 days,
+            'UniswapV3Staker::createIncentive: start time must be within one year of current time'
+        );
+        require(
             key.startTime < key.endTime,
             'UniswapV3Staker::createIncentive: start time must be before end time'
+        );
+        require(
+            key.endTime - key.startTime < 1<<32,
+            'UniswapV3Staker::createIncentive: incentive duration must be less than 2**32 seconds'
         );
 
         bytes32 incentiveId = IncentiveId.compute(key);
