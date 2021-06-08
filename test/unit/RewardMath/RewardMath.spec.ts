@@ -28,6 +28,68 @@ describe('unit/RewardMath', () => {
     expect(secondsInsideX128).to.eq(BigNumber.from(10).shl(128))
   })
 
+  it('if some time is already claimed the reward is greater', async () => {
+    const { reward, secondsInsideX128 } = await rewardMath.computeRewardAmount(
+      /*totalRewardUnclaimed=*/ 1000,
+      /*totalSecondsClaimedX128=*/ BigNumber.from(10).shl(128),
+      /*startTime=*/ 100,
+      /*endTime=*/ 200,
+      /*liquidity=*/ 5,
+      /*secondsPerLiquidityInsideInitialX128=*/ 0,
+      /*secondsPerLiquidityInsideX128=*/ BigNumber.from(20).shl(128).div(10),
+      /*currentTime=*/ 120
+    )
+    expect(reward).to.eq(111)
+    expect(secondsInsideX128).to.eq(BigNumber.from(10).shl(128))
+  })
+
+  it('0 rewards left gets 0 reward', async () => {
+    const { reward, secondsInsideX128 } = await rewardMath.computeRewardAmount(
+      /*totalRewardUnclaimed=*/ 0,
+      /*totalSecondsClaimedX128=*/ 0,
+      /*startTime=*/ 100,
+      /*endTime=*/ 200,
+      /*liquidity=*/ 5,
+      /*secondsPerLiquidityInsideInitialX128=*/ 0,
+      /*secondsPerLiquidityInsideX128=*/ BigNumber.from(20).shl(128).div(10),
+      /*currentTime=*/ 120
+    )
+    expect(reward).to.eq(0)
+    expect(secondsInsideX128).to.eq(BigNumber.from(10).shl(128))
+  })
+
+  it('0 difference in seconds inside gets 0 reward', async () => {
+    const { reward, secondsInsideX128 } = await rewardMath.computeRewardAmount(
+      /*totalRewardUnclaimed=*/ 1000,
+      /*totalSecondsClaimedX128=*/ 0,
+      /*startTime=*/ 100,
+      /*endTime=*/ 200,
+      /*liquidity=*/ 5,
+      /*secondsPerLiquidityInsideInitialX128=*/ BigNumber.from(20)
+        .shl(128)
+        .div(10),
+      /*secondsPerLiquidityInsideX128=*/ BigNumber.from(20).shl(128).div(10),
+      /*currentTime=*/ 120
+    )
+    expect(reward).to.eq(0)
+    expect(secondsInsideX128).to.eq(0)
+  })
+
+  it('0 liquidity gets 0 reward', async () => {
+    const { reward, secondsInsideX128 } = await rewardMath.computeRewardAmount(
+      /*totalRewardUnclaimed=*/ 1000,
+      /*totalSecondsClaimedX128=*/ 0,
+      /*startTime=*/ 100,
+      /*endTime=*/ 200,
+      /*liquidity=*/ 0,
+      /*secondsPerLiquidityInsideInitialX128=*/ 0,
+      /*secondsPerLiquidityInsideX128=*/ BigNumber.from(20).shl(128).div(10),
+      /*currentTime=*/ 120
+    )
+    expect(reward).to.eq(0)
+    expect(secondsInsideX128).to.eq(0)
+  })
+
   it('throws if current time is before start time', async () => {
     await expect(
       rewardMath.computeRewardAmount(
