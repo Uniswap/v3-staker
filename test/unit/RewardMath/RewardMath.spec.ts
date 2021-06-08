@@ -22,7 +22,7 @@ const TEST_CASES: Array<Partial<RewardMathTestCase>> = [
   },
 ]
 
-describe.only('unit/RewardMath', () => {
+describe('unit/RewardMath', () => {
   let rewardMath: TestRewardMath
   before('setup test reward math', async () => {
     const factory = await ethers.getContractFactory('TestRewardMath')
