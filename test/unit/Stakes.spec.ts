@@ -19,6 +19,7 @@ import {
   snapshotGasCost,
   ActorFixture,
   makeTimestamps,
+  maxGas,
 } from '../shared'
 import { createFixtureLoader, provider } from '../shared/provider'
 import { HelperCommands, ERC20Helper } from '../helpers'
@@ -192,7 +193,46 @@ describe('unit/Stakes', () => {
       })
 
       it('has 0 liquidity in the position', async () => {
+        await Time.set(timestamps.startTime + 500)
+        await erc20Helper.ensureBalancesAndApprovals(
+          lpUser0,
+          [context.token0, context.token1],
+          amountDesired,
+          context.nft.address
+        )
 
+        const tokenId2 =  await mintPosition(context.nft.connect(lpUser0), {
+          token0: context.token0.address,
+          token1: context.token1.address,
+          fee: FeeAmount.MEDIUM,
+          tickLower: getMinTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
+          tickUpper: getMaxTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
+          recipient: lpUser0.address,
+          amount0Desired: amountDesired,
+          amount1Desired: amountDesired,
+          amount0Min: 0,
+          amount1Min: 0,
+          deadline: (await blockTimestamp()) + 1000,
+        })
+
+        await context.nft.connect(lpUser0).decreaseLiquidity({
+          tokenId: tokenId2,
+          liquidity: (await context.nft.positions(tokenId2)).liquidity,
+          amount0Min: 0,
+          amount1Min: 0,
+          deadline: (await blockTimestamp()) + 1_000,
+        })
+
+        await context.nft
+          .connect(lpUser0)
+          ['safeTransferFrom(address,address,uint256)'](
+            lpUser0.address,
+            context.staker.address,
+            tokenId2,
+            {...maxGas}
+          )
+
+        await expect(subject(tokenId2, lpUser0)).to.be.revertedWith('UniswapV3Staker::stakeToken: cannot stake token with 0 liquidity')
       })
 
       it('token id is for a different pool than the incentive', async () => {
