@@ -11,7 +11,7 @@ describe('unit/RewardMath', () => {
     rewardMath = (await factory.deploy()) as TestRewardMath
   })
 
-  it.only('half the liquidity over 20% of the total duration', async () => {
+  it('half the liquidity over 20% of the total duration', async () => {
     const { reward, secondsInsideX128 } = await rewardMath.computeRewardAmount(
       /*totalRewardUnclaimed=*/ 1000,
       /*totalSecondsClaimedX128=*/ 0,
@@ -26,5 +26,20 @@ describe('unit/RewardMath', () => {
     expect(reward).to.eq(100)
     // 20 seconds * 0.5 shl 128
     expect(secondsInsideX128).to.eq(BigNumber.from(10).shl(128))
+  })
+
+  it('throws if current time is before start time', async () => {
+    await expect(
+      rewardMath.computeRewardAmount(
+        /*totalRewardUnclaimed=*/ 1000,
+        /*totalSecondsClaimedX128=*/ 0,
+        /*startTime=*/ 100,
+        /*endTime=*/ 200,
+        /*liquidity=*/ 5,
+        /*secondsPerLiquidityInsideInitialX128=*/ 0,
+        /*secondsPerLiquidityInsideX128=*/ BigNumber.from(20).shl(128).div(10),
+        /*currentTime=*/ 99
+      )
+    ).to.be.reverted
   })
 })

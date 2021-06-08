@@ -15,6 +15,7 @@ library RewardMath {
     /// @param liquidity The amount of liquidity, assumed to be constant over the period over which the snapshots are measured
     /// @param secondsPerLiquidityInsideInitialX128 The seconds per liquidity of the liquidity tick range as of the beginning of the period
     /// @param secondsPerLiquidityInsideX128 The seconds per liquidity of the liquidity tick range as of the current block timestamp
+    /// @param currentTime The current block timestamp, which must be greater than or equal to the start time
     function computeRewardAmount(
         uint256 totalRewardUnclaimed,
         uint160 totalSecondsClaimedX128,
