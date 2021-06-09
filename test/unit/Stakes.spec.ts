@@ -274,7 +274,7 @@ describe('unit/Stakes', () => {
     })
   })
 
-  describe('#getRewardAmount', () => {
+  describe('#getRewardInfo', () => {
     let incentiveId: string
     let stakeIncentiveKey: ContractParams.IncentiveKey
 
@@ -312,37 +312,40 @@ describe('unit/Stakes', () => {
       await context.staker.stakes(tokenId, incentiveId)
     })
 
-    it('returns correct rewardAmount and secondsInPeriodX128 for the position', async () => {
+    it('returns correct rewardAmount and secondsInsideX128 for the position', async () => {
       const pool = context.poolObj.connect(actors.lpUser0())
 
       await provider.send('evm_mine', [timestamps.startTime + 100])
 
-      const reward = await context.staker.connect(lpUser0).getRewardAmount(stakeIncentiveKey, tokenId)
+      const rewardInfo = await context.staker.connect(lpUser0).getRewardInfo(stakeIncentiveKey, tokenId)
 
       const { tickLower, tickUpper } = await context.nft.positions(tokenId)
-      await pool.snapshotCumulativesInside(tickLower, tickUpper)
+      const { secondsPerLiquidityInsideX128 } = await pool.snapshotCumulativesInside(tickLower, tickUpper)
+      const stake = await context.staker.stakes(tokenId, incentiveId)
 
-      // const expectedSecondsInPeriod = secondsPerLiquidityInsideX128
-      //   .sub(stake.secondsPerLiquidityInsideInitialX128)
-      //   .mul(stake.liquidity)
+      const expectedSecondsInPeriod = secondsPerLiquidityInsideX128
+        .sub(stake.secondsPerLiquidityInsideInitialX128)
+        .mul(stake.liquidity)
 
       // @ts-ignore
-      expect(reward).to.be.closeTo(BNe(1, 19), BN(1))
+      expect(rewardInfo.reward).to.be.closeTo(BNe(1, 19), BN(1))
+      expect(rewardInfo.secondsInsideX128).to.equal(expectedSecondsInPeriod)
     })
 
     it('returns nonzero for incentive after end time', async () => {
       await Time.setAndMine(timestamps.endTime + 1)
 
-      const reward = await context.staker.connect(lpUser0).getRewardAmount(stakeIncentiveKey, tokenId)
+      const rewardInfo = await context.staker.connect(lpUser0).getRewardInfo(stakeIncentiveKey, tokenId)
 
-      expect(reward, 'reward is nonzero').to.not.equal(0)
+      expect(rewardInfo.reward, 'reward is nonzero').to.not.equal(0)
+      expect(rewardInfo.secondsInsideX128, 'reward is nonzero').to.not.equal(0)
     })
 
     it('reverts if stake does not exist', async () => {
       await Time.setAndMine(timestamps.endTime + 1)
 
-      await expect(context.staker.connect(lpUser0).getRewardAmount(stakeIncentiveKey, '100')).to.be.revertedWith(
-        'UniswapV3Staker::getRewardAmount: stake does not exist'
+      await expect(context.staker.connect(lpUser0).getRewardInfo(stakeIncentiveKey, '100')).to.be.revertedWith(
+        'UniswapV3Staker::getRewardInfo: stake does not exist'
       )
     })
   })

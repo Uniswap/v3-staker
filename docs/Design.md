@@ -169,11 +169,11 @@ To unstake an NFT, you call `unstakeToken`, which takes all the same arguments a
 - Decrements `numberOfStakes` for the Deposit by 1.
 - `totalRewardsUnclaimed` is decremented by `reward`.
 - `totalSecondsClaimed` is incremented by `seconds`.
-- Increments `rewards[rewardToken][msg.sender]` by the amount given by `getRewardAmount`.
+- Increments `rewards[rewardToken][msg.sender]` by the amount given by `getRewardInfo`.
 
-### `_getRewardAmount`
+### `getRewardInfo`
 
-- It computes `secondsInPeriodX128` for a given Stake, by:
+- It computes `secondsInsideX128` (the total liquidity seconds for which rewards are owed) for a given Stake, by:
   - using`snapshotCumulativesInside` from the Uniswap v3 core contract to get `secondsPerLiquidityInRangeX128`, and subtracting `secondsPerLiquidityInRangeInitialX128`.
   - Multiplying that by `stake.liquidity` to get the total seconds accrued by the liquidity in that period
 - Note that X128 means it's a `UQ32X128`.
@@ -182,5 +182,4 @@ To unstake an NFT, you call `unstakeToken`, which takes all the same arguments a
 
 - It computes `rewardRate` for the Incentive casting `incentive.totalRewardUnclaimed` as a Q128, then dividing it by `totalSecondsUnclaimedX128`.
 
-- `reward` is then calculated as `secondsInPeriodX128` times the `rewardRate`, scaled down to a regular uint128.
-
+- `reward` is then calculated as `secondsInsideX128` times the `rewardRate`, scaled down to a regular uint128.
