@@ -284,11 +284,16 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall {
     }
 
     /// @inheritdoc IUniswapV3Staker
-    function getRewardAmount(IncentiveKey memory key, uint256 tokenId) external view override returns (uint256 reward) {
+    function getRewardInfo(IncentiveKey memory key, uint256 tokenId)
+        external
+        view
+        override
+        returns (uint256 reward, uint160 secondsInsideX128)
+    {
         bytes32 incentiveId = IncentiveId.compute(key);
 
         (uint160 secondsPerLiquidityInsideInitialX128, uint128 liquidity) = stakes(tokenId, incentiveId);
-        require(liquidity > 0, 'UniswapV3Staker::getRewardAmount: stake does not exist');
+        require(liquidity > 0, 'UniswapV3Staker::getRewardInfo: stake does not exist');
 
         Deposit memory deposit = deposits[tokenId];
         Incentive memory incentive = incentives[incentiveId];
@@ -296,7 +301,7 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall {
         (, uint160 secondsPerLiquidityInsideX128, ) =
             key.pool.snapshotCumulativesInside(deposit.tickLower, deposit.tickUpper);
 
-        (reward, ) = RewardMath.computeRewardAmount(
+        (reward, secondsInsideX128) = RewardMath.computeRewardAmount(
             incentive.totalRewardUnclaimed,
             incentive.totalSecondsClaimedX128,
             key.startTime,
