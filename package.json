@@ -57,6 +57,7 @@
     "prettier-plugin-solidity": "^1.0.0-beta.10",
     "solhint": "^3.2.1",
     "solhint-plugin-prettier": "^0.0.5",
+    "solidity-coverage": "^0.7.16",
     "ts-node": "^8.5.4",
     "typechain": "^5.0.0",
     "typescript": "^4.3.2"
@@ -67,6 +68,7 @@
     "prettier:check": "prettier-check contracts/**/*.sol test/**/*.ts types/*.ts",
     "size-contracts": "hardhat compile && hardhat size-contracts",
     "test": "hardhat test",
-    "clear-cache": "rm -rf artifacts/ cache/ typechain/"
+    "clear-cache": "rm -rf artifacts/ cache/ typechain/",
+    "coverage": "RUN_COVERAGE=1 hardhat coverage"
   }
 }
