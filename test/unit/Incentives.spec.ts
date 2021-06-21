@@ -109,18 +109,76 @@ describe('unit/Incentives', async () => {
         expect(incentive.totalSecondsClaimedX128).to.equal(BN(0))
       })
 
+      it('adds to existing incentives', async () => {
+        const params = makeTimestamps(await blockTimestamp())
+        expect(await subject(params)).to.emit(context.staker, 'IncentiveCreated')
+        await expect(subject(params)).to.not.be.reverted
+        const incentiveId = await context.testIncentiveId.compute({
+          rewardToken: context.rewardToken.address,
+          pool: context.pool01,
+          startTime: timestamps.startTime,
+          endTime: timestamps.endTime,
+          refundee: incentiveCreator.address,
+        })
+        const { totalRewardUnclaimed, totalSecondsClaimedX128, numberOfStakes } = await context.staker.incentives(
+          incentiveId
+        )
+        expect(totalRewardUnclaimed).to.equal(totalReward.mul(2))
+        expect(totalSecondsClaimedX128).to.equal(0)
+        expect(numberOfStakes).to.equal(0)
+      })
+
+      it('does not override the existing numberOfStakes', async () => {
+        const testTimestamps = makeTimestamps(await blockTimestamp())
+        const rewardToken = context.token0
+        const incentiveKey = {
+          ...testTimestamps,
+          rewardToken: rewardToken.address,
+          refundee: incentiveCreator.address,
+          pool: context.pool01,
+        }
+        await erc20Helper.ensureBalancesAndApprovals(actors.lpUser0(), rewardToken, BN(100), context.staker.address)
+        await context.staker.connect(actors.lpUser0()).createIncentive(incentiveKey, 100)
+        const incentiveId = await context.testIncentiveId.compute(incentiveKey)
+        let { totalRewardUnclaimed, totalSecondsClaimedX128, numberOfStakes } = await context.staker.incentives(
+          incentiveId
+        )
+        expect(totalRewardUnclaimed).to.equal(100)
+        expect(totalSecondsClaimedX128).to.equal(0)
+        expect(numberOfStakes).to.equal(0)
+        expect(await rewardToken.balanceOf(context.staker.address)).to.eq(100)
+        const { tokenId } = await helpers.mintFlow({
+          lp: actors.lpUser0(),
+          tokens: [context.token0, context.token1],
+        })
+        await helpers.depositFlow({
+          lp: actors.lpUser0(),
+          tokenId,
+        })
+
+        await erc20Helper.ensureBalancesAndApprovals(actors.lpUser0(), rewardToken, BN(50), context.staker.address)
+
+        await Time.set(testTimestamps.startTime)
+        await context.staker
+          .connect(actors.lpUser0())
+          .multicall([
+            context.staker.interface.encodeFunctionData('createIncentive', [incentiveKey, 50]),
+            context.staker.interface.encodeFunctionData('stakeToken', [incentiveKey, tokenId]),
+          ])
+        ;({ totalRewardUnclaimed, totalSecondsClaimedX128, numberOfStakes } = await context.staker
+          .connect(actors.lpUser0())
+          .incentives(incentiveId))
+        expect(totalRewardUnclaimed).to.equal(150)
+        expect(totalSecondsClaimedX128).to.equal(0)
+        expect(numberOfStakes).to.equal(1)
+      })
+
       it('has gas cost', async () => {
         await snapshotGasCost(subject({}))
       })
     })
 
     describe('fails when', () => {
-      it('there is already has an incentive with those params', async () => {
-        const params = makeTimestamps(await blockTimestamp())
-        expect(await subject(params)).to.emit(context.staker, 'IncentiveCreated')
-        await expect(subject(params)).to.be.revertedWith('UniswapV3Staker::createIncentive: incentive already exists')
-      })
-
       describe('invalid timestamps', () => {
         it('current time is after start time', async () => {
           const params = makeTimestamps(await blockTimestamp(), 100_000)
