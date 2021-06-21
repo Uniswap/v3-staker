@@ -188,6 +188,7 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall {
         address to,
         bytes memory data
     ) external override {
+        require(to != address(this), 'UniswapV3Staker::withdrawToken: cannot withdraw to staker');
         Deposit memory deposit = deposits[tokenId];
         require(deposit.numberOfStakes == 0, 'UniswapV3Staker::withdrawToken: cannot withdraw token while staked');
         require(deposit.owner == msg.sender, 'UniswapV3Staker::withdrawToken: only owner can withdraw token');

@@ -18,7 +18,7 @@ import {
   maxGas,
 } from '../shared'
 import { createFixtureLoader, provider } from '../shared/provider'
-import { HelperCommands, ERC20Helper } from '../helpers'
+import { HelperCommands, ERC20Helper, incentiveResultToStakeAdapter } from '../helpers'
 import { ContractParams } from '../../types/contractParams'
 import { createTimeMachine } from '../shared/time'
 import { HelperTypes } from '../helpers/types'
@@ -618,6 +618,68 @@ describe('unit/Stakes', () => {
         await expect(subject(nonOwner)).to.revertedWith('UniswapV3Staker::unstakeToken: only owner can withdraw token')
         expect(await blockTimestamp(), 'test setup: after end time').to.be.lt(timestamps.endTime)
       })
+    })
+  })
+
+  describe('liquidityIfOverflow', () => {
+    const MAX_UINT_96 = BN('2').pow(BN('96')).sub(1)
+
+    let incentive
+    let incentiveId
+
+    beforeEach(async () => {
+      timestamps = makeTimestamps(1_000 + (await blockTimestamp()))
+      incentive = await helpers.createIncentiveFlow({
+        rewardToken: context.rewardToken,
+        totalReward,
+        poolAddress: context.poolObj.address,
+        ...timestamps,
+      })
+      incentiveId = await helpers.getIncentiveId(incentive)
+      await Time.setAndMine(timestamps.startTime + 1)
+    })
+
+    it('works when no overflow', async () => {
+      // With this `amount`, liquidity ends up less than MAX_UINT96
+      const amount = MAX_UINT_96.div(1000)
+
+      const { tokenId } = await helpers.mintFlow({
+        lp: lpUser0,
+        tokens: [context.token0, context.token1],
+        amounts: [amount, amount],
+        tickLower: 0,
+        tickUpper: 10 * TICK_SPACINGS[FeeAmount.MEDIUM],
+      })
+
+      await helpers.depositFlow({
+        lp: lpUser0,
+        tokenId,
+      })
+
+      await context.staker.connect(lpUser0).stakeToken(incentiveResultToStakeAdapter(incentive), tokenId)
+      const { liquidity } = await context.staker.stakes(tokenId, incentiveId)
+      expect(liquidity).to.be.lt(MAX_UINT_96)
+    })
+
+    it('works when overflow', async () => {
+      // With this `amount`, liquidity ends up more than MAX_UINT96
+      const amount = MAX_UINT_96.sub(100)
+      const { tokenId } = await helpers.mintFlow({
+        lp: lpUser0,
+        tokens: [context.token0, context.token1],
+        amounts: [amount, amount],
+        tickLower: 0,
+        tickUpper: 10 * TICK_SPACINGS[FeeAmount.MEDIUM],
+      })
+
+      await helpers.depositFlow({
+        lp: lpUser0,
+        tokenId,
+      })
+
+      await context.staker.connect(lpUser0).stakeToken(incentiveResultToStakeAdapter(incentive), tokenId)
+      const { liquidity } = await context.staker.stakes(tokenId, incentiveId)
+      expect(liquidity).to.be.gt(MAX_UINT_96)
     })
   })
 })
