@@ -109,18 +109,31 @@ describe('unit/Incentives', async () => {
         expect(incentive.totalSecondsClaimedX128).to.equal(BN(0))
       })
 
+      it('adds to existing incentives', async () => {
+        const params = makeTimestamps(await blockTimestamp())
+        expect(await subject(params)).to.emit(context.staker, 'IncentiveCreated')
+        await expect(subject(params)).to.not.be.reverted
+        const incentiveId = await context.testIncentiveId.compute({
+          rewardToken: context.rewardToken.address,
+          pool: context.pool01,
+          startTime: timestamps.startTime,
+          endTime: timestamps.endTime,
+          refundee: incentiveCreator.address,
+        })
+        const { totalRewardUnclaimed, totalSecondsClaimedX128, numberOfStakes } = await context.staker.incentives(
+          incentiveId
+        )
+        expect(totalRewardUnclaimed).to.equal(totalReward.mul(2))
+        expect(totalSecondsClaimedX128).to.equal(0)
+        expect(numberOfStakes).to.equal(0)
+      })
+
       it('has gas cost', async () => {
         await snapshotGasCost(subject({}))
       })
     })
 
     describe('fails when', () => {
-      it('there is already has an incentive with those params', async () => {
-        const params = makeTimestamps(await blockTimestamp())
-        expect(await subject(params)).to.emit(context.staker, 'IncentiveCreated')
-        await expect(subject(params)).to.be.revertedWith('UniswapV3Staker::createIncentive: incentive already exists')
-      })
-
       describe('invalid timestamps', () => {
         it('current time is after start time', async () => {
           const params = makeTimestamps(await blockTimestamp(), 100_000)

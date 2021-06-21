@@ -112,17 +112,7 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall {
 
         bytes32 incentiveId = IncentiveId.compute(key);
 
-        // totalRewardUnclaimed cannot decrease until key.startTime has passed, meaning this check is safe
-        require(
-            incentives[incentiveId].totalRewardUnclaimed == 0,
-            'UniswapV3Staker::createIncentive: incentive already exists'
-        );
-
-        incentives[incentiveId] = Incentive({
-            totalRewardUnclaimed: reward,
-            totalSecondsClaimedX128: 0,
-            numberOfStakes: 0
-        });
+        incentives[incentiveId].totalRewardUnclaimed += reward;
 
         TransferHelper.safeTransferFrom(address(key.rewardToken), msg.sender, address(this), reward);
 
