@@ -338,11 +338,9 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall {
                 liquidityIfOverflow: liquidity
             });
         } else {
-            _stakes[tokenId][incentiveId] = Stake({
-                secondsPerLiquidityInsideInitialX128: secondsPerLiquidityInsideX128,
-                liquidityNoOverflow: uint96(liquidity),
-                liquidityIfOverflow: 0
-            });
+            Stake storage stake = _stakes[tokenId][incentiveId];
+            stake.secondsPerLiquidityInsideInitialX128 = secondsPerLiquidityInsideX128;
+            stake.liquidityNoOverflow = uint96(liquidity);
         }
 
         emit TokenStaked(tokenId, incentiveId, liquidity);
