@@ -117,7 +117,8 @@ struct EndIncentiveParams {
 
 **Effects:**
 
-- if `data.length>0`, stakes the token as well
+- Creates a deposit for the token setting deposit `owner` to `from`.
+- If `data.length>0`, stakes the token in one or more incentives
 
 ### `withdrawToken(uint256 tokenId, address to, bytes memory data)`
 

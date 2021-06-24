@@ -73,8 +73,8 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall {
         }
     }
 
-    /// @inheritdoc IUniswapV3Staker
     /// @dev rewards[rewardToken][owner] => uint256
+    /// @inheritdoc IUniswapV3Staker
     mapping(IERC20Minimal => mapping(address => uint256)) public override rewards;
 
     /// @param _factory the Uniswap V3 factory
@@ -143,6 +143,8 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall {
         emit IncentiveEnded(incentiveId, refund);
     }
 
+    /// @notice Upon receiving a uniswap v3 ERC721, creates the token deposit setting owner to `from`. Also stakes token
+    /// in one or more incentives if properly formatted `data` has a length > 0.
     /// @inheritdoc IERC721Receiver
     function onERC721Received(
         address,
