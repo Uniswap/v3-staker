@@ -117,7 +117,9 @@ struct EndIncentiveParams {
 
 **Effects:**
 
-- if `data.length>0`, stakes the token as well
+- Creates a deposit for the token setting deposit `owner` to `from`.
+  - Setting `owner` to `from` ensures that the owner of the token also owns the deposit. Approved addresses and operators may first transfer the token to themselves before depositing for deposit ownership.
+- If `data.length>0`, stakes the token in one or more incentives
 
 ### `withdrawToken(uint256 tokenId, address to, bytes memory data)`
 
