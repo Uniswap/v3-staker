@@ -14,8 +14,8 @@
     "url": "https://github.com/Uniswap/uniswap-v3-staker"
   },
   "files": [
-    "contracts/interfaces",
-    "contracts/libraries",
+    "contracts",
+    "!contracts/test",
     "artifacts/contracts/**/*.json",
     "!artifacts/contracts/**/*.dbg.json",
     "!artifacts/contracts/test/**/*",
