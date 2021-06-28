@@ -2,9 +2,19 @@
 
 This is the canonical staking contract designed for [Uniswap V3](https://github.com/Uniswap/uniswap-v3-core).
 
-## Security audit is in progress.
+## Deployments
 
-- **This is still under security audit and not yet ready for production.** This section will be updated with relevant addresses once it's ready and live.
+The staker at tag v1.0.0 is deployed and verified on Etherscan for on all networks at the address: `0x1f98407aaB862CdDeF78Ed252D6f557aA5b0f00d`
+
+| Network          | Explorer                                                                                |
+|------------------|-----------------------------------------------------------------------------------------|
+| Mainnet          | https://etherscan.io/address/0x1f98407aaB862CdDeF78Ed252D6f557aA5b0f00d#code            |
+| Rinkeby          | https://rinkeby.etherscan.io/address/0x1f98407aaB862CdDeF78Ed252D6f557aA5b0f00d#code    |
+| Kovan            | https://kovan.etherscan.io/address/0x1f98407aaB862CdDeF78Ed252D6f557aA5b0f00d#code      |
+| Ropsten          | https://ropsten.etherscan.io/address/0x1f98407aaB862CdDeF78Ed252D6f557aA5b0f00d#code    |
+| Goerli           | https://goerli.etherscan.io/address/0x1f98407aaB862CdDeF78Ed252D6f557aA5b0f00d#code     |
+| Arbitrum Rinkeby | https://rinkeby-explorer.arbitrum.io/address/0x1f98407aaB862CdDeF78Ed252D6f557aA5b0f00d |
+| Arbitrum One     | https://explorer.arbitrum.io/address/0x1f98407aaB862CdDeF78Ed252D6f557aA5b0f00d         |
 
 ## Links:
 
