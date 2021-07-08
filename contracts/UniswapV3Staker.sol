@@ -77,10 +77,10 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall {
     /// @inheritdoc IUniswapV3Staker
     mapping(IERC20Minimal => mapping(address => uint256)) public override rewards;
 
-    /// @param _factory the Uniswap V3 factory
-    /// @param _nonfungiblePositionManager the NFT position manager contract address
-    /// @param _maxIncentiveStartLeadTime the max duration of an incentive in seconds
-    /// @param _maxIncentiveDuration the max amount of seconds into the future the incentive startTime can be set
+    /// @param _factory The Uniswap V3 Factory
+    /// @param _nonfungiblePositionManager The nonfungible position manager address
+    /// @param _maxIncentiveStartLeadTime The max amount of seconds into the future the incentive startTime can be set
+    /// @param _maxIncentiveDuration The max duration of an incentive in seconds
     constructor(
         IUniswapV3Factory _factory,
         INonfungiblePositionManager _nonfungiblePositionManager,
