@@ -13,8 +13,8 @@ The staker at tag v1.0.0 is deployed and verified on Etherscan for on all networ
 | Kovan            | https://kovan.etherscan.io/address/0x1f98407aaB862CdDeF78Ed252D6f557aA5b0f00d#code      |
 | Ropsten          | https://ropsten.etherscan.io/address/0x1f98407aaB862CdDeF78Ed252D6f557aA5b0f00d#code    |
 | Goerli           | https://goerli.etherscan.io/address/0x1f98407aaB862CdDeF78Ed252D6f557aA5b0f00d#code     |
-| Arbitrum Rinkeby | https://rinkeby-explorer.arbitrum.io/address/0x1f98407aaB862CdDeF78Ed252D6f557aA5b0f00d |
-| Arbitrum One     | https://explorer.arbitrum.io/address/0x1f98407aaB862CdDeF78Ed252D6f557aA5b0f00d         |
+| Arbitrum Rinkeby | https://testnet.arbiscan.io/address/0x1f98407aab862cddef78ed252d6f557aa5b0f00d          |
+| Arbitrum One     | https://arbiscan.io/address/0x1f98407aab862cddef78ed252d6f557aa5b0f00d                  |
 
 ## Links:
 
