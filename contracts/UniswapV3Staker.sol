@@ -6,13 +6,13 @@ import './interfaces/IUniswapV3Staker.sol';
 import './libraries/IncentiveId.sol';
 import './libraries/RewardMath.sol';
 import './libraries/NFTPositionInfo.sol';
+import './libraries/TransferHelperExtended.sol';
 
 import '@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol';
 import '@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol';
 import '@uniswap/v3-core/contracts/interfaces/IERC20Minimal.sol';
 
 import '@uniswap/v3-periphery/contracts/interfaces/INonfungiblePositionManager.sol';
-import '@uniswap/v3-periphery/contracts/libraries/TransferHelper.sol';
 import '@uniswap/v3-periphery/contracts/base/Multicall.sol';
 
 /// @title Uniswap V3 canonical staking interface
@@ -35,6 +35,7 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall {
     /// @notice Represents a staked liquidity NFT
     struct Stake {
         uint160 secondsPerLiquidityInsideInitialX128;
+        // liquidity
         uint96 liquidityNoOverflow;
         uint128 liquidityIfOverflow;
     }
@@ -77,10 +78,10 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall {
     /// @inheritdoc IUniswapV3Staker
     mapping(IERC20Minimal => mapping(address => uint256)) public override rewards;
 
-    /// @param _factory the Uniswap V3 factory
-    /// @param _nonfungiblePositionManager the NFT position manager contract address
-    /// @param _maxIncentiveStartLeadTime the max duration of an incentive in seconds
-    /// @param _maxIncentiveDuration the max amount of seconds into the future the incentive startTime can be set
+    /// @param _factory The Uniswap V3 Factory
+    /// @param _nonfungiblePositionManager The nonfungible position manager address
+    /// @param _maxIncentiveStartLeadTime The max amount of seconds into the future the incentive startTime can be set
+    /// @param _maxIncentiveDuration The max duration of an incentive in seconds
     constructor(
         IUniswapV3Factory _factory,
         INonfungiblePositionManager _nonfungiblePositionManager,
@@ -114,7 +115,7 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall {
 
         incentives[incentiveId].totalRewardUnclaimed += reward;
 
-        TransferHelper.safeTransferFrom(address(key.rewardToken), msg.sender, address(this), reward);
+        TransferHelperExtended.safeTransferFrom(address(key.rewardToken), msg.sender, address(this), reward);
 
         emit IncentiveCreated(key.rewardToken, key.pool, key.startTime, key.endTime, key.refundee, reward);
     }
@@ -136,7 +137,7 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall {
 
         // issue the refund
         incentive.totalRewardUnclaimed = 0;
-        TransferHelper.safeTransfer(address(key.rewardToken), key.refundee, refund);
+        TransferHelperExtended.safeTransfer(address(key.rewardToken), key.refundee, refund);
 
         // note we never clear totalSecondsClaimedX128
 
@@ -271,7 +272,7 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall {
         }
 
         rewards[rewardToken][msg.sender] -= reward;
-        TransferHelper.safeTransfer(address(rewardToken), to, reward);
+        TransferHelperExtended.safeTransfer(address(rewardToken), to, reward);
 
         emit RewardClaimed(to, reward);
     }
