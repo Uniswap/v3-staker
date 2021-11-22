@@ -179,6 +179,22 @@ describe('unit/Incentives', async () => {
     })
 
     describe('fails when', () => {
+      it('is initialized with a non-contract token', async () => {
+        const { startTime, endTime } = makeTimestamps(await blockTimestamp())
+        await expect(
+          context.staker.connect(incentiveCreator).createIncentive(
+            {
+              rewardToken: `0x${'badadd2e55'.repeat(4)}`,
+              pool: context.pool01,
+              startTime,
+              endTime,
+              refundee: incentiveCreator.address,
+            },
+            totalReward
+          )
+        ).to.be.revertedWith('TransferHelperExtended::safeTransferFrom: call to non-contract')
+      })
+
       describe('invalid timestamps', () => {
         it('current time is after start time', async () => {
           const params = makeTimestamps(await blockTimestamp(), 100_000)
