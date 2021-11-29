@@ -18,17 +18,7 @@ Note that the v1.0.0 release is susceptible to a [high-difficulty, never-exploit
 | Optimism         | https://optimistic.etherscan.io/address/0xe34139463bA50bD61336E0c446Bd8C0867c6fE65       |
 | Optimism Kovan   | https://kovan-optimistic.etherscan.io/address/0xe34139463bA50bD61336E0c446Bd8C0867c6fE65 |
 
-DEPRECATED: For historical verification purposes only, the staker at tag v1.0.0 is deployed and verified on Etherscan on all networks at the address: `0x1f98407aaB862CdDeF78Ed252D6f557aA5b0f00d`
-
-| Network          | Explorer                                                                             |
-| ---------------- | ------------------------------------------------------------------------------------ |
-| Mainnet          | https://etherscan.io/address/0x1f98407aaB862CdDeF78Ed252D6f557aA5b0f00d#code         |
-| Rinkeby          | https://rinkeby.etherscan.io/address/0x1f98407aaB862CdDeF78Ed252D6f557aA5b0f00d#code |
-| Kovan            | https://kovan.etherscan.io/address/0x1f98407aaB862CdDeF78Ed252D6f557aA5b0f00d#code   |
-| Ropsten          | https://ropsten.etherscan.io/address/0x1f98407aaB862CdDeF78Ed252D6f557aA5b0f00d#code |
-| Goerli           | https://goerli.etherscan.io/address/0x1f98407aaB862CdDeF78Ed252D6f557aA5b0f00d#code  |
-| Arbitrum Rinkeby | https://testnet.arbiscan.io/address/0x1f98407aab862cddef78ed252d6f557aa5b0f00d       |
-| Arbitrum One     | https://arbiscan.io/address/0x1f98407aab862cddef78ed252d6f557aa5b0f00d               |
+⚠️DEPRECATED⚠️: For historical verification purposes only, the staker at tag v1.0.0 was deployed at the address: `0x1f98407aaB862CdDeF78Ed252D6f557aA5b0f00d`
 
 ## Links:
 
