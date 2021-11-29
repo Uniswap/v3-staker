@@ -1,12 +1,11 @@
-import '@typechain/hardhat'
 import '@nomiclabs/hardhat-ethers'
-import '@nomiclabs/hardhat-waffle'
 import '@nomiclabs/hardhat-etherscan'
+import '@nomiclabs/hardhat-waffle'
+import '@typechain/hardhat'
 import 'hardhat-contract-sizer'
-import 'solidity-coverage'
-
 import { HardhatUserConfig } from 'hardhat/config'
 import { SolcUserConfig } from 'hardhat/types'
+import 'solidity-coverage'
 
 const DEFAULT_COMPILER_SETTINGS: SolcUserConfig = {
   version: '0.7.6',
@@ -55,6 +54,12 @@ const config: HardhatUserConfig = {
     },
     kovan: {
       url: `https://kovan.infura.io/v3/${process.env.INFURA_API_KEY}`,
+    },
+    optimism: {
+      url: 'https://mainnet.optimism.io',
+    },
+    arbitrum: {
+      url: 'https://arb1.arbitrum.io/rpc',
     },
   },
   solidity: {
