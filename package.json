@@ -2,7 +2,7 @@
   "name": "@uniswap/v3-staker",
   "description": "Canonical liquidity mining contract for Uniswap V3",
   "license": "GPL-3.0-or-later",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "homepage": "https://uniswap.org",
   "keywords": [
     "uniswap",
