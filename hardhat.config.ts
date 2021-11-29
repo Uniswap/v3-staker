@@ -55,11 +55,17 @@ const config: HardhatUserConfig = {
     kovan: {
       url: `https://kovan.infura.io/v3/${process.env.INFURA_API_KEY}`,
     },
-    optimism: {
-      url: 'https://mainnet.optimism.io',
+    arbitrumRinkeby: {
+      url: `https://arbitrum-rinkeby.infura.io/v3/${process.env.INFURA_API_KEY}`,
     },
     arbitrum: {
-      url: 'https://arb1.arbitrum.io/rpc',
+      url: `https://arbitrum-mainnet.infura.io/v3/${process.env.INFURA_API_KEY}`,
+    },
+    optimismKovan: {
+      url: `https://optimism-kovan.infura.io/v3/${process.env.INFURA_API_KEY}`,
+    },
+    optimism: {
+      url: `https://optimism-mainnet.infura.io/v3/${process.env.INFURA_API_KEY}`,
     },
   },
   solidity: {
