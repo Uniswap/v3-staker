@@ -73,6 +73,7 @@ describe('unit/Multicall', () => {
         pool: context.pool01,
         rewardToken: context.rewardToken.address,
         refundee: incentiveCreator.address,
+        minimumTickWidth: 0,
         ...makeTimestamps(currentTime + 100),
       },
       totalReward,

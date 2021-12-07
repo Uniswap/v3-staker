@@ -25,6 +25,7 @@ interface IUniswapV3Staker is IERC721Receiver, IMulticall {
         uint256 startTime;
         uint256 endTime;
         address refundee;
+        uint256 minimumTickWidth;
     }
 
     /// @notice The Uniswap V3 Factory

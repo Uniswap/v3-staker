@@ -100,6 +100,7 @@ describe('unit/Stakes', () => {
             refundee: incentiveCreator.address,
             pool: context.pool01,
             rewardToken: context.rewardToken.address,
+            minimumTickWidth: 0,
             ...timestamps,
           },
           _tokenId
@@ -235,6 +236,7 @@ describe('unit/Stakes', () => {
               refundee: incentiveCreator.address,
               pool: context.pool01,
               rewardToken: context.rewardToken.address,
+              minimumTickWidth: 0,
               ...timestamps,
             },
             otherTokenId
@@ -253,6 +255,7 @@ describe('unit/Stakes', () => {
               rewardToken: context.rewardToken.address,
               ...timestamps,
               startTime: timestamps.startTime + 10,
+              minimumTickWidth: 0,
             },
             tokenId
           )
@@ -295,6 +298,7 @@ describe('unit/Stakes', () => {
         refundee: incentiveCreator.address,
         rewardToken: context.rewardToken.address,
         pool: context.pool01,
+        minimumTickWidth: 0,
         ...timestamps,
       }
 
@@ -386,6 +390,7 @@ describe('unit/Stakes', () => {
           refundee: incentiveCreator.address,
           rewardToken: context.rewardToken.address,
           pool: context.pool01,
+          minimumTickWidth: 0,
           ...timestamps,
         },
         tokenId
@@ -521,6 +526,7 @@ describe('unit/Stakes', () => {
           refundee: incentiveCreator.address,
           rewardToken: context.rewardToken.address,
           pool: context.pool01,
+          minimumTickWidth: 0,
           ...timestamps,
         },
         tokenId
@@ -534,6 +540,7 @@ describe('unit/Stakes', () => {
             refundee: incentiveCreator.address,
             pool: context.pool01,
             rewardToken: context.rewardToken.address,
+            minimumTickWidth: 0,
             ...timestamps,
           },
           tokenId
