@@ -328,11 +328,11 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall {
         require(pool == key.pool, 'UniswapV3Staker::stakeToken: token pool is not the incentive pool');
         require(liquidity > 0, 'UniswapV3Staker::stakeToken: cannot stake token with 0 liquidity');
 
-        uint256 tickWidth = uint256(int256(tickLower) - int256(tickUpper));
-        // require(
-        //     key.minimumTickWidth == 0 || tickWidth >= key.minimumTickWidth,
-        //     'UniswapV3Staker::stakeToken: tick width too small'
-        // );
+        uint256 tickWidth = uint256(int256(tickUpper) - int256(tickLower));
+        require(
+            key.minimumTickWidth == 0 || tickWidth >= key.minimumTickWidth,
+            'UniswapV3Staker::stakeToken: tick width too small'
+        );
 
         deposits[tokenId].numberOfStakes++;
         incentives[incentiveId].numberOfStakes++;

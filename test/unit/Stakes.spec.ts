@@ -275,6 +275,87 @@ describe('unit/Stakes', () => {
         await expect(subject(tokenId, lpUser0)).to.be.revertedWith('UniswapV3Staker::stakeToken: incentive not started')
       })
     })
+    
+    describe('with a minimum range width', () => {
+      beforeEach(async () => {
+        incentiveArgs = {
+          rewardToken: context.rewardToken,
+          totalReward,
+          poolAddress: context.poolObj.address,
+          minimumTickWidth: 100,
+          ...timestamps,
+        }
+        // console.log(incentiveArgs)
+  
+        incentiveId = await helpers.getIncentiveId(await helpers.createIncentiveFlow(incentiveArgs))
+      })
+
+      it('should allow deposits with a wide range', async () => {
+        await Time.set(timestamps.startTime + 100)
+        // console.log({
+        //   refundee: incentiveCreator.address,
+        //   pool: context.pool01,
+        //   rewardToken: context.rewardToken.address,
+        //   minimumTickWidth: 100,
+        //   ...timestamps,
+        // })
+        await context.staker.connect(lpUser0).stakeToken(
+          {
+            refundee: incentiveCreator.address,
+            pool: context.pool01,
+            rewardToken: context.rewardToken.address,
+            minimumTickWidth: 100,
+            ...timestamps,
+          },
+          tokenId
+        )
+      })
+
+      it('should not allow deposits with a narrow range', async () => {
+        await Time.set(timestamps.startTime + 500)
+        await erc20Helper.ensureBalancesAndApprovals(
+          lpUser0,
+          [context.token0, context.token1],
+          amountDesired,
+          context.nft.address
+        )
+
+        const tokenId2 = await mintPosition(context.nft.connect(lpUser0), {
+          token0: context.token0.address,
+          token1: context.token1.address,
+          fee: FeeAmount.MEDIUM,
+          tickLower: 0,
+          tickUpper: TICK_SPACINGS[FeeAmount.MEDIUM],
+          recipient: lpUser0.address,
+          amount0Desired: amountDesired,
+          amount1Desired: amountDesired,
+          amount0Min: 0,
+          amount1Min: 0,
+          deadline: (await blockTimestamp()) + 1000,
+        })
+
+        await context.nft
+          .connect(lpUser0)
+          ['safeTransferFrom(address,address,uint256)'](lpUser0.address, context.staker.address, tokenId2, {
+            ...maxGas,
+          })
+
+        await expect(
+          context.staker.connect(lpUser0).stakeToken(
+            {
+              refundee: incentiveCreator.address,
+              pool: context.pool01,
+              rewardToken: context.rewardToken.address,
+              minimumTickWidth: 100,
+              ...timestamps,
+            },
+            tokenId2
+          )
+        ).to.be.revertedWith(
+          'UniswapV3Staker::stakeToken: tick width too small'
+        )
+      })
+    })
   })
 
   describe('#getRewardInfo', () => {
