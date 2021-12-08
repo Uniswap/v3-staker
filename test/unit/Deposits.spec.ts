@@ -148,6 +148,16 @@ describe('unit/Deposits', () => {
       expect(stake.secondsPerLiquidityInsideInitialX128).not.to.eq(BN('0'))
     })
 
+    it('allows depositing and staking for a single incentive using an ID', async () => {
+      const data = await helpers.getIncentiveId(createIncentiveResult)
+      await subject(data, lpUser0)
+      const { deposit, incentive, stake } = await getTokenInfo(tokenId)
+      expect(deposit.owner).to.eq(lpUser0.address)
+      expect(deposit.numberOfStakes).to.eq(BN('1'))
+      expect(incentive.numberOfStakes).to.eq(BN('1'))
+      expect(stake.secondsPerLiquidityInsideInitialX128).not.to.eq(BN('0'))
+    })
+
     it('allows depositing and staking for two incentives', async () => {
       const createIncentiveResult2 = await helpers.createIncentiveFlow({
         rewardToken: context.rewardToken,

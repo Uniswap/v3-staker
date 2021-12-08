@@ -52,6 +52,9 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall {
     /// @dev bytes32 refers to the return value of IncentiveId.compute
     mapping(bytes32 => Incentive) public override incentives;
 
+    /// @dev On L2, storage is cheap but calldata is expensive. Storing this data lets us reduce XXXx
+    mapping(bytes32 => IncentiveKey) public incentiveKeys;
+
     /// @dev deposits[tokenId] => Deposit
     mapping(uint256 => Deposit) public override deposits;
 
@@ -112,6 +115,8 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall {
 
         bytes32 incentiveId = IncentiveId.compute(key);
 
+        incentiveKeys[incentiveId] = key;
+
         incentives[incentiveId].totalRewardUnclaimed += reward;
 
         TransferHelperExtended.safeTransferFrom(address(key.rewardToken), msg.sender, address(this), reward);
@@ -163,7 +168,10 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall {
         emit DepositTransferred(tokenId, address(0), from);
 
         if (data.length > 0) {
-            if (data.length == 160) {
+            if (data.length == 32) {
+                bytes32 incentiveId = abi.decode(data, (bytes32));
+                _stakeToken(incentiveKeys[incentiveId], tokenId);
+            } else if (data.length == 160) {
                 _stakeToken(abi.decode(data, (IncentiveKey)), tokenId);
             } else {
                 IncentiveKey[] memory keys = abi.decode(data, (IncentiveKey[]));
@@ -206,6 +214,13 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall {
         require(deposits[tokenId].owner == msg.sender, 'UniswapV3Staker::stakeToken: only owner can stake token');
 
         _stakeToken(key, tokenId);
+    }
+
+    /// @inheritdoc IUniswapV3Staker
+    function stakeTokenWithId(bytes32 incentiveId, uint256 tokenId) external override {
+        require(deposits[tokenId].owner == msg.sender, 'UniswapV3Staker::stakeToken: only owner can stake token');
+
+        _stakeToken(incentiveKeys[incentiveId], tokenId);
     }
 
     /// @inheritdoc IUniswapV3Staker
