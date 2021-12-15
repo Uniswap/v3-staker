@@ -14,6 +14,7 @@ import { ISwapRouter } from '../../types/ISwapRouter'
 import { IWETH9 } from '../../types/IWETH9'
 import {
   UniswapV3Staker,
+  UniswapStakerNFT,
   TestERC20,
   INonfungiblePositionManager,
   IUniswapV3Factory,
@@ -207,6 +208,7 @@ export type UniswapFixtureType = {
   poolObj: IUniswapV3Pool
   router: ISwapRouter
   staker: UniswapV3Staker
+  stakerNFT: UniswapStakerNFT
   testIncentiveId: TestIncentiveId
   tokens: [TestERC20, TestERC20, TestERC20]
   token0: TestERC20
@@ -218,6 +220,9 @@ export const uniswapFixture: Fixture<UniswapFixtureType> = async (wallets, provi
   const signer = new ActorFixture(wallets, provider).stakerDeployer()
   const stakerFactory = await ethers.getContractFactory('UniswapV3Staker', signer)
   const staker = (await stakerFactory.deploy(factory.address, nft.address, 2 ** 32, 2 ** 32)) as UniswapV3Staker
+
+  const stakerNFTFactory = await ethers.getContractFactory('UniswapStakerNFT', signer)
+  const stakerNFT = (await stakerNFTFactory.deploy(staker.address)) as UniswapStakerNFT
 
   const testIncentiveIdFactory = await ethers.getContractFactory('TestIncentiveId', signer)
   const testIncentiveId = (await testIncentiveIdFactory.deploy()) as TestIncentiveId
@@ -242,6 +247,7 @@ export const uniswapFixture: Fixture<UniswapFixtureType> = async (wallets, provi
     router,
     tokens,
     staker,
+    stakerNFT,
     testIncentiveId,
     factory,
     pool01,
