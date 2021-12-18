@@ -16,6 +16,7 @@ contract UniswapStakerNFT is IERC721Receiver, ERC721 {
 
     // id = incentiveIdsByToken[tokenId][i] where i is bound by numberOfStakes inside UniswapV3Staker
     mapping(uint256 => mapping(uint256 => bytes32)) private incentiveIdsByToken;
+    mapping(uint256 => uint256) private numIncentivesPerToken;
 
     bytes32 private immutable POSITION_HOLDER_BYTECODE_HASH;
 
@@ -47,7 +48,7 @@ contract UniswapStakerNFT is IERC721Receiver, ERC721 {
     }
 
     function numStakedIncentives(uint256 tokenId) external view returns (uint256 numStakes) {
-        (, numStakes, , ) = staker.deposits(tokenId);
+        return numIncentivesPerToken[tokenId];
     }
 
     // Only necessary if incentiveIds runs out of gas
@@ -86,6 +87,8 @@ contract UniswapStakerNFT is IERC721Receiver, ERC721 {
 
                 bytes memory transferData = keys.length == 1 ? abi.encode(keys[0]) : abi.encode(keys);
                 staker.nonfungiblePositionManager().safeTransferFrom(address(this), address(staker), tokenId, transferData);
+
+                numIncentivesPerToken[tokenId] = keys.length;
             } else {
                 staker.nonfungiblePositionManager().safeTransferFrom(address(this), address(staker), tokenId);
             }
@@ -106,16 +109,24 @@ contract UniswapStakerNFT is IERC721Receiver, ERC721 {
 
     function claimAll(uint256 tokenId) external {
         address owner = ownerOf(tokenId);
-        (, uint256 numStakes, , ) = staker.deposits(tokenId);
+        uint256 numStakes = numIncentivesPerToken[tokenId];
 
         IUniswapV3Staker positionHolder = getPositionHolder(tokenId);
 
         for (uint256 i = 0; i < numStakes; i += 1) {
             bytes32 id = incentiveIdsByToken[tokenId][i];
             IUniswapV3Staker.IncentiveKey memory key = _getIncentive(id);
-            positionHolder.unstakeToken(key, tokenId);
+
+            (, uint128 liquidity) = staker.stakes(tokenId, id);
+            if (liquidity > 0) {
+                positionHolder.unstakeToken(key, tokenId);
+            }
+
             positionHolder.claimReward(key.rewardToken, owner, type(uint256).max);
-            positionHolder.stakeToken(key, tokenId);
+
+            if (block.timestamp < key.endTime) {
+                positionHolder.stakeToken(key, tokenId);
+            }
         }
     }
 
@@ -126,13 +137,14 @@ contract UniswapStakerNFT is IERC721Receiver, ERC721 {
 
         positionHolder.stakeToken(key, tokenId);
 
-        (, uint256 numStakes, , ) = staker.deposits(tokenId);
-        incentiveIdsByToken[tokenId][numStakes - 1] = id;
+        uint256 numStakes = numIncentivesPerToken[tokenId];
+        incentiveIdsByToken[tokenId][numStakes] = id;
+        numIncentivesPerToken[tokenId] = numStakes + 1;
     }
 
     function unstakeIncentive(uint256 tokenId, uint256 i) external onlyOwner(tokenId) {
         require(ownerOf(tokenId) == msg.sender);
-        (, uint256 numStakes, , ) = staker.deposits(tokenId);
+        uint256 numStakes = numIncentivesPerToken[tokenId];
         require(i < numStakes, 'UniswapStakerNFT::unstakeIncentive: invalid incentive ID');
 
         bytes32 id = incentiveIdsByToken[tokenId][i];
@@ -140,7 +152,11 @@ contract UniswapStakerNFT is IERC721Receiver, ERC721 {
 
         IUniswapV3Staker positionHolder = getPositionHolder(tokenId);
 
-        positionHolder.unstakeToken(key, tokenId);
+        (, uint128 liquidity) = staker.stakes(tokenId, id);
+        if (liquidity > 0) {
+            positionHolder.unstakeToken(key, tokenId);
+        }
+
         positionHolder.claimReward(key.rewardToken, msg.sender, type(uint256).max);
 
         if (i != numStakes - 1) {
@@ -148,6 +164,7 @@ contract UniswapStakerNFT is IERC721Receiver, ERC721 {
             incentiveIdsByToken[tokenId][i] = incentiveIdsByToken[tokenId][numStakes - 1];
         }
         incentiveIdsByToken[tokenId][numStakes - 1] = bytes32(0);
+        numIncentivesPerToken[tokenId] = numStakes - 1;
     }
 
     function eject(uint256 tokenId) external onlyOwner(tokenId) {
@@ -162,7 +179,7 @@ contract UniswapStakerNFT is IERC721Receiver, ERC721 {
     function _claimAndWithdraw(uint256 tokenId, address recipient) private {
         _burn(tokenId);
 
-        (, uint256 numStakes, , ) = staker.deposits(tokenId);
+        uint256 numStakes = numIncentivesPerToken[tokenId];
 
         IUniswapV3Staker positionHolder = getPositionHolder(tokenId);
 
@@ -170,10 +187,16 @@ contract UniswapStakerNFT is IERC721Receiver, ERC721 {
         for (uint256 i = 0; i < numStakes; i += 1) {
             bytes32 id = incentiveIdsByToken[tokenId][i];
             IUniswapV3Staker.IncentiveKey memory key = _getIncentive(id);
-            positionHolder.unstakeToken(key, tokenId);
+
+            (, uint128 liquidity) = staker.stakes(tokenId, id);
+            if (liquidity > 0) {
+                positionHolder.unstakeToken(key, tokenId);
+            }
+
             positionHolder.claimReward(key.rewardToken, recipient, type(uint256).max);
             incentiveIdsByToken[tokenId][i] = bytes32(0); // Not strictly necessary, but we'll clean up the state and get a refund
         }
+        numIncentivesPerToken[tokenId] = 0;
 
         positionHolder.withdrawToken(tokenId, recipient, new bytes(0));
     }

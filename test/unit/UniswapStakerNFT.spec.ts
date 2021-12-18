@@ -190,6 +190,32 @@ describe('unit/V3StakerNFT', () => {
         expect((await context.rewardToken.balanceOf(lpUser0.address)).gte(rewardInfo.reward))
         expect(await context.nft.ownerOf(tokenId)).to.equal(lpUser0.address)
       })
+
+      it('should unstake and claim rewards after the incentive period finishes and the position has been un-staked', async () => {
+        await Time.set(timestamps.startTime + 1001)
+
+        let rewardInfo = await context.staker.getRewardInfo(incentiveKey, tokenId)
+
+        // After an incentive finishes, anyone can unstake the token
+        await context.staker.connect(actors.lpUser2()).unstakeToken(incentiveKey, tokenId)
+
+
+        await expect(context.stakerNFT
+          .connect(lpUser0)
+          ['safeTransferFrom(address,address,uint256)'](lpUser0.address, context.stakerNFT.address, tokenId, {
+            ...maxGas,
+            from: lpUser0.address,
+          })
+        )
+          .to.emit(context.stakerNFT, 'Transfer')
+          .withArgs(context.stakerNFT.address, constants.AddressZero, tokenId)
+          .to.emit(context.nft, 'Transfer')
+          .withArgs(context.staker.address, lpUser0.address, tokenId)
+          .to.emit(context.staker, 'RewardClaimed')
+
+        expect((await context.rewardToken.balanceOf(lpUser0.address)).gte(rewardInfo.reward))
+        expect(await context.nft.ownerOf(tokenId)).to.equal(lpUser0.address)
+      })
     })
 
     describe('on invalid call', async () => {
@@ -231,6 +257,25 @@ describe('unit/V3StakerNFT', () => {
       expect((await context.rewardToken.balanceOf(lpUser0.address)).gte(rewardInfo.reward))
       expect(await context.nft.ownerOf(tokenId)).to.equal(lpUser0.address)
     })
+
+    it('claim rewards after the incentive period finishes and the position has been un-staked', async () => {
+      await Time.set(timestamps.startTime + 1001)
+
+      let rewardInfo = await context.staker.getRewardInfo(incentiveKey, tokenId)
+
+      // After an incentive finishes, anyone can unstake the token
+      await context.staker.connect(actors.lpUser2()).unstakeToken(incentiveKey, tokenId)
+
+      await expect(context.stakerNFT.connect(lpUser0).claimAndWithdraw(tokenId))
+        .to.emit(context.stakerNFT, 'Transfer')
+        .withArgs(lpUser0.address, constants.AddressZero, tokenId)
+        .to.emit(context.nft, 'Transfer')
+        .withArgs(context.staker.address, lpUser0.address, tokenId)
+        .to.emit(context.staker, 'RewardClaimed')
+
+      expect((await context.rewardToken.balanceOf(lpUser0.address)).gte(rewardInfo.reward))
+      expect(await context.nft.ownerOf(tokenId)).to.equal(lpUser0.address)
+    })
   })
 
   describe('#claimAll', () => {
@@ -250,6 +295,20 @@ describe('unit/V3StakerNFT', () => {
 
     it('claim all rewards', async () => {
       let rewardInfo = await context.staker.getRewardInfo(incentiveKey, tokenId)
+
+      await expect(context.stakerNFT.connect(lpUser0).claimAll(tokenId))
+        .to.emit(context.staker, 'RewardClaimed')
+
+      expect((await context.rewardToken.balanceOf(lpUser0.address)).gte(rewardInfo.reward))
+    })
+
+    it('claim rewards after the incentive period finishes and the position has been un-staked', async () => {
+      await Time.set(timestamps.startTime + 1001)
+
+      let rewardInfo = await context.staker.getRewardInfo(incentiveKey, tokenId)
+
+      // After an incentive finishes, anyone can unstake the token
+      await context.staker.connect(actors.lpUser2()).unstakeToken(incentiveKey, tokenId)
 
       await expect(context.stakerNFT.connect(lpUser0).claimAll(tokenId))
         .to.emit(context.staker, 'RewardClaimed')
