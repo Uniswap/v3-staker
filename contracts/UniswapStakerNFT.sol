@@ -6,7 +6,8 @@ import './interfaces/IUniswapV3Staker.sol';
 import './libraries/IncentiveId.sol';
 import '@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol';
 import '@openzeppelin/contracts/token/ERC721/ERC721.sol';
-import 'hardhat/console.sol';
+import '@openzeppelin/contracts/utils/Address.sol';
+import './PositionHolder.sol';
 
 contract UniswapStakerNFT is IERC721Receiver, ERC721 {
     IUniswapV3Staker public immutable staker;
@@ -16,11 +17,19 @@ contract UniswapStakerNFT is IERC721Receiver, ERC721 {
     // id = incentiveIdsByToken[tokenId][i] where i is bound by numberOfStakes inside UniswapV3Staker
     mapping(uint256 => mapping(uint256 => bytes32)) private incentiveIdsByToken;
 
+    bytes32 private immutable POSITION_HOLDER_BYTECODE_HASH;
+
     event KeyStored(bytes32 incentiveId, IUniswapV3Staker.IncentiveKey incentiveKey);
     event PositionEjected(uint256 indexed tokenId, address to);
 
     constructor(address _staker) ERC721('Uniswap V3 Staked Position', 'UNI-V3-STK') {
         staker = IUniswapV3Staker(_staker);
+
+        // Pre-calculate this hash for Create2 address calculation
+        POSITION_HOLDER_BYTECODE_HASH = keccak256(abi.encodePacked(
+            type(PositionHolder).creationCode,
+            abi.encode(_staker)
+        ));
     }
 
     modifier onlyOwner(uint256 tokenId) {
@@ -80,6 +89,9 @@ contract UniswapStakerNFT is IERC721Receiver, ERC721 {
             } else {
                 staker.nonfungiblePositionManager().safeTransferFrom(address(this), address(staker), tokenId);
             }
+
+            // We need to transfer the deposit to our PositionHolder proxy, so rewards don't get mixed with other users
+            staker.transferDeposit(tokenId, address(getPositionHolder(tokenId)));
         } else if (msg.sender == address(this)) {
             _claimAndWithdraw(tokenId, from);
         } else {
@@ -95,20 +107,24 @@ contract UniswapStakerNFT is IERC721Receiver, ERC721 {
     function claimAll(uint256 tokenId) external {
         address owner = ownerOf(tokenId);
         (, uint256 numStakes, , ) = staker.deposits(tokenId);
-        
+
+        IUniswapV3Staker positionHolder = getPositionHolder(tokenId);
+
         for (uint256 i = 0; i < numStakes; i += 1) {
             bytes32 id = incentiveIdsByToken[tokenId][i];
             IUniswapV3Staker.IncentiveKey memory key = _getIncentive(id);
-            staker.unstakeToken(key, tokenId);
-            staker.claimReward(key.rewardToken, owner, type(uint256).max);
-            staker.stakeToken(key, tokenId);
+            positionHolder.unstakeToken(key, tokenId);
+            positionHolder.claimReward(key.rewardToken, owner, type(uint256).max);
+            positionHolder.stakeToken(key, tokenId);
         }
     }
 
     function stakeIncentive(uint256 tokenId, bytes32 id) external onlyOwner(tokenId) {
         IUniswapV3Staker.IncentiveKey memory key = _getIncentive(id);
 
-        staker.stakeToken(key, tokenId);
+        IUniswapV3Staker positionHolder = getPositionHolder(tokenId);
+
+        positionHolder.stakeToken(key, tokenId);
 
         (, uint256 numStakes, , ) = staker.deposits(tokenId);
         incentiveIdsByToken[tokenId][numStakes - 1] = id;
@@ -122,8 +138,10 @@ contract UniswapStakerNFT is IERC721Receiver, ERC721 {
         bytes32 id = incentiveIdsByToken[tokenId][i];
         IUniswapV3Staker.IncentiveKey memory key = _getIncentive(id);
 
-        staker.unstakeToken(key, tokenId);
-        staker.claimReward(key.rewardToken, msg.sender, type(uint256).max);
+        IUniswapV3Staker positionHolder = getPositionHolder(tokenId);
+
+        positionHolder.unstakeToken(key, tokenId);
+        positionHolder.claimReward(key.rewardToken, msg.sender, type(uint256).max);
 
         if (i != numStakes - 1) {
             // Remove the incentive from the list by swapping the end of the list in
@@ -134,7 +152,10 @@ contract UniswapStakerNFT is IERC721Receiver, ERC721 {
 
     function eject(uint256 tokenId) external onlyOwner(tokenId) {
         _burn(tokenId);
-        staker.transferDeposit(tokenId, msg.sender);
+
+        IUniswapV3Staker positionHolder = getPositionHolder(tokenId);
+        positionHolder.transferDeposit(tokenId, msg.sender);
+
         emit PositionEjected(tokenId, msg.sender);
     }
 
@@ -143,20 +164,40 @@ contract UniswapStakerNFT is IERC721Receiver, ERC721 {
 
         (, uint256 numStakes, , ) = staker.deposits(tokenId);
 
+        IUniswapV3Staker positionHolder = getPositionHolder(tokenId);
+
         // If the token has too many stakes, this loop may hit the gas limit
         for (uint256 i = 0; i < numStakes; i += 1) {
             bytes32 id = incentiveIdsByToken[tokenId][i];
             IUniswapV3Staker.IncentiveKey memory key = _getIncentive(id);
-            staker.unstakeToken(key, tokenId);
-            staker.claimReward(key.rewardToken, recipient, type(uint256).max);
+            positionHolder.unstakeToken(key, tokenId);
+            positionHolder.claimReward(key.rewardToken, recipient, type(uint256).max);
             incentiveIdsByToken[tokenId][i] = bytes32(0); // Not strictly necessary, but we'll clean up the state and get a refund
         }
 
-        staker.withdrawToken(tokenId, recipient, new bytes(0));
+        positionHolder.withdrawToken(tokenId, recipient, new bytes(0));
     }
 
     function _getIncentive(bytes32 id) private view returns (IUniswapV3Staker.IncentiveKey memory key) {
         key = idToIncentiveKey[id];
         require(address(key.rewardToken) != address(0), 'UniswapStakerNFT: unknown incentive');
+    }
+
+    function getPositionHolderAddress(uint256 tokenId) public view returns (address holderAddress) {
+        holderAddress = address(uint160(uint(keccak256(abi.encodePacked(
+            bytes1(0xff),
+            address(this),
+            bytes32(tokenId),
+            POSITION_HOLDER_BYTECODE_HASH
+        )))));
+    }
+
+    function getPositionHolder(uint256 tokenId) private returns (IUniswapV3Staker holder) {
+        holder = IUniswapV3Staker(getPositionHolderAddress(tokenId));
+
+        if (!Address.isContract(address(holder))) {
+            address newHolder = address(new PositionHolder{ salt: bytes32(tokenId) }(address(staker)));
+            assert(newHolder == address(holder));
+        }
     }
 }

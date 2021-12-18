@@ -113,6 +113,8 @@ describe('unit/V3StakerNFT', () => {
 
     describe('receiving a UniswapV3Position NFT', () => {
       it('should deposit without any data', async () => {
+      const positionHolder = await context.stakerNFT.getPositionHolderAddress(tokenId)
+
         await expect(context.nft
           .connect(lpUser0)
           ['safeTransferFrom(address,address,uint256)'](lpUser0.address, context.stakerNFT.address, tokenId, {
@@ -122,6 +124,10 @@ describe('unit/V3StakerNFT', () => {
         )
           .to.emit(context.stakerNFT, 'Transfer')
           .withArgs(constants.AddressZero, lpUser0.address, tokenId)
+          .to.emit(context.staker, 'DepositTransferred')
+          .withArgs(tokenId, constants.AddressZero, context.stakerNFT.address)
+          .to.emit(context.staker, 'DepositTransferred')
+          .withArgs(tokenId, context.stakerNFT.address, positionHolder)
 
         expect(await context.nft.ownerOf(tokenId)).to.equal(context.staker.address)
         expect(await context.stakerNFT.ownerOf(tokenId)).to.equal(lpUser0.address)
@@ -129,6 +135,8 @@ describe('unit/V3StakerNFT', () => {
       })
 
       it('should deposit with a single incentive', async () => {
+        const positionHolder = await context.stakerNFT.getPositionHolderAddress(tokenId)
+        
         await expect(context.nft
           .connect(lpUser0)
           ['safeTransferFrom(address,address,uint256,bytes)'](lpUser0.address, context.stakerNFT.address, tokenId, incentiveId, {
@@ -138,6 +146,10 @@ describe('unit/V3StakerNFT', () => {
         )
           .to.emit(context.stakerNFT, 'Transfer')
           .withArgs(constants.AddressZero, lpUser0.address, tokenId)
+          .to.emit(context.staker, 'DepositTransferred')
+          .withArgs(tokenId, constants.AddressZero, context.stakerNFT.address)
+          .to.emit(context.staker, 'DepositTransferred')
+          .withArgs(tokenId, context.stakerNFT.address, positionHolder)
 
         expect(await context.nft.ownerOf(tokenId)).to.equal(context.staker.address)
         expect(await context.stakerNFT.ownerOf(tokenId)).to.equal(lpUser0.address)
@@ -371,14 +383,16 @@ describe('unit/V3StakerNFT', () => {
         })
     })
 
-    it('exect position from staker NFT', async () => {
+    it('eject position from staker NFT', async () => {
+      const positionHolder = await context.stakerNFT.getPositionHolderAddress(tokenId)
+
       await expect(context.stakerNFT.connect(lpUser0).eject(tokenId))
         .to.emit(context.stakerNFT, 'Transfer')
         .withArgs(lpUser0.address, constants.AddressZero, tokenId)
         .to.emit(context.stakerNFT, 'PositionEjected')
         .withArgs(tokenId, lpUser0.address)
         .to.emit(context.staker, 'DepositTransferred')
-        .withArgs(tokenId, context.stakerNFT.address, lpUser0.address)
+        .withArgs(tokenId, positionHolder, lpUser0.address)
 
       expect((await context.staker.deposits(tokenId))[0]).to.equal(lpUser0.address)
       expect(await context.nft.ownerOf(tokenId)).to.equal(context.staker.address)
