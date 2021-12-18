@@ -64,14 +64,7 @@ contract UniswapStakerNFT is IERC721Receiver, ERC721 {
         if (msg.sender == address(staker.nonfungiblePositionManager())) {
             _mint(from, tokenId);
 
-            if (data.length == 32) {
-                bytes32 id = abi.decode(data, (bytes32));
-                IUniswapV3Staker.IncentiveKey memory key = _getIncentive(id);
-
-                staker.nonfungiblePositionManager().safeTransferFrom(address(this), address(staker), tokenId, abi.encode(key));
-
-                incentiveIdsByToken[tokenId][0] = id;
-            } else if (data.length > 0 && data.length % 32 == 0) {
+            if (data.length > 0 && data.length % 32 == 0) {
                 IUniswapV3Staker.IncentiveKey[] memory keys = new IUniswapV3Staker.IncentiveKey[](data.length / 32);
 
                 for (uint256 i = 0; i < keys.length; i++) {
@@ -81,7 +74,9 @@ contract UniswapStakerNFT is IERC721Receiver, ERC721 {
                     keys[i] = _getIncentive(id);
                     incentiveIdsByToken[tokenId][i] = id;
                 }
-                staker.nonfungiblePositionManager().safeTransferFrom(address(this), address(staker), tokenId, abi.encode(keys));
+
+                bytes memory transferData = keys.length == 1 ? abi.encode(keys[0]) : abi.encode(keys);
+                staker.nonfungiblePositionManager().safeTransferFrom(address(this), address(staker), tokenId, transferData);
             } else {
                 staker.nonfungiblePositionManager().safeTransferFrom(address(this), address(staker), tokenId);
             }
