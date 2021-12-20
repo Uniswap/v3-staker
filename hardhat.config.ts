@@ -67,6 +67,12 @@ const config: HardhatUserConfig = {
     optimism: {
       url: `https://optimism-mainnet.infura.io/v3/${process.env.INFURA_API_KEY}`,
     },
+    mumbai: {
+      url: `https://polygon-mumbai.infura.io/v3/${process.env.INFURA_API_KEY}`,
+    },
+    polygon: {
+      url: `https://polygon-mainnet.infura.io/v3/${process.env.INFURA_API_KEY}`,
+    },
   },
   solidity: {
     compilers: [DEFAULT_COMPILER_SETTINGS],
