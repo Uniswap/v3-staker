@@ -77,7 +77,8 @@ contract UniswapStakerNFT is IERC721Receiver, ERC721 {
         if (msg.sender == address(positionManager)) {
             _mint(from, tokenId);
 
-            if (data.length > 0 && data.length % 32 == 0) {
+            if (data.length > 0) {
+                require(data.length % 32 == 0, 'UniswapStakerNFT::onERC721Received: invalid data');
                 IUniswapV3Staker.IncentiveKey[] memory keys = new IUniswapV3Staker.IncentiveKey[](data.length / 32);
 
                 for (uint256 i = 0; i < keys.length; i++) {
