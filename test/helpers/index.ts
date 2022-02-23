@@ -116,6 +116,7 @@ export class HelperCommands {
         rewardToken: params.rewardToken.address,
         ...times,
         refundee: params.refundee || incentiveCreator.address,
+        minimumTickWidth: params.minimumTickWidth || 0,
       },
       params.totalReward
     )
@@ -124,6 +125,7 @@ export class HelperCommands {
       ..._.pick(params, ['poolAddress', 'totalReward', 'rewardToken']),
       ...times,
       refundee: params.refundee || incentiveCreator.address,
+      minimumTickWidth: params.minimumTickWidth || 0,
     }
   }
 
@@ -287,6 +289,7 @@ export class HelperCommands {
           rewardToken: rewardToken.address,
           pool: params.createIncentiveResult.poolAddress,
           refundee: params.createIncentiveResult.refundee,
+          minimumTickWidth: params.createIncentiveResult.minimumTickWidth,
         })
       )
     ).wait()
@@ -315,6 +318,7 @@ export class HelperCommands {
       startTime: params.startTime,
       endTime: params.endTime,
       refundee: params.refundee,
+      minimumTickWidth: params.minimumTickWidth,
     })
   }
 
@@ -431,4 +435,5 @@ export const incentiveResultToStakeAdapter: IncentiveAdapterFunc = (params) => (
   endTime: params.endTime,
   rewardToken: params.rewardToken.address,
   refundee: params.refundee,
+  minimumTickWidth: params.minimumTickWidth,
 })

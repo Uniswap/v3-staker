@@ -163,7 +163,7 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall {
         emit DepositTransferred(tokenId, address(0), from);
 
         if (data.length > 0) {
-            if (data.length == 160) {
+            if (data.length == 192) { // 192 = IncentiveKey size (6 slots)
                 _stakeToken(abi.decode(data, (IncentiveKey)), tokenId);
             } else {
                 IncentiveKey[] memory keys = abi.decode(data, (IncentiveKey[]));
@@ -327,6 +327,9 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall {
 
         require(pool == key.pool, 'UniswapV3Staker::stakeToken: token pool is not the incentive pool');
         require(liquidity > 0, 'UniswapV3Staker::stakeToken: cannot stake token with 0 liquidity');
+
+        uint256 tickWidth = uint256(int256(tickUpper) - int256(tickLower));
+        require(tickWidth >= key.minimumTickWidth, 'UniswapV3Staker::stakeToken: tick width too small');
 
         deposits[tokenId].numberOfStakes++;
         incentives[incentiveId].numberOfStakes++;
