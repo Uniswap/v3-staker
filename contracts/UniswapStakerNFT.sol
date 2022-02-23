@@ -2,6 +2,7 @@
 pragma solidity =0.7.6;
 pragma abicoder v2;
 
+import '@uniswap/v3-periphery/contracts/interfaces/INonfungiblePositionManager.sol';
 import './interfaces/IUniswapV3Staker.sol';
 import './libraries/IncentiveId.sol';
 import '@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol';
@@ -20,11 +21,11 @@ contract UniswapStakerNFT is IERC721Receiver, ERC721 {
 
     bytes32 private immutable POSITION_HOLDER_BYTECODE_HASH;
 
-    event KeyStored(bytes32 incentiveId, IUniswapV3Staker.IncentiveKey incentiveKey);
-    event PositionEjected(uint256 indexed tokenId, address to);
+    event KeyStored(bytes32 indexed incentiveId, IUniswapV3Staker.IncentiveKey incentiveKey);
+    event PositionEjected(uint256 indexed tokenId, address indexed to);
 
-    constructor(address _staker) ERC721('Uniswap V3 Staked Position', 'UNI-V3-STK') {
-        staker = IUniswapV3Staker(_staker);
+    constructor(IUniswapV3Staker _staker) ERC721('Uniswap V3 Staked Position', 'UNI-V3-STK') {
+        staker = _staker;
 
         // Pre-calculate this hash for Create2 address calculation
         POSITION_HOLDER_BYTECODE_HASH = keccak256(abi.encodePacked(
@@ -71,26 +72,29 @@ contract UniswapStakerNFT is IERC721Receiver, ERC721 {
         uint256 tokenId,
         bytes calldata data
     ) external override returns (bytes4) {
-        if (msg.sender == address(staker.nonfungiblePositionManager())) {
+        INonfungiblePositionManager positionManager = staker.nonfungiblePositionManager();
+
+        if (msg.sender == address(positionManager)) {
             _mint(from, tokenId);
 
-            if (data.length > 0 && data.length % 32 == 0) {
+            if (data.length > 0) {
+                require(data.length % 32 == 0, 'UniswapStakerNFT::onERC721Received: invalid data');
                 IUniswapV3Staker.IncentiveKey[] memory keys = new IUniswapV3Staker.IncentiveKey[](data.length / 32);
 
                 for (uint256 i = 0; i < keys.length; i++) {
                     uint256 start = i * 32;
-                    uint256 end = (i + 1) * 32;
+                    uint256 end = start + 32;
                     bytes32 id = abi.decode(data[start:end], (bytes32));
                     keys[i] = _getIncentive(id);
                     incentiveIdsByToken[tokenId][i] = id;
                 }
 
                 bytes memory transferData = keys.length == 1 ? abi.encode(keys[0]) : abi.encode(keys);
-                staker.nonfungiblePositionManager().safeTransferFrom(address(this), address(staker), tokenId, transferData);
+                positionManager.safeTransferFrom(address(this), address(staker), tokenId, transferData);
 
                 numIncentivesPerToken[tokenId] = keys.length;
             } else {
-                staker.nonfungiblePositionManager().safeTransferFrom(address(this), address(staker), tokenId);
+                positionManager.safeTransferFrom(address(this), address(staker), tokenId);
             }
 
             // We need to transfer the deposit to our PositionHolder proxy, so rewards don't get mixed with other users
@@ -143,7 +147,6 @@ contract UniswapStakerNFT is IERC721Receiver, ERC721 {
     }
 
     function unstakeIncentive(uint256 tokenId, uint256 i) external onlyOwner(tokenId) {
-        require(ownerOf(tokenId) == msg.sender);
         uint256 numStakes = numIncentivesPerToken[tokenId];
         require(i < numStakes, 'UniswapStakerNFT::unstakeIncentive: invalid incentive ID');
 
@@ -206,17 +209,17 @@ contract UniswapStakerNFT is IERC721Receiver, ERC721 {
         require(address(key.rewardToken) != address(0), 'UniswapStakerNFT: unknown incentive');
     }
 
-    function getPositionHolderAddress(uint256 tokenId) public view returns (address holderAddress) {
-        holderAddress = address(uint160(uint(keccak256(abi.encodePacked(
+    function getPositionHolderAddress(uint256 tokenId) public view returns (IUniswapV3Staker holderAddress) {
+        holderAddress = IUniswapV3Staker(address(uint160(uint(keccak256(abi.encodePacked(
             bytes1(0xff),
             address(this),
             bytes32(tokenId),
             POSITION_HOLDER_BYTECODE_HASH
-        )))));
+        ))))));
     }
 
     function getPositionHolder(uint256 tokenId) private returns (IUniswapV3Staker holder) {
-        holder = IUniswapV3Staker(getPositionHolderAddress(tokenId));
+        holder = getPositionHolderAddress(tokenId);
 
         if (!Address.isContract(address(holder))) {
             address newHolder = address(new PositionHolder{ salt: bytes32(tokenId) }(address(staker)));

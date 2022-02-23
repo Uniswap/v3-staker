@@ -17,15 +17,14 @@ contract PositionHolder {
 
         address _staker = staker;
         assembly {
-            let ptr := mload(0x40)
-            calldatacopy(ptr, 0, calldatasize())
-            let result := call(gas(), _staker, 0, ptr, calldatasize(), 0, 0)
+            calldatacopy(0, 0, calldatasize())
+            let result := call(gas(), _staker, 0, 0, calldatasize(), 0, 0)
             let size := returndatasize()
-            returndatacopy(ptr, 0, size)
+            returndatacopy(0, 0, size)
 
             switch result
-            case 0 { revert(ptr, size) }
-            default { return(ptr, size) }
+            case 0 { revert(0, size) }
+            default { return(0, size) }
         }
     }
 }
