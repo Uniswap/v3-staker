@@ -1,6 +1,13 @@
 # uniswap-v3-staker
 
-This is the canonical staking contract designed for [Uniswap V3](https://github.com/Uniswap/uniswap-v3-core).
+Fork of the canonical staking contract designed for [Uniswap V3](https://github.com/Uniswap/uniswap-v3-core).
+
+Adds tick bounds specified by the incentive creator. Enforces a min tick range for liquidity eligible to receive rewards.
+
+## Fork TODOS
+
+- [ ] Add tick bounds `(int24 tickLowerBound, int24 tickUpperBound)` to `IUniswapV3Staker.IncentiveKey` struct for incentive creator to enforce a min tick range to incentivize
+- [ ] Add require statements below line 329 in `_stakeToken()` to check tick bounds are satisfied by token depositor looking to stake
 
 ## Deployments
 
