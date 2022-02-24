@@ -1,6 +1,6 @@
 # uniswap-v3-staker
 
-Fork of the canonical staking contract designed for [Uniswap V3](https://github.com/Uniswap/uniswap-v3-core).
+Fork of the [canonical staking contract](https://github.com/Uniswap/v3-staker) designed for [Uniswap V3](https://github.com/Uniswap/uniswap-v3-core).
 
 Adds tick bounds specified by the incentive creator. Enforces a min tick range for liquidity eligible to receive rewards.
 
