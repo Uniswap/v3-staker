@@ -55,6 +55,7 @@ describe('unit/V3StakerNFT', () => {
       startTime: timestamps.startTime,
       endTime: timestamps.endTime,
       refundee: incentiveCreator.address,
+      minimumTickWidth: 0,
     }
     incentiveId = await context.testIncentiveId.compute(incentiveKey)
 
@@ -94,7 +95,8 @@ describe('unit/V3StakerNFT', () => {
         context.pool01,
         BN(timestamps.startTime),
         BN(timestamps.endTime),
-        incentiveCreator.address,    
+        incentiveCreator.address,
+        BN(0),
       ]
 
       await expect(context.stakerNFT.storeIncentiveKey(incentiveKey))
@@ -347,6 +349,7 @@ describe('unit/V3StakerNFT', () => {
         startTime: timestamps2.startTime,
         endTime: timestamps2.endTime,
         refundee: incentiveCreator.address,
+        minimumTickWidth: 0,
       }
       incentiveId2 = await context.testIncentiveId.compute(incentiveKey2)
       await context.stakerNFT.storeIncentiveKey(incentiveKey2)
@@ -389,6 +392,7 @@ describe('unit/V3StakerNFT', () => {
         startTime: timestamps2.startTime,
         endTime: timestamps2.endTime,
         refundee: incentiveCreator.address,
+        minimumTickWidth: 0,
       }
       incentiveId2 = await context.testIncentiveId.compute(incentiveKey2)
       await context.stakerNFT.storeIncentiveKey(incentiveKey2)
