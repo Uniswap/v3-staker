@@ -20,6 +20,8 @@ import {
   IUniswapV3Factory,
   IUniswapV3Pool,
   TestIncentiveId,
+  TransparentUpgradeableProxy,
+  StakedNFTDescriptor,
 } from '../../typechain'
 import { NFTDescriptor } from '../../types/NFTDescriptor'
 import { FeeAmount, BigNumber, encodePriceSqrt, MAX_GAS_LIMIT } from '../shared'
@@ -209,6 +211,7 @@ export type UniswapFixtureType = {
   router: ISwapRouter
   staker: UniswapV3Staker
   stakerNFT: UniswapStakerNFT
+  descriptor: StakedNFTDescriptor
   testIncentiveId: TestIncentiveId
   tokens: [TestERC20, TestERC20, TestERC20]
   token0: TestERC20
@@ -216,13 +219,28 @@ export type UniswapFixtureType = {
   rewardToken: TestERC20
 }
 export const uniswapFixture: Fixture<UniswapFixtureType> = async (wallets, provider) => {
-  const { tokens, nft, factory, router } = await uniswapFactoryFixture(wallets, provider)
+  const { tokens, nft, factory, router, weth9 } = await uniswapFactoryFixture(wallets, provider)
   const signer = new ActorFixture(wallets, provider).stakerDeployer()
   const stakerFactory = await ethers.getContractFactory('UniswapV3Staker', signer)
   const staker = (await stakerFactory.deploy(factory.address, nft.address, 2 ** 32, 2 ** 32)) as UniswapV3Staker
 
+  const descriptorGeneratorFactory = await ethers.getContractFactory('StakedNFTDescriptorGenerator', signer)
+  const descriptorGenerator = await descriptorGeneratorFactory.deploy()
+
+  const descriptorFactory = await ethers.getContractFactory('StakedNFTDescriptor', {
+    signer,
+    libraries: {
+      StakedNFTDescriptorGenerator: descriptorGenerator.address,
+    },
+  })
+  const descriptorLogic = await descriptorFactory.deploy(weth9.address, ethers.utils.formatBytes32String('ETH'), ethers.constants.AddressZero, ethers.constants.AddressZero, ethers.constants.AddressZero, ethers.constants.AddressZero)
+
+  const proxyFactory = await ethers.getContractFactory('TransparentUpgradeableProxy', signer)
+  const descriptorProxy = (await proxyFactory.deploy(descriptorLogic.address, await signer.getAddress(), [])) as TransparentUpgradeableProxy
+  const descriptor = await ethers.getContractAt('StakedNFTDescriptor', descriptorProxy.address) as StakedNFTDescriptor
+
   const stakerNFTFactory = await ethers.getContractFactory('UniswapStakerNFT', signer)
-  const stakerNFT = (await stakerNFTFactory.deploy(staker.address)) as UniswapStakerNFT
+  const stakerNFT = (await stakerNFTFactory.deploy(staker.address, descriptorProxy.address)) as UniswapStakerNFT
 
   const testIncentiveIdFactory = await ethers.getContractFactory('TestIncentiveId', signer)
   const testIncentiveId = (await testIncentiveIdFactory.deploy()) as TestIncentiveId
@@ -248,6 +266,7 @@ export const uniswapFixture: Fixture<UniswapFixtureType> = async (wallets, provi
     tokens,
     staker,
     stakerNFT,
+    descriptor,
     testIncentiveId,
     factory,
     pool01,

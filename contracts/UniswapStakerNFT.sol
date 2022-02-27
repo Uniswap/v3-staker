@@ -2,18 +2,19 @@
 pragma solidity =0.7.6;
 pragma abicoder v2;
 
-import '@uniswap/v3-periphery/contracts/interfaces/INonfungiblePositionManager.sol';
 import './interfaces/IUniswapV3Staker.sol';
+import './interfaces/IUniswapStakerNFT.sol';
+import './interfaces/IStakedNFTDescriptor.sol';
 import './libraries/IncentiveId.sol';
-import '@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol';
 import '@openzeppelin/contracts/token/ERC721/ERC721.sol';
 import '@openzeppelin/contracts/utils/Address.sol';
 import './PositionHolder.sol';
 
-contract UniswapStakerNFT is IERC721Receiver, ERC721 {
-    IUniswapV3Staker public immutable staker;
+contract UniswapStakerNFT is IUniswapStakerNFT, ERC721 {
+    IUniswapV3Staker public immutable override staker;
+    IStakedNFTDescriptor public immutable override tokenDescriptor;
 
-    mapping(bytes32 => IUniswapV3Staker.IncentiveKey) public idToIncentiveKey;
+    mapping(bytes32 => IUniswapV3Staker.IncentiveKey) private idToIncentiveKey;
 
     // id = incentiveIdsByToken[tokenId][i] where i is bound by numberOfStakes inside UniswapV3Staker
     mapping(uint256 => mapping(uint256 => bytes32)) private incentiveIdsByToken;
@@ -21,11 +22,10 @@ contract UniswapStakerNFT is IERC721Receiver, ERC721 {
 
     bytes32 private immutable POSITION_HOLDER_BYTECODE_HASH;
 
-    event KeyStored(bytes32 indexed incentiveId, IUniswapV3Staker.IncentiveKey incentiveKey);
-    event PositionEjected(uint256 indexed tokenId, address indexed to);
-
-    constructor(IUniswapV3Staker _staker) ERC721('Uniswap V3 Staked Position', 'UNI-V3-STK') {
+    constructor(IUniswapV3Staker _staker, IStakedNFTDescriptor _tokenDescriptor)
+            ERC721('Uniswap V3 Staked Position', 'UNI-V3-STK') {
         staker = _staker;
+        tokenDescriptor = _tokenDescriptor;
 
         // Pre-calculate this hash for Create2 address calculation
         POSITION_HOLDER_BYTECODE_HASH = keccak256(abi.encodePacked(
@@ -39,7 +39,12 @@ contract UniswapStakerNFT is IERC721Receiver, ERC721 {
         _;
     }
 
-    function stakedIncentiveIds(uint256 tokenId) external view returns (bytes32[] memory ids) {
+    function tokenURI(uint256 tokenId) public view override(ERC721, IERC721Metadata) returns (string memory) {
+        require(_exists(tokenId));
+        return tokenDescriptor.tokenURI(this, tokenId);
+    }
+
+    function stakedIncentiveIds(uint256 tokenId) external view override returns (bytes32[] memory ids) {
         (, uint256 numStakes, , ) = staker.deposits(tokenId);
         ids = new bytes32[](numStakes);
 
@@ -48,16 +53,20 @@ contract UniswapStakerNFT is IERC721Receiver, ERC721 {
         }
     }
 
-    function numStakedIncentives(uint256 tokenId) external view returns (uint256 numStakes) {
+    function numStakedIncentives(uint256 tokenId) external view override returns (uint256 numStakes) {
         return numIncentivesPerToken[tokenId];
     }
 
     // Only necessary if incentiveIds runs out of gas
-    function stakedIncentiveId(uint256 tokenId, uint256 i) external view returns (bytes32 id) {
+    function stakedIncentiveId(uint256 tokenId, uint256 i) external view override returns (bytes32 id) {
         return incentiveIdsByToken[tokenId][i];
     }
 
-    function storeIncentiveKey(IUniswapV3Staker.IncentiveKey memory key) external {
+    function getIncentiveKey(bytes32 id) external view override returns (IUniswapV3Staker.IncentiveKey memory) {
+        return idToIncentiveKey[id];
+    }
+
+    function storeIncentiveKey(IUniswapV3Staker.IncentiveKey memory key) external override {
         bytes32 id = IncentiveId.compute(key);
         idToIncentiveKey[id] = key;
         emit KeyStored(id, key);
@@ -107,11 +116,11 @@ contract UniswapStakerNFT is IERC721Receiver, ERC721 {
         return this.onERC721Received.selector;
     }
 
-    function claimAndWithdraw(uint256 tokenId) external onlyOwner(tokenId) {
+    function claimAndWithdraw(uint256 tokenId) external override onlyOwner(tokenId) {
         _claimAndWithdraw(tokenId, msg.sender);
     }
 
-    function claimAll(uint256 tokenId) external {
+    function claimAll(uint256 tokenId) external override {
         address owner = ownerOf(tokenId);
         uint256 numStakes = numIncentivesPerToken[tokenId];
 
@@ -134,7 +143,7 @@ contract UniswapStakerNFT is IERC721Receiver, ERC721 {
         }
     }
 
-    function stakeIncentive(uint256 tokenId, bytes32 id) external onlyOwner(tokenId) {
+    function stakeIncentive(uint256 tokenId, bytes32 id) external override onlyOwner(tokenId) {
         IUniswapV3Staker.IncentiveKey memory key = _getIncentive(id);
 
         IUniswapV3Staker positionHolder = getPositionHolder(tokenId);
@@ -146,7 +155,7 @@ contract UniswapStakerNFT is IERC721Receiver, ERC721 {
         numIncentivesPerToken[tokenId] = numStakes + 1;
     }
 
-    function unstakeIncentive(uint256 tokenId, uint256 i) external onlyOwner(tokenId) {
+    function unstakeIncentive(uint256 tokenId, uint256 i) external override onlyOwner(tokenId) {
         uint256 numStakes = numIncentivesPerToken[tokenId];
         require(i < numStakes, 'UniswapStakerNFT::unstakeIncentive: invalid incentive ID');
 
@@ -170,7 +179,7 @@ contract UniswapStakerNFT is IERC721Receiver, ERC721 {
         numIncentivesPerToken[tokenId] = numStakes - 1;
     }
 
-    function eject(uint256 tokenId) external onlyOwner(tokenId) {
+    function eject(uint256 tokenId) external override onlyOwner(tokenId) {
         _burn(tokenId);
 
         IUniswapV3Staker positionHolder = getPositionHolder(tokenId);

@@ -5,6 +5,10 @@ pragma solidity =0.7.6;
 import '@uniswap/v3-core/contracts/interfaces/IERC20Minimal.sol';
 
 contract TestERC20 is IERC20Minimal {
+    uint8 constant public decimals = 18;
+    string public name = "Test ERC20";
+    string public symbol = "ERC20";
+
     mapping(address => uint256) public override balanceOf;
     mapping(address => mapping(address => uint256)) public override allowance;
 
