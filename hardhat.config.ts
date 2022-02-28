@@ -6,6 +6,8 @@ import 'hardhat-contract-sizer'
 import { HardhatUserConfig } from 'hardhat/config'
 import { SolcUserConfig } from 'hardhat/types'
 import 'solidity-coverage'
+import 'hardhat-deploy'
+import 'dotenv/config'
 
 const DEFAULT_COMPILER_SETTINGS: SolcUserConfig = {
   version: '0.7.6',
@@ -35,6 +37,10 @@ if (process.env.RUN_COVERAGE == '1') {
   }
 }
 
+const accounts = {
+  mnemonic: process.env.MNEMONIC,
+}
+
 const config: HardhatUserConfig = {
   networks: {
     hardhat: {
@@ -42,30 +48,39 @@ const config: HardhatUserConfig = {
     },
     mainnet: {
       url: `https://mainnet.infura.io/v3/${process.env.INFURA_API_KEY}`,
+      accounts,
     },
     ropsten: {
       url: `https://ropsten.infura.io/v3/${process.env.INFURA_API_KEY}`,
+      accounts,
     },
     rinkeby: {
       url: `https://rinkeby.infura.io/v3/${process.env.INFURA_API_KEY}`,
+      accounts,
     },
     goerli: {
       url: `https://goerli.infura.io/v3/${process.env.INFURA_API_KEY}`,
+      accounts,
     },
     kovan: {
       url: `https://kovan.infura.io/v3/${process.env.INFURA_API_KEY}`,
+      accounts,
     },
     arbitrumRinkeby: {
       url: `https://arbitrum-rinkeby.infura.io/v3/${process.env.INFURA_API_KEY}`,
+      accounts,
     },
     arbitrum: {
       url: `https://arbitrum-mainnet.infura.io/v3/${process.env.INFURA_API_KEY}`,
+      accounts,
     },
     optimismKovan: {
       url: `https://optimism-kovan.infura.io/v3/${process.env.INFURA_API_KEY}`,
+      accounts,
     },
     optimism: {
       url: `https://optimism-mainnet.infura.io/v3/${process.env.INFURA_API_KEY}`,
+      accounts,
     },
   },
   solidity: {
@@ -75,6 +90,11 @@ const config: HardhatUserConfig = {
     alphaSort: false,
     disambiguatePaths: true,
     runOnCompile: false,
+  },
+  namedAccounts: {
+    deployer: {
+      default: 0,
+    },
   },
 }
 
