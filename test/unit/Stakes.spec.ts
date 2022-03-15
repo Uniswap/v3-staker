@@ -90,7 +90,7 @@ describe('unit/Stakes', () => {
         totalReward,
         poolAddress: context.poolObj.address,
         ...timestamps,
-        minWidth: 1
+        minWidth: context.minWidth,
       }
 
       incentiveId = await helpers.getIncentiveId(await helpers.createIncentiveFlow(incentiveArgs))
@@ -102,7 +102,7 @@ describe('unit/Stakes', () => {
             pool: context.pool01,
             rewardToken: context.rewardToken.address,
             ...timestamps,
-            minWidth: 1,
+            minWidth: context.minWidth,
           },
           _tokenId
         )
@@ -238,7 +238,7 @@ describe('unit/Stakes', () => {
               pool: context.pool01,
               rewardToken: context.rewardToken.address,
               ...timestamps,
-              minWidth: 1,
+              minWidth: context.minWidth,
             },
             otherTokenId
           )
@@ -256,7 +256,7 @@ describe('unit/Stakes', () => {
               rewardToken: context.rewardToken.address,
               ...timestamps,
               startTime: timestamps.startTime + 10,
-              minWidth: 1,
+              minWidth: context.minWidth,
             },
             tokenId
           )
@@ -300,7 +300,7 @@ describe('unit/Stakes', () => {
         rewardToken: context.rewardToken.address,
         pool: context.pool01,
         ...timestamps,
-        minWidth: 1,
+        minWidth: context.minWidth,
       }
 
       incentiveId = await helpers.getIncentiveId(
@@ -309,7 +309,7 @@ describe('unit/Stakes', () => {
           totalReward,
           poolAddress: context.poolObj.address,
           ...timestamps,
-          minWidth: 1,
+          minWidth: context.minWidth,
         })
       )
 
@@ -373,7 +373,7 @@ describe('unit/Stakes', () => {
         totalReward,
         poolAddress: context.poolObj.address,
         ...timestamps,
-        minWidth: 1,
+        minWidth: context.minWidth,
       })
 
       await Time.setAndMine(timestamps.startTime + 1)
@@ -394,7 +394,7 @@ describe('unit/Stakes', () => {
           rewardToken: context.rewardToken.address,
           pool: context.pool01,
           ...timestamps,
-          minWidth: 1,
+          minWidth: context.minWidth,
         },
         tokenId
       )
@@ -495,7 +495,7 @@ describe('unit/Stakes', () => {
         totalReward,
         poolAddress: context.poolObj.address,
         ...timestamps,
-        minWidth: 1,
+        minWidth: context.minWidth,
       })
 
       await erc20Helper.ensureBalancesAndApprovals(
@@ -531,7 +531,7 @@ describe('unit/Stakes', () => {
           rewardToken: context.rewardToken.address,
           pool: context.pool01,
           ...timestamps,
-          minWidth: 1,
+          minWidth: context.minWidth,
         },
         tokenId
       )
@@ -545,7 +545,7 @@ describe('unit/Stakes', () => {
             pool: context.pool01,
             rewardToken: context.rewardToken.address,
             ...timestamps,
-            minWidth: 1
+            minWidth: context.minWidth,
           },
           tokenId
         )
@@ -645,7 +645,7 @@ describe('unit/Stakes', () => {
         totalReward,
         poolAddress: context.poolObj.address,
         ...timestamps,
-        minWidth: 1,
+        minWidth: context.minWidth,
       })
       incentiveId = await helpers.getIncentiveId(incentive)
       await Time.setAndMine(timestamps.startTime + 1)

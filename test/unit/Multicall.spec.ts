@@ -74,7 +74,7 @@ describe('unit/Multicall', () => {
         rewardToken: context.rewardToken.address,
         refundee: incentiveCreator.address,
         ...makeTimestamps(currentTime + 100),
-        minWidth: 1,
+        minWidth: context.minWidth,
       },
       totalReward,
     ])
@@ -101,7 +101,7 @@ describe('unit/Multicall', () => {
       poolAddress: context.poolObj.address,
       totalReward,
       ...makeTimestamps(timestamp + 100),
-      minWidth: 1,
+      minWidth: context.minWidth,
     }
 
     const incentive0 = await helpers.createIncentiveFlow(incentiveParams)
@@ -137,7 +137,7 @@ describe('unit/Multicall', () => {
       refundee: actors.incentiveCreator().address,
       totalReward: BN(10000),
       poolAddress: context.pool01,
-      minWidth: 1,
+      minWidth: context.minWidth,
     })
     await helpers.getIncentiveId(incentive0)
     const incentive1 = await helpers.createIncentiveFlow({
@@ -147,7 +147,7 @@ describe('unit/Multicall', () => {
       refundee: actors.incentiveCreator().address,
       totalReward: BN(10000),
       poolAddress: context.pool01,
-      minWidth: 1,
+      minWidth: context.minWidth,
     })
     await helpers.getIncentiveId(incentive1)
 
@@ -190,7 +190,7 @@ describe('unit/Multicall', () => {
       poolAddress: context.poolObj.address,
       totalReward,
       ...makeTimestamps(timestamp + 100),
-      minWidth: 1,
+      minWidth: context.minWidth,
     })
 
     const params: HelperTypes.MintDepositStake.Args = {

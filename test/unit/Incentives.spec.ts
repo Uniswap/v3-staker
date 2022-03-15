@@ -63,7 +63,7 @@ describe('unit/Incentives', async () => {
             startTime: params.startTime || startTime,
             endTime: params.endTime || endTime,
             refundee: params.refundee || incentiveCreator.address,
-            minWidth: 1
+            minWidth: params.minWidth || context.minWidth,
           },
           totalReward
         )
@@ -82,7 +82,7 @@ describe('unit/Incentives', async () => {
 
       it('emits an event with valid parameters', async () => {
         const { startTime, endTime } = makeTimestamps(await blockTimestamp())
-        const minWidth = 1;
+        const minWidth = context.minWidth;
         await expect(subject({ startTime, endTime }))
           .to.emit(context.staker, 'IncentiveCreated')
           .withArgs(
@@ -105,7 +105,7 @@ describe('unit/Incentives', async () => {
           startTime: timestamps.startTime,
           endTime: timestamps.endTime,
           refundee: incentiveCreator.address,
-          minWidth: 1,
+          minWidth: context.minWidth,
         })
 
         const incentive = await context.staker.incentives(incentiveId)
@@ -123,7 +123,7 @@ describe('unit/Incentives', async () => {
           startTime: timestamps.startTime,
           endTime: timestamps.endTime,
           refundee: incentiveCreator.address,
-          minWidth: 1
+          minWidth: context.minWidth,
         })
         const { totalRewardUnclaimed, totalSecondsClaimedX128, numberOfStakes } = await context.staker.incentives(
           incentiveId
@@ -141,7 +141,7 @@ describe('unit/Incentives', async () => {
           rewardToken: rewardToken.address,
           refundee: incentiveCreator.address,
           pool: context.pool01,
-          minWidth: 1
+          minWidth: context.minWidth,
         }
         await erc20Helper.ensureBalancesAndApprovals(actors.lpUser0(), rewardToken, BN(100), context.staker.address)
         await context.staker.connect(actors.lpUser0()).createIncentive(incentiveKey, 100)
@@ -195,7 +195,7 @@ describe('unit/Incentives', async () => {
               startTime,
               endTime,
               refundee: incentiveCreator.address,
-              minWidth: 1,
+              minWidth: context.minWidth,
             },
             totalReward
           )
@@ -254,7 +254,7 @@ describe('unit/Incentives', async () => {
                 pool: context.pool01,
                 refundee: incentiveCreator.address,
                 ...makeTimestamps(now, 1_000),
-                minWidth: 1,
+                minWidth: context.minWidth,
               },
               BNe18(0)
             )
@@ -276,7 +276,7 @@ describe('unit/Incentives', async () => {
         rewardToken: context.rewardToken,
         poolAddress: context.poolObj.address,
         totalReward,
-        minWidth: 1,
+        minWidth: context.minWidth,
       })
 
       subject = async (params: Partial<ContractParams.EndIncentive> = {}) => {
@@ -286,7 +286,7 @@ describe('unit/Incentives', async () => {
           startTime: params.startTime || timestamps.startTime,
           endTime: params.endTime || timestamps.endTime,
           refundee: incentiveCreator.address,
-          minWidth: 1
+          minWidth: params.minWidth || context.minWidth,
         })
       }
     })

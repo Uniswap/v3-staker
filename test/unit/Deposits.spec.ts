@@ -105,7 +105,7 @@ describe('unit/Deposits', () => {
         poolAddress: context.poolObj.address,
         startTime,
         totalReward,
-        minWidth: 1
+        minWidth: context.minWidth
       })
 
       await Time.setAndMine(startTime + 1)
@@ -161,7 +161,7 @@ describe('unit/Deposits', () => {
         poolAddress: context.poolObj.address,
         startTime: createIncentiveResult.startTime + 100,
         totalReward,
-        minWidth: 1
+        minWidth: context.minWidth,
       })
 
       await Time.setAndMine(createIncentiveResult2.startTime)
@@ -229,7 +229,7 @@ describe('unit/Deposits', () => {
     let timestamps: ContractParams.Timestamps
 
     beforeEach('set up position', async () => {
-      const { rewardToken } = context
+      const { rewardToken, minWidth } = context
       timestamps = makeTimestamps((await blockTimestamp()) + 1_000)
 
       await erc20Helper.ensureBalancesAndApprovals(
@@ -258,7 +258,7 @@ describe('unit/Deposits', () => {
         totalReward,
         poolAddress: context.poolObj.address,
         ...timestamps,
-        minWidth: 1,
+        minWidth,
       })
 
       const incentiveKey: ContractParams.IncentiveKey = incentiveResultToStakeAdapter(incentive)
@@ -295,7 +295,7 @@ describe('unit/Deposits', () => {
           startTime: timestamps.startTime,
           endTime: timestamps.endTime,
           refundee: incentiveCreator.address,
-          minWidth: 1
+          minWidth: context.minWidth,
         })
         await Time.set(timestamps.startTime + 10)
         const stakeBefore = await context.staker.stakes(tokenId, incentiveId)
@@ -347,7 +347,7 @@ describe('unit/Deposits', () => {
           totalReward,
           ...timestamps,
           startTime: 100,
-          minWidth: 1,
+          minWidth: context.minWidth,
           refundee: incentiveCreator.address,
         }
 
@@ -423,7 +423,7 @@ describe('unit/Deposits', () => {
           totalReward,
           poolAddress: context.poolObj.address,
           ...timestamps,
-          minWidth: 1
+          minWidth: context.minWidth,
         }
         const incentive = await helpers.createIncentiveFlow(incentiveParams)
         await Time.setAndMine(timestamps.startTime + 1)
