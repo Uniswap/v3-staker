@@ -147,7 +147,7 @@ describe.only('unit/Deposits', () => {
         [`${INCENTIVE_KEY_ABI}[]`],
         [[createIncentiveResult].map(incentiveResultToStakeAdapter)]
       )
-      await subject(data)
+      await subject(data, lpUser0)
       const { deposit, incentive, stake } = await getTokenInfo(tokenId)
       expect(deposit.owner).to.eq(lpUser0.address)
       expect(deposit.numberOfStakes).to.eq(BN('1'))
@@ -223,7 +223,7 @@ describe.only('unit/Deposits', () => {
 
   describe('#onERC721Received', () => {
     const incentiveKeyAbi =
-      'tuple(address rewardToken, address pool, uint256 startTime, uint256 endTime, address refundee)'
+      'tuple(address rewardToken, address pool, uint256 startTime, uint256 endTime, int24 minWidth, address refundee)'
     let tokenId: BigNumberish
     let data: string
     let timestamps: ContractParams.Timestamps
@@ -263,7 +263,12 @@ describe.only('unit/Deposits', () => {
 
       const incentiveKey: ContractParams.IncentiveKey = incentiveResultToStakeAdapter(incentive)
 
-      data = ethers.utils.defaultAbiCoder.encode([incentiveKeyAbi], [incentiveKey])
+      // data = ethers.utils.defaultAbiCoder.encode([incentiveKeyAbi], [incentiveKey])
+
+      data = ethers.utils.defaultAbiCoder.encode(
+        [`${incentiveKeyAbi}[]`],
+        [[incentive].map(incentiveResultToStakeAdapter)]
+      )
     })
 
     describe('on successful transfer with staking data', () => {
