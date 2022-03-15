@@ -340,15 +340,24 @@ describe.only('unit/Deposits', () => {
       })
 
       it('reverts when staking on invalid incentive', async () => {
-        const invalidStakeParams = {
-          rewardToken: context.rewardToken.address,
-          refundee: incentiveCreator.address,
-          pool: context.pool01,
+        const { token1 } = context;
+        const invalidStakeParams: HelperTypes.CreateIncentive.Result = {
+          rewardToken: token1,
+          poolAddress: context.pool01,
+          totalReward,
           ...timestamps,
           startTime: 100,
+          minWidth: 1,
+          refundee: incentiveCreator.address,
         }
 
-        let invalidData = ethers.utils.defaultAbiCoder.encode([incentiveKeyAbi], [invalidStakeParams])
+        // let invalidData = ethers.utils.defaultAbiCoder.encode([`${incentiveKeyAbi}[]`], [invalidStakeParams])
+
+        // swap for syntax below and invalid test passes
+        let invalidData = ethers.utils.defaultAbiCoder.encode(
+          [`${incentiveKeyAbi}[]`],
+          [[invalidStakeParams].map(incentiveResultToStakeAdapter)]
+        )
 
         await expect(
           context.nft

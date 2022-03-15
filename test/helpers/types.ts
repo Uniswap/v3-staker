@@ -1,4 +1,4 @@
-import { BigNumber, Wallet } from 'ethers'
+import { BigNumber, Wallet, BigNumberish } from 'ethers'
 import { TestERC20 } from '../../typechain'
 import { FeeAmount } from '../shared'
 
