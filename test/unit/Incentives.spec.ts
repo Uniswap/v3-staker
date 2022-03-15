@@ -82,6 +82,7 @@ describe('unit/Incentives', async () => {
 
       it('emits an event with valid parameters', async () => {
         const { startTime, endTime } = makeTimestamps(await blockTimestamp())
+        const minWidth = 1;
         await expect(subject({ startTime, endTime }))
           .to.emit(context.staker, 'IncentiveCreated')
           .withArgs(
@@ -89,8 +90,9 @@ describe('unit/Incentives', async () => {
             context.pool01,
             startTime,
             endTime,
+            minWidth,
             incentiveCreator.address,
-            totalReward
+            totalReward,
           )
       })
 
