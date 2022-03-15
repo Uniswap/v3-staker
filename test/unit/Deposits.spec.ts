@@ -105,6 +105,7 @@ describe('unit/Deposits', () => {
         poolAddress: context.poolObj.address,
         startTime,
         totalReward,
+        minWidth: 1
       })
 
       await Time.setAndMine(startTime + 1)
@@ -154,6 +155,7 @@ describe('unit/Deposits', () => {
         poolAddress: context.poolObj.address,
         startTime: createIncentiveResult.startTime + 100,
         totalReward,
+        minWidth: 1
       })
 
       await Time.setAndMine(createIncentiveResult2.startTime)
@@ -250,6 +252,7 @@ describe('unit/Deposits', () => {
         totalReward,
         poolAddress: context.poolObj.address,
         ...timestamps,
+        minWidth: 1,
       })
 
       const incentiveKey: ContractParams.IncentiveKey = incentiveResultToStakeAdapter(incentive)
@@ -281,6 +284,7 @@ describe('unit/Deposits', () => {
           startTime: timestamps.startTime,
           endTime: timestamps.endTime,
           refundee: incentiveCreator.address,
+          minWidth: 1
         })
         await Time.set(timestamps.startTime + 10)
         const stakeBefore = await context.staker.stakes(tokenId, incentiveId)
@@ -399,6 +403,7 @@ describe('unit/Deposits', () => {
           totalReward,
           poolAddress: context.poolObj.address,
           ...timestamps,
+          minWidth: 1
         }
         const incentive = await helpers.createIncentiveFlow(incentiveParams)
         await Time.setAndMine(timestamps.startTime + 1)

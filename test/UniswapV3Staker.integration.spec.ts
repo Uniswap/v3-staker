@@ -77,6 +77,7 @@ describe('integration', async () => {
         rewardToken,
         poolAddress: context.pool01,
         totalReward,
+        minWidth: 1
       })
 
       const params = {
@@ -462,6 +463,7 @@ describe('integration', async () => {
         rewardToken: context.rewardToken,
         poolAddress: context.pool01,
         totalReward,
+        minWidth: 1,
       })
 
       return {

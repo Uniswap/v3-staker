@@ -13,6 +13,7 @@ export module HelperTypes {
       endTime?: number
       totalReward: BigNumber
       refundee?: string
+      minWidth: number
     }
     export type Result = {
       poolAddress: string
@@ -21,6 +22,7 @@ export module HelperTypes {
       startTime: number
       endTime: number
       refundee: string
+      minWidth: number
     }
 
     export type Command = CommandFunction<Args, Result>
