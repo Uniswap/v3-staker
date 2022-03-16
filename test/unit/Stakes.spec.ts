@@ -25,11 +25,10 @@ import { HelperTypes } from '../helpers/types'
 
 let loadFixture: LoadFixtureFunction
 
-describe.only('unit/Stakes', () => {
+describe('unit/Stakes', () => {
   const actors = new ActorFixture(provider.getWallets(), provider)
   const incentiveCreator = actors.incentiveCreator()
   const lpUser0 = actors.lpUser0()
-  const lpUser1 = actors.lpUser1()
   const amountDesired = BNe18(10)
   const totalReward = BNe18(100)
   const erc20Helper = new ERC20Helper()
