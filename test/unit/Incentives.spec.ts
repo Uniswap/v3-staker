@@ -261,6 +261,25 @@ describe('unit/Incentives', async () => {
           ).to.be.revertedWith('UniswapV3Staker::createIncentive: reward must be positive')
         })
       })
+
+      describe('invalid minWidth', () => {
+        it('minWidth is 0 or less', async () => {
+          const now = await blockTimestamp()
+
+          await expect(
+            context.staker.connect(incentiveCreator).createIncentive(
+              {
+                rewardToken: context.rewardToken.address,
+                pool: context.pool01,
+                refundee: incentiveCreator.address,
+                ...makeTimestamps(now, 1_000),
+                minWidth: 0,
+              },
+              totalReward
+            )
+          ).to.be.revertedWith('UniswapV3Staker::createIncentive: minWidth must be larger than 0')
+        })
+      })
     })
   })
 
