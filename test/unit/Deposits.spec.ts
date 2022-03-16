@@ -51,7 +51,7 @@ describe('unit/Deposits', () => {
 
   const SAFE_TRANSFER_FROM_SIGNATURE = 'safeTransferFrom(address,address,uint256,bytes)'
   const INCENTIVE_KEY_ABI =
-    'tuple(address rewardToken, address pool, uint256 startTime, uint256 endTime, address refundee)'
+    'tuple(address rewardToken, address pool, uint256 startTime, uint256 endTime, int24 minWidth, address refundee)'
 
   beforeEach(async () => {
     await erc20Helper.ensureBalancesAndApprovals(
@@ -105,6 +105,7 @@ describe('unit/Deposits', () => {
         poolAddress: context.poolObj.address,
         startTime,
         totalReward,
+        minWidth: context.minWidth,
       })
 
       await Time.setAndMine(startTime + 1)
@@ -136,9 +137,15 @@ describe('unit/Deposits', () => {
     })
 
     it('allows depositing and staking for a single incentive', async () => {
+      // const data = ethers.utils.defaultAbiCoder.encode(
+      //   [INCENTIVE_KEY_ABI],
+      //   [incentiveResultToStakeAdapter(createIncentiveResult)]
+      // )
+
+      // swap for syntax below and single staked incentive test passes
       const data = ethers.utils.defaultAbiCoder.encode(
-        [INCENTIVE_KEY_ABI],
-        [incentiveResultToStakeAdapter(createIncentiveResult)]
+        [`${INCENTIVE_KEY_ABI}[]`],
+        [[createIncentiveResult].map(incentiveResultToStakeAdapter)]
       )
       await subject(data, lpUser0)
       const { deposit, incentive, stake } = await getTokenInfo(tokenId)
@@ -154,6 +161,7 @@ describe('unit/Deposits', () => {
         poolAddress: context.poolObj.address,
         startTime: createIncentiveResult.startTime + 100,
         totalReward,
+        minWidth: context.minWidth,
       })
 
       await Time.setAndMine(createIncentiveResult2.startTime)
@@ -215,13 +223,13 @@ describe('unit/Deposits', () => {
 
   describe('#onERC721Received', () => {
     const incentiveKeyAbi =
-      'tuple(address rewardToken, address pool, uint256 startTime, uint256 endTime, address refundee)'
+      'tuple(address rewardToken, address pool, uint256 startTime, uint256 endTime, int24 minWidth, address refundee)'
     let tokenId: BigNumberish
     let data: string
     let timestamps: ContractParams.Timestamps
 
     beforeEach('set up position', async () => {
-      const { rewardToken } = context
+      const { rewardToken, minWidth } = context
       timestamps = makeTimestamps((await blockTimestamp()) + 1_000)
 
       await erc20Helper.ensureBalancesAndApprovals(
@@ -250,11 +258,17 @@ describe('unit/Deposits', () => {
         totalReward,
         poolAddress: context.poolObj.address,
         ...timestamps,
+        minWidth,
       })
 
       const incentiveKey: ContractParams.IncentiveKey = incentiveResultToStakeAdapter(incentive)
 
-      data = ethers.utils.defaultAbiCoder.encode([incentiveKeyAbi], [incentiveKey])
+      // data = ethers.utils.defaultAbiCoder.encode([incentiveKeyAbi], [incentiveKey])
+
+      data = ethers.utils.defaultAbiCoder.encode(
+        [`${incentiveKeyAbi}[]`],
+        [[incentive].map(incentiveResultToStakeAdapter)]
+      )
     })
 
     describe('on successful transfer with staking data', () => {
@@ -281,6 +295,7 @@ describe('unit/Deposits', () => {
           startTime: timestamps.startTime,
           endTime: timestamps.endTime,
           refundee: incentiveCreator.address,
+          minWidth: context.minWidth,
         })
         await Time.set(timestamps.startTime + 10)
         const stakeBefore = await context.staker.stakes(tokenId, incentiveId)
@@ -325,15 +340,24 @@ describe('unit/Deposits', () => {
       })
 
       it('reverts when staking on invalid incentive', async () => {
-        const invalidStakeParams = {
-          rewardToken: context.rewardToken.address,
-          refundee: incentiveCreator.address,
-          pool: context.pool01,
+        const { token1 } = context
+        const invalidStakeParams: HelperTypes.CreateIncentive.Result = {
+          rewardToken: token1,
+          poolAddress: context.pool01,
+          totalReward,
           ...timestamps,
           startTime: 100,
+          minWidth: context.minWidth,
+          refundee: incentiveCreator.address,
         }
 
-        let invalidData = ethers.utils.defaultAbiCoder.encode([incentiveKeyAbi], [invalidStakeParams])
+        // let invalidData = ethers.utils.defaultAbiCoder.encode([`${incentiveKeyAbi}[]`], [invalidStakeParams])
+
+        // swap for syntax below and invalid test passes
+        let invalidData = ethers.utils.defaultAbiCoder.encode(
+          [`${incentiveKeyAbi}[]`],
+          [[invalidStakeParams].map(incentiveResultToStakeAdapter)]
+        )
 
         await expect(
           context.nft
@@ -399,6 +423,7 @@ describe('unit/Deposits', () => {
           totalReward,
           poolAddress: context.poolObj.address,
           ...timestamps,
+          minWidth: context.minWidth,
         }
         const incentive = await helpers.createIncentiveFlow(incentiveParams)
         await Time.setAndMine(timestamps.startTime + 1)

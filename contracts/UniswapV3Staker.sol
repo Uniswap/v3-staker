@@ -110,13 +110,15 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall {
             'UniswapV3Staker::createIncentive: incentive duration is too long'
         );
 
+        require(key.minWidth > 0, 'UniswapV3Staker::createIncentive: minWidth must be larger than 0');
+
         bytes32 incentiveId = IncentiveId.compute(key);
 
         incentives[incentiveId].totalRewardUnclaimed += reward;
 
         TransferHelperExtended.safeTransferFrom(address(key.rewardToken), msg.sender, address(this), reward);
 
-        emit IncentiveCreated(key.rewardToken, key.pool, key.startTime, key.endTime, key.refundee, reward);
+        emit IncentiveCreated(key.rewardToken, key.pool, key.startTime, key.endTime, key.minWidth, key.refundee, reward);
     }
 
     /// @inheritdoc IUniswapV3Staker
@@ -327,6 +329,7 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall {
 
         require(pool == key.pool, 'UniswapV3Staker::stakeToken: token pool is not the incentive pool');
         require(liquidity > 0, 'UniswapV3Staker::stakeToken: cannot stake token with 0 liquidity');
+        require(tickUpper - tickLower >= key.minWidth, 'UniswapV3Staker::stakeToken: range must be larger than minWidth');
 
         deposits[tokenId].numberOfStakes++;
         incentives[incentiveId].numberOfStakes++;
