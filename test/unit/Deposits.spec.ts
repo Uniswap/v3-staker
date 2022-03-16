@@ -105,7 +105,7 @@ describe('unit/Deposits', () => {
         poolAddress: context.poolObj.address,
         startTime,
         totalReward,
-        minWidth: context.minWidth
+        minWidth: context.minWidth,
       })
 
       await Time.setAndMine(startTime + 1)
@@ -340,7 +340,7 @@ describe('unit/Deposits', () => {
       })
 
       it('reverts when staking on invalid incentive', async () => {
-        const { token1 } = context;
+        const { token1 } = context
         const invalidStakeParams: HelperTypes.CreateIncentive.Result = {
           rewardToken: token1,
           poolAddress: context.pool01,
