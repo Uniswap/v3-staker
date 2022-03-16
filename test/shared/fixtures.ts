@@ -252,7 +252,7 @@ export const uniswapFixture: Fixture<UniswapFixtureType> = async (wallets, provi
     token0: tokens[0],
     token1: tokens[1],
     rewardToken: tokens[2],
-    minWidth: 1,
+    minWidth: 333,
   }
 }
 
