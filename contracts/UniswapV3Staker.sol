@@ -207,11 +207,6 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall {
     function stakeToken(IncentiveKey memory key, uint256 tokenId) external override {
         require(deposits[tokenId].owner == msg.sender, 'UniswapV3Staker::stakeToken: only owner can stake token');
 
-        require(
-            deposits[tokenId].tickUpper - deposits[tokenId].tickLower >= key.minWidth,
-            'UniswapV3Staker::stakeToken: range must be larger than minWidth'
-        );
-
         _stakeToken(key, tokenId);
     }
 
@@ -334,6 +329,7 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall {
 
         require(pool == key.pool, 'UniswapV3Staker::stakeToken: token pool is not the incentive pool');
         require(liquidity > 0, 'UniswapV3Staker::stakeToken: cannot stake token with 0 liquidity');
+        require(tickUpper - tickLower >= key.minWidth, 'UniswapV3Staker::stakeToken: range must be larger than minWidth');
 
         deposits[tokenId].numberOfStakes++;
         incentives[incentiveId].numberOfStakes++;

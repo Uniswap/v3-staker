@@ -212,6 +212,7 @@ export type UniswapFixtureType = {
   token0: TestERC20
   token1: TestERC20
   rewardToken: TestERC20
+  minWidth: number
 }
 export const uniswapFixture: Fixture<UniswapFixtureType> = async (wallets, provider) => {
   const { tokens, nft, factory, router } = await uniswapFactoryFixture(wallets, provider)
@@ -251,6 +252,7 @@ export const uniswapFixture: Fixture<UniswapFixtureType> = async (wallets, provi
     token0: tokens[0],
     token1: tokens[1],
     rewardToken: tokens[2],
+    minWidth: 333,
   }
 }
 
