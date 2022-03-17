@@ -21,7 +21,7 @@ import {
   TestIncentiveId,
 } from '../../typechain'
 import { NFTDescriptor } from '../../types/NFTDescriptor'
-import { FeeAmount, BigNumber, encodePriceSqrt, MAX_GAS_LIMIT } from '../shared'
+import { FeeAmount, BigNumber, encodePriceSqrt, MAX_GAS_LIMIT, getMaxTick, TICK_SPACINGS } from '../shared'
 import { ActorFixture } from './actors'
 
 type WETH9Fixture = { weth9: IWETH9 }
@@ -213,6 +213,7 @@ export type UniswapFixtureType = {
   token1: TestERC20
   rewardToken: TestERC20
   minWidth: number
+  maxTickRange: number
 }
 export const uniswapFixture: Fixture<UniswapFixtureType> = async (wallets, provider) => {
   const { tokens, nft, factory, router } = await uniswapFactoryFixture(wallets, provider)
@@ -228,6 +229,7 @@ export const uniswapFixture: Fixture<UniswapFixtureType> = async (wallets, provi
   }
 
   const fee = FeeAmount.MEDIUM
+  const maxTickRange = 2 * getMaxTick(TICK_SPACINGS[FeeAmount.MEDIUM])
   await nft.createAndInitializePoolIfNecessary(tokens[0].address, tokens[1].address, fee, encodePriceSqrt(1, 1))
 
   await nft.createAndInitializePoolIfNecessary(tokens[1].address, tokens[2].address, fee, encodePriceSqrt(1, 1))
@@ -253,6 +255,7 @@ export const uniswapFixture: Fixture<UniswapFixtureType> = async (wallets, provi
     token1: tokens[1],
     rewardToken: tokens[2],
     minWidth: 333,
+    maxTickRange,
   }
 }
 

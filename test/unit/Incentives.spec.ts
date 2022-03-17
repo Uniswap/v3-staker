@@ -283,6 +283,66 @@ describe('unit/Incentives', async () => {
     })
   })
 
+  describe('#createIncentiveWithMaxRange', () => {
+    let subject: (params: Partial<ContractParams.CreateIncentive>) => Promise<any>;
+
+    beforeEach('setup', async () => {
+      subject = async (params: Partial<ContractParams.CreateIncentive> = {}) => {
+        await erc20Helper.ensureBalancesAndApprovals(
+          incentiveCreator,
+          params.rewardToken ? await erc20Wrap(params?.rewardToken) : context.rewardToken,
+          totalReward,
+          context.staker.address
+        )
+
+        const { startTime, endTime } = makeTimestamps(await blockTimestamp())
+
+        await context.staker.connect(incentiveCreator).createIncentiveWithMaxRange(
+          {
+            rewardToken: params.rewardToken || context.rewardToken.address,
+            pool: context.pool01,
+            startTime: params.startTime || startTime,
+            endTime: params.endTime || endTime,
+            refundee: params.refundee || incentiveCreator.address,
+            minWidth: params.minWidth || context.minWidth,
+          },
+          totalReward
+        )
+
+        await expect(subject({ startTime, endTime }))
+          .to.emit(context.staker, 'IncentiveCreated')
+          .withArgs(
+            context.rewardToken.address,
+            context.pool01,
+            startTime,
+            endTime,
+            context.maxTickRange,
+            incentiveCreator.address,
+            totalReward
+          )
+      }
+    })
+
+    describe('fails when', () => {
+      it('when param minWidth is not set to max tick range', async () => {
+        const now = await blockTimestamp();
+
+        await expect(
+          context.staker.connect(incentiveCreator).createIncentive(
+            {
+              rewardToken: context.rewardToken.address,
+              pool: context.pool01,
+              refundee: incentiveCreator.address,
+              ...makeTimestamps(now, 1_000),
+              minWidth: context.minWidth,
+            },
+            BNe18(0)
+          )
+        ).to.be.revertedWith('UniswapV3Staker::createIncentive: reward must be positive')
+      })
+    })
+  })
+
   describe('#endIncentive', () => {
     let subject: (params: Partial<ContractParams.EndIncentive>) => Promise<any>
     let createIncentiveResult: HelperTypes.CreateIncentive.Result
