@@ -121,6 +121,12 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall {
         emit IncentiveCreated(key.rewardToken, key.pool, key.startTime, key.endTime, key.minWidth, key.refundee, reward);
     }
 
+    function createIncentiveWithMaxRange(IncentiveKey memory key, uint256 reward) external override {
+        // key.minWidth = max_range_value;
+
+        createIncentive(key, reward);
+    }
+
     /// @inheritdoc IUniswapV3Staker
     function endIncentive(IncentiveKey memory key) external override returns (uint256 refund) {
         require(block.timestamp >= key.endTime, 'UniswapV3Staker::endIncentive: cannot end incentive before end time');

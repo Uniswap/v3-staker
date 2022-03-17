@@ -91,6 +91,11 @@ interface IUniswapV3Staker is IERC721Receiver, IMulticall {
     /// @param reward The amount of reward tokens to be distributed
     function createIncentive(IncentiveKey memory key, uint256 reward) external;
 
+    /// @notice Convenience function to create incentive setting minWidth param to max tick range
+    /// @param key Details of the incentive to create
+    /// @param reward The amount of reward tokens to be distributed
+    function createIncentiveWithMaxRange(IncentiveKey memory key, uint256 reward) external;
+
     /// @notice Ends an incentive after the incentive end time has passed and all stakes have been withdrawn
     /// @param key Details of the incentive to end
     /// @return refund The remaining reward tokens when the incentive is ended
