@@ -11,6 +11,7 @@ import './libraries/TransferHelperExtended.sol';
 import '@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol';
 import '@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol';
 import '@uniswap/v3-core/contracts/interfaces/IERC20Minimal.sol';
+import '@uniswap/v3-core/contracts/interfaces/TickMath.sol';
 
 import '@uniswap/v3-periphery/contracts/interfaces/INonfungiblePositionManager.sol';
 import '@uniswap/v3-periphery/contracts/base/Multicall.sol';
@@ -122,7 +123,7 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall {
     }
 
     function createIncentiveWithMaxRange(IncentiveKey memory key, uint256 reward) external override {
-        // key.minWidth = max_range_value;
+        key.minWidth = TickMath.MAX_TICK * 2;
 
         createIncentive(key, reward);
     }
