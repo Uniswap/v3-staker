@@ -125,6 +125,8 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall {
     function createIncentiveWithMaxRange(IncentiveKey memory key, uint256 reward) external override {
         key.minWidth = TickMath.MAX_TICK * 2;
 
+        require(key.minWidth == TickMath.MAX_TICK * 2, 'UniswapV3Staker::createIncentiveWithMaxRange: minWidth not set to max tick range');
+
         createIncentive(key, reward);
     }
 
