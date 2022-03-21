@@ -122,12 +122,35 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall {
         emit IncentiveCreated(key.rewardToken, key.pool, key.startTime, key.endTime, key.minWidth, key.refundee, reward);
     }
 
-    function createIncentiveWithMaxRange(IncentiveKey memory key, uint256 reward) external override {
-        key.minWidth = TickMath.MAX_TICK * 2;
+    function createIncentiveWithMaxRange(
+      IERC20Minimal rewardToken
+      IUniswapV3Pool pool
+      uint256 startTime
+      uint256 endTime
+      address refundee
+      uint256 reward
+    ) external override {
+      int24 tickSpacing = IUniswapV3Pool(pool).tickSpacing();
 
-        require(key.minWidth == TickMath.MAX_TICK * 2, 'UniswapV3Staker::createIncentiveWithMaxRange: minWidth not set to max tick range');
+      // full range max/min ticks for pool
+      int24 maxTick = TickMath.MAX_TICK - TickMath.MAX_TICK % tickSpacing;
+      int24 minTick = - maxTick;
 
-        createIncentive(key, reward);
+      // use max range for min width
+      int24 minWidth = maxTick - minTick; // which is just 2 * maxTick
+
+      IncentiveKey memory key = IncentiveKey({
+        rewardToken,
+        pool,
+        startTime,
+        endTime,
+        minWidth,
+        refundee
+      });
+
+      // require(key.minWidth == TickMath.MAX_TICK * 2, 'UniswapV3Staker::createIncentiveWithMaxRange: minWidth not set to max tick range');
+
+      createIncentive(key, reward);
     }
 
     /// @inheritdoc IUniswapV3Staker
