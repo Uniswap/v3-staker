@@ -132,6 +132,13 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall {
       address token1,
       uint24 fee
     ) external override {
+      IUniswapV3Pool pool = IUniswapV3Pool(
+          PoolAddress.computeAddress(
+              address(factory),
+              PoolAddress.PoolKey({token0: token0, token1: token1, fee: fee})
+          )
+      );
+
       int24 tickSpacing = IUniswapV3Pool(pool).tickSpacing();
 
       // full range max/min ticks for pool
@@ -141,12 +148,6 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall {
       // use max range for min width
       int24 minWidth = maxTick - minTick; // which is just 2 * maxTick
 
-      pool = IUniswapV3Pool(
-          PoolAddress.computeAddress(
-              address(factory),
-              PoolAddress.PoolKey({token0: token0, token1: token1, fee: fee})
-          )
-      );
 
       IncentiveKey memory key = IncentiveKey(
         rewardToken,
