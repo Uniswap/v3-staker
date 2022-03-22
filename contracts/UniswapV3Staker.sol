@@ -119,48 +119,47 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall {
 
         TransferHelperExtended.safeTransferFrom(address(key.rewardToken), msg.sender, address(this), reward);
 
-        emit IncentiveCreated(key.rewardToken, key.pool, key.startTime, key.endTime, key.minWidth, key.refundee, reward);
+        emit IncentiveCreated(
+            key.rewardToken,
+            key.pool,
+            key.startTime,
+            key.endTime,
+            key.minWidth,
+            key.refundee,
+            reward
+        );
     }
 
     function createIncentiveWithMaxRange(
-      IERC20Minimal rewardToken,
-      uint256 startTime,
-      uint256 endTime,
-      address refundee,
-      uint256 reward,
-      address token0,
-      address token1,
-      uint24 fee
+        IERC20Minimal rewardToken,
+        uint256 startTime,
+        uint256 endTime,
+        address refundee,
+        uint256 reward,
+        address token0,
+        address token1,
+        uint24 fee
     ) external override {
-      IUniswapV3Pool pool = IUniswapV3Pool(
-          PoolAddress.computeAddress(
-              address(factory),
-              PoolAddress.PoolKey({token0: token0, token1: token1, fee: fee})
-          )
-      );
+        IUniswapV3Pool pool =
+            IUniswapV3Pool(
+                PoolAddress.computeAddress(
+                    address(factory),
+                    PoolAddress.PoolKey({token0: token0, token1: token1, fee: fee})
+                )
+            );
 
-      int24 tickSpacing = IUniswapV3Pool(pool).tickSpacing();
+        int24 tickSpacing = IUniswapV3Pool(pool).tickSpacing();
 
-      // full range max/min ticks for pool
-      int24 maxTick = TickMath.MAX_TICK - TickMath.MAX_TICK % tickSpacing;
-      int24 minTick = - maxTick;
+        // full range max/min ticks for pool
+        int24 maxTick = TickMath.MAX_TICK - (TickMath.MAX_TICK % tickSpacing);
+        int24 minTick = -maxTick;
 
-      // use max range for min width
-      int24 minWidth = maxTick - minTick; // which is just 2 * maxTick
+        // use max range for min width
+        int24 minWidth = maxTick - minTick; // which is just 2 * maxTick
 
+        IncentiveKey memory key = IncentiveKey(rewardToken, pool, startTime, endTime, minWidth, refundee);
 
-      IncentiveKey memory key = IncentiveKey(
-        rewardToken,
-        pool,
-        startTime,
-        endTime,
-        minWidth,
-        refundee
-      );
-
-      // require(key.minWidth == TickMath.MAX_TICK * 2, 'UniswapV3Staker::createIncentiveWithMaxRange: minWidth not set to max tick range');
-
-      createIncentive(key, reward);
+        createIncentive(key, reward);
     }
 
     /// @inheritdoc IUniswapV3Staker
@@ -371,7 +370,10 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall {
 
         require(pool == key.pool, 'UniswapV3Staker::stakeToken: token pool is not the incentive pool');
         require(liquidity > 0, 'UniswapV3Staker::stakeToken: cannot stake token with 0 liquidity');
-        require(tickUpper - tickLower >= key.minWidth, 'UniswapV3Staker::stakeToken: range must be larger than minWidth');
+        require(
+            tickUpper - tickLower >= key.minWidth,
+            'UniswapV3Staker::stakeToken: range must be larger than minWidth'
+        );
 
         deposits[tokenId].numberOfStakes++;
         incentives[incentiveId].numberOfStakes++;
