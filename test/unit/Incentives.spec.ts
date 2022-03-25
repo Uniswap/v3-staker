@@ -22,7 +22,7 @@ import { HelperTypes } from '../helpers/types'
 
 let loadFixture: LoadFixtureFunction
 
-describe.only('unit/Incentives', async () => {
+describe('unit/Incentives', async () => {
   const actors = new ActorFixture(provider.getWallets(), provider)
   const incentiveCreator = actors.incentiveCreator()
   const totalReward = BNe18(100)
@@ -284,7 +284,7 @@ describe.only('unit/Incentives', async () => {
   })
 
   describe('#createIncentiveWithMaxRange', () => {
-    let subject: (params: Partial<ContractParams.CreateIncentive>) => Promise<any>;
+    let subject: (params: Partial<ContractParams.CreateIncentive>) => Promise<any>
 
     beforeEach('setup', async () => {
       subject = async (params: Partial<ContractParams.CreateIncentive> = {}) => {
@@ -297,57 +297,75 @@ describe.only('unit/Incentives', async () => {
 
         const { startTime, endTime } = makeTimestamps(await blockTimestamp())
 
-        await context.staker.connect(incentiveCreator).createIncentiveWithMaxRange(
-          params.rewardToken || context.rewardToken.address,
-          params.startTime || startTime,
-          params.endTime || endTime,
-          params.refundee || incentiveCreator.address,
-          totalReward,
-          context.tokens[0].address,
-          context.tokens[1].address,
-          context.fee
-        )
+        return await context.staker
+          .connect(incentiveCreator)
+          .createIncentiveWithMaxRange(
+            params.rewardToken || context.rewardToken.address,
+            params.startTime || startTime,
+            params.endTime || endTime,
+            params.refundee || incentiveCreator.address,
+            totalReward,
+            context.tokens[0].address,
+            context.tokens[1].address,
+            context.fee
+          )
       }
     })
 
-      describe('works and', () => {
-        it('creates an incentive with max range and the correct parameters', async () => {
-          timestamps = makeTimestamps(await blockTimestamp())
-          await subject(timestamps)
-          const incentiveId = await context.testIncentiveId.compute({
-            rewardToken: context.rewardToken.address,
-            pool: context.pool01,
-            startTime: timestamps.startTime,
-            endTime: timestamps.endTime,
-            refundee: incentiveCreator.address,
-            minWidth: context.maxTickRange,
-          })
+    describe('works and', () => {
+      it('emits an event with valid parameters', async () => {
+        const { startTime, endTime } = makeTimestamps(await blockTimestamp())
 
-          const incentive = await context.staker.incentives(incentiveId)
-          expect(incentive.totalRewardUnclaimed).to.equal(totalReward)
-          expect(incentive.totalSecondsClaimedX128).to.equal(BN(0))
+        await expect(subject({ startTime, endTime }))
+          .to.emit(context.staker, 'IncentiveCreated')
+          .withArgs(
+            context.rewardToken.address,
+            context.pool01,
+            startTime,
+            endTime,
+            context.maxTickRange,
+            incentiveCreator.address,
+            totalReward
+          )
+      })
+
+      it('creates an incentive with max range and the correct parameters', async () => {
+        timestamps = makeTimestamps(await blockTimestamp())
+        await subject(timestamps)
+        const incentiveId = await context.testIncentiveId.compute({
+          rewardToken: context.rewardToken.address,
+          pool: context.pool01,
+          startTime: timestamps.startTime,
+          endTime: timestamps.endTime,
+          refundee: incentiveCreator.address,
+          minWidth: context.maxTickRange,
         })
+
+        const incentive = await context.staker.incentives(incentiveId)
+        expect(incentive.totalRewardUnclaimed).to.equal(totalReward)
+        expect(incentive.totalSecondsClaimedX128).to.equal(BN(0))
       })
     })
+  })
 
-    // describe('fails when', () => {
-    //   it('when param minWidth is not set to max tick range', async () => {
-    //     const now = await blockTimestamp();
+  // describe('fails when', () => {
+  //   it('when param minWidth is not set to max tick range', async () => {
+  //     const now = await blockTimestamp();
 
-    //     await expect(
-    //       context.staker.connect(incentiveCreator).createIncentive(
-    //         {
-    //           rewardToken: context.rewardToken.address,
-    //           pool: context.pool01,
-    //           refundee: incentiveCreator.address,
-    //           ...makeTimestamps(now, 1_000),
-    //           minWidth: context.minWidth,
-    //         },
-    //         BNe18(0)
-    //       )
-    //     ).to.be.revertedWith('UniswapV3Staker::createIncentive: reward must be positive')
-    //   })
-    // })
+  //     await expect(
+  //       context.staker.connect(incentiveCreator).createIncentive(
+  //         {
+  //           rewardToken: context.rewardToken.address,
+  //           pool: context.pool01,
+  //           refundee: incentiveCreator.address,
+  //           ...makeTimestamps(now, 1_000),
+  //           minWidth: context.minWidth,
+  //         },
+  //         BNe18(0)
+  //       )
+  //     ).to.be.revertedWith('UniswapV3Staker::createIncentive: reward must be positive')
+  //   })
+  // })
   // })
 
   describe('#endIncentive', () => {
