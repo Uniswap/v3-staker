@@ -230,7 +230,7 @@ export const uniswapFixture: Fixture<UniswapFixtureType> = async (wallets, provi
 
   const fee = FeeAmount.MEDIUM
   const maxTickRange = 2 * getMaxTick(TICK_SPACINGS[FeeAmount.MEDIUM])
-  
+
   await nft.createAndInitializePoolIfNecessary(tokens[0].address, tokens[1].address, fee, encodePriceSqrt(1, 1))
 
   await nft.createAndInitializePoolIfNecessary(tokens[1].address, tokens[2].address, fee, encodePriceSqrt(1, 1))
