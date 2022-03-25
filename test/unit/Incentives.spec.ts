@@ -348,26 +348,6 @@ describe('unit/Incentives', async () => {
     })
   })
 
-  // describe('fails when', () => {
-  //   it('when param minWidth is not set to max tick range', async () => {
-  //     const now = await blockTimestamp();
-
-  //     await expect(
-  //       context.staker.connect(incentiveCreator).createIncentive(
-  //         {
-  //           rewardToken: context.rewardToken.address,
-  //           pool: context.pool01,
-  //           refundee: incentiveCreator.address,
-  //           ...makeTimestamps(now, 1_000),
-  //           minWidth: context.minWidth,
-  //         },
-  //         BNe18(0)
-  //       )
-  //     ).to.be.revertedWith('UniswapV3Staker::createIncentive: reward must be positive')
-  //   })
-  // })
-  // })
-
   describe('#endIncentive', () => {
     let subject: (params: Partial<ContractParams.EndIncentive>) => Promise<any>
     let createIncentiveResult: HelperTypes.CreateIncentive.Result
