@@ -103,7 +103,7 @@ describe('unit/V3StakerNFT', () => {
         .to.emit(context.stakerNFT, 'KeyStored')
         .withArgs(incentiveId, resultKey)
 
-      expect(await context.stakerNFT.idToIncentiveKey(incentiveId)).to.deep.equal(resultKey)
+      expect(await context.stakerNFT.getIncentiveKey(incentiveId)).to.deep.equal(resultKey)
     })
   })
 
