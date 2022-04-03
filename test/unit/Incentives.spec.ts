@@ -82,14 +82,26 @@ describe('unit/Incentives', async () => {
 
       it('emits an event with valid parameters', async () => {
         const { startTime, endTime } = makeTimestamps(await blockTimestamp())
+
+        const incentiveId = await context.testIncentiveId.compute({
+          rewardToken: context.rewardToken.address,
+          pool: context.pool01,
+          startTime,
+          endTime,
+          refundee: incentiveCreator.address,
+          minimumTickWidth: 0,
+        })
+
         await expect(subject({ startTime, endTime }))
           .to.emit(context.staker, 'IncentiveCreated')
           .withArgs(
+            incentiveId,
             context.rewardToken.address,
             context.pool01,
             startTime,
             endTime,
             incentiveCreator.address,
+            0,
             totalReward
           )
       })

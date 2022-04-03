@@ -156,8 +156,8 @@ interface IUniswapV3Staker is IERC721Receiver, IMulticall {
         uint256 startTime,
         uint256 endTime,
         address refundee,
-        uint256 reward,
-        uint256 minimumTickWidth
+        uint256 minimumTickWidth,
+        uint256 reward
     );
 
     /// @notice Event that can be emitted when a liquidity mining incentive has ended
