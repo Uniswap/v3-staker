@@ -6,9 +6,9 @@ Adds tick bounds specified by the incentive creator. Enforces a min tick range f
 
 ## Fork TODOS
 
-- [ ] Add minWidth `(int24 minWidth)` to `IUniswapV3Staker.IncentiveKey` struct for incentive creator to enforce a min tick range to incentivize
-- [ ] Add require statements below line 329 in `_stakeToken()` to check tick bounds are satisfied by token depositor looking to stake
-- [ ] Add convenience function `createIncentiveWithMaxRange()` that uses max tick range for incentives
+- [X] Add minWidth `(int24 minWidth)` to `IUniswapV3Staker.IncentiveKey` struct for incentive creator to enforce a min tick range to incentivize
+- [X] Add require statements below line 329 in `_stakeToken()` to check tick bounds are satisfied by token depositor looking to stake
+- [X] Add convenience function `createIncentiveWithMaxRange()` that uses max tick range for incentives
 
 ## Deployments
 
