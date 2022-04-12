@@ -25,7 +25,7 @@ import { HelperTypes } from '../helpers/types'
 
 let loadFixture: LoadFixtureFunction
 
-describe('unit/Deposits', () => {
+describe.only('unit/Deposits', () => {
   const actors = new ActorFixture(provider.getWallets(), provider)
   const lpUser0 = actors.lpUser0()
   const amountDesired = BNe18(10)
@@ -373,7 +373,7 @@ describe('unit/Deposits', () => {
           token1: context.token1.address,
           fee: FeeAmount.MEDIUM,
           tickLower: 0,
-          tickUpper: 5 * TICK_SPACINGS[FeeAmount.MEDIUM],
+          tickUpper: TICK_SPACINGS[FeeAmount.MEDIUM],
           recipient: lpUser0.address,
           amount0Desired: amountDesired,
           amount1Desired: amountDesired,
@@ -382,24 +382,17 @@ describe('unit/Deposits', () => {
           deadline: (await blockTimestamp()) + 1000,
         })
 
-        await context.nft
-          .connect(lpUser0)
-          ['safeTransferFrom(address,address,uint256)'](lpUser0.address, context.staker.address, tokenId2, {
-            ...maxGas,
-            from: lpUser0.address,
-          })
-
         await expect(
-          context.staker.connect(lpUser0).stakeToken(
-            {
-              rewardToken: context.rewardToken.address,
-              pool: context.pool01,
-              startTime: timestamps.startTime,
-              endTime: timestamps.endTime,
-              refundee: incentiveCreator.address,
-              minWidth: context.minWidth,
-            },
-            tokenId2
+          context.nft
+          .connect(lpUser0)
+          ['safeTransferFrom(address,address,uint256,bytes)'](
+            lpUser0.address, 
+            context.staker.address, 
+            tokenId2,
+            data, {
+              ...maxGas,
+              from: lpUser0.address,
+            }
           )
         ).to.be.revertedWith('UniswapV3Staker::stakeToken: range must be larger than minWidth')
       })
