@@ -137,12 +137,6 @@ describe('unit/Deposits', () => {
     })
 
     it('allows depositing and staking for a single incentive', async () => {
-      // const data = ethers.utils.defaultAbiCoder.encode(
-      //   [INCENTIVE_KEY_ABI],
-      //   [incentiveResultToStakeAdapter(createIncentiveResult)]
-      // )
-
-      // swap for syntax below and single staked incentive test passes
       const data = ethers.utils.defaultAbiCoder.encode(
         [`${INCENTIVE_KEY_ABI}[]`],
         [[createIncentiveResult].map(incentiveResultToStakeAdapter)]
@@ -263,8 +257,6 @@ describe('unit/Deposits', () => {
 
       const incentiveKey: ContractParams.IncentiveKey = incentiveResultToStakeAdapter(incentive)
 
-      // data = ethers.utils.defaultAbiCoder.encode([incentiveKeyAbi], [incentiveKey])
-
       data = ethers.utils.defaultAbiCoder.encode(
         [`${incentiveKeyAbi}[]`],
         [[incentive].map(incentiveResultToStakeAdapter)]
@@ -351,9 +343,6 @@ describe('unit/Deposits', () => {
           refundee: incentiveCreator.address,
         }
 
-        // let invalidData = ethers.utils.defaultAbiCoder.encode([`${incentiveKeyAbi}[]`], [invalidStakeParams])
-
-        // swap for syntax below and invalid test passes
         let invalidData = ethers.utils.defaultAbiCoder.encode(
           [`${incentiveKeyAbi}[]`],
           [[invalidStakeParams].map(incentiveResultToStakeAdapter)]
@@ -369,6 +358,61 @@ describe('unit/Deposits', () => {
               invalidData
             )
         ).to.be.revertedWith('UniswapV3Staker::stakeToken: non-existent incentive')
+      })
+
+      it('reverts when attempting to stake token with tick range less than minWidth', async () => {
+        const { rewardToken, minWidth } = context
+        timestamps = makeTimestamps((await blockTimestamp()) + 1_000)
+        const incentive1 = await helpers.createIncentiveFlow({
+          rewardToken,
+          totalReward,
+          poolAddress: context.poolObj1.address,
+          ...timestamps,
+          minWidth,
+        })
+
+        const incentiveKey: ContractParams.IncentiveKey = incentiveResultToStakeAdapter(incentive1)
+
+        data = ethers.utils.defaultAbiCoder.encode(
+          [`${incentiveKeyAbi}[]`],
+          [[incentive1].map(incentiveResultToStakeAdapter)]
+        )
+
+        await Time.set(timestamps.startTime + 500)
+        await erc20Helper.ensureBalancesAndApprovals(
+          lpUser0,
+          [context.token1, context.token3],
+          amountDesired,
+          context.nft.address
+        )
+        const tokenId2 = await mintPosition(context.nft.connect(lpUser0), {
+          token0: context.token1.address,
+          token1: context.token3.address,
+          fee: FeeAmount.HIGH,
+          tickLower: 0,
+          tickUpper: TICK_SPACINGS[FeeAmount.HIGH],
+          recipient: lpUser0.address,
+          amount0Desired: amountDesired,
+          amount1Desired: amountDesired,
+          amount0Min: 0,
+          amount1Min: 0,
+          deadline: (await blockTimestamp()) + 1000,
+        })
+
+        await expect(
+          context.nft
+            .connect(lpUser0)
+            ['safeTransferFrom(address,address,uint256,bytes)'](
+              lpUser0.address,
+              context.staker.address,
+              tokenId2,
+              data,
+              {
+                ...maxGas,
+                from: lpUser0.address,
+              }
+            )
+        ).to.be.revertedWith('UniswapV3Staker::stakeToken: range must be larger than minWidth')
       })
     })
   })

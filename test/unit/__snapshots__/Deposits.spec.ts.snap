@@ -1,7 +1,7 @@
 // Jest Snapshot v1, https://goo.gl/fbAQLP
 
-exports[`unit/Deposits #onERC721Received on successful transfer with staking data has gas cost 1`] = `217096`;
+exports[`unit/Deposits #onERC721Received on successful transfer with staking data has gas cost 1`] = `217137`;
 
-exports[`unit/Deposits #transferDeposit has gas cost 1`] = `29200`;
+exports[`unit/Deposits #transferDeposit has gas cost 1`] = `29222`;
 
-exports[`unit/Deposits #withdrawToken works and has gas cost 1`] = `75965`;
+exports[`unit/Deposits #withdrawToken works and has gas cost 1`] = `75942`;

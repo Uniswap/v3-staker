@@ -283,6 +283,71 @@ describe('unit/Incentives', async () => {
     })
   })
 
+  describe('#createIncentiveWithMaxRange', () => {
+    let subject: (params: Partial<ContractParams.CreateIncentive>) => Promise<any>
+
+    beforeEach('setup', async () => {
+      subject = async (params: Partial<ContractParams.CreateIncentive> = {}) => {
+        await erc20Helper.ensureBalancesAndApprovals(
+          incentiveCreator,
+          params.rewardToken ? await erc20Wrap(params?.rewardToken) : context.rewardToken,
+          totalReward,
+          context.staker.address
+        )
+
+        const { startTime, endTime } = makeTimestamps(await blockTimestamp())
+
+        return await context.staker
+          .connect(incentiveCreator)
+          .createIncentiveWithMaxRange(
+            params.rewardToken || context.rewardToken.address,
+            params.startTime || startTime,
+            params.endTime || endTime,
+            params.refundee || incentiveCreator.address,
+            totalReward,
+            context.tokens[0].address,
+            context.tokens[1].address,
+            context.fee
+          )
+      }
+    })
+
+    describe('works and', () => {
+      it('emits an event with valid parameters', async () => {
+        const { startTime, endTime } = makeTimestamps(await blockTimestamp())
+
+        await expect(subject({ startTime, endTime }))
+          .to.emit(context.staker, 'IncentiveCreated')
+          .withArgs(
+            context.rewardToken.address,
+            context.pool01,
+            startTime,
+            endTime,
+            context.maxTickRange,
+            incentiveCreator.address,
+            totalReward
+          )
+      })
+
+      it('creates an incentive with max range and the correct parameters', async () => {
+        timestamps = makeTimestamps(await blockTimestamp())
+        await subject(timestamps)
+        const incentiveId = await context.testIncentiveId.compute({
+          rewardToken: context.rewardToken.address,
+          pool: context.pool01,
+          startTime: timestamps.startTime,
+          endTime: timestamps.endTime,
+          refundee: incentiveCreator.address,
+          minWidth: context.maxTickRange,
+        })
+
+        const incentive = await context.staker.incentives(incentiveId)
+        expect(incentive.totalRewardUnclaimed).to.equal(totalReward)
+        expect(incentive.totalSecondsClaimedX128).to.equal(BN(0))
+      })
+    })
+  })
+
   describe('#endIncentive', () => {
     let subject: (params: Partial<ContractParams.EndIncentive>) => Promise<any>
     let createIncentiveResult: HelperTypes.CreateIncentive.Result
