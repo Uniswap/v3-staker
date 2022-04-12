@@ -361,19 +361,36 @@ describe('unit/Deposits', () => {
       })
 
       it('reverts when attempting to stake token with tick range less than minWidth', async () => {
+        const { rewardToken, minWidth } = context
+        timestamps = makeTimestamps((await blockTimestamp()) + 1_000)
+        const incentive1 = await helpers.createIncentiveFlow({
+          rewardToken,
+          totalReward,
+          poolAddress: context.poolObj1.address,
+          ...timestamps,
+          minWidth,
+        })
+
+        const incentiveKey: ContractParams.IncentiveKey = incentiveResultToStakeAdapter(incentive1)
+
+        data = ethers.utils.defaultAbiCoder.encode(
+          [`${incentiveKeyAbi}[]`],
+          [[incentive1].map(incentiveResultToStakeAdapter)]
+        )
+
         await Time.set(timestamps.startTime + 500)
         await erc20Helper.ensureBalancesAndApprovals(
           lpUser0,
-          [context.token0, context.token1],
+          [context.token1, context.token3],
           amountDesired,
           context.nft.address
         )
         const tokenId2 = await mintPosition(context.nft.connect(lpUser0), {
-          token0: context.token0.address,
-          token1: context.token1.address,
-          fee: FeeAmount.MEDIUM,
+          token0: context.token1.address,
+          token1: context.token3.address,
+          fee: FeeAmount.HIGH,
           tickLower: 0,
-          tickUpper: TICK_SPACINGS[FeeAmount.MEDIUM],
+          tickUpper: TICK_SPACINGS[FeeAmount.HIGH],
           recipient: lpUser0.address,
           amount0Desired: amountDesired,
           amount1Desired: amountDesired,

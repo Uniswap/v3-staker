@@ -73,7 +73,7 @@ type UniswapFactoryFixture = {
   factory: IUniswapV3Factory
   router: ISwapRouter
   nft: INonfungiblePositionManager
-  tokens: [TestERC20, TestERC20, TestERC20]
+  tokens: [TestERC20, TestERC20, TestERC20, TestERC20]
 }
 
 export const uniswapFactoryFixture: Fixture<UniswapFactoryFixture> = async (wallets, provider) => {
@@ -83,7 +83,8 @@ export const uniswapFactoryFixture: Fixture<UniswapFactoryFixture> = async (wall
     tokenFactory.deploy(constants.MaxUint256.div(2)), // do not use maxu256 to avoid overflowing
     tokenFactory.deploy(constants.MaxUint256.div(2)),
     tokenFactory.deploy(constants.MaxUint256.div(2)),
-  ])) as [TestERC20, TestERC20, TestERC20]
+    tokenFactory.deploy(constants.MaxUint256.div(2)),
+  ])) as [TestERC20, TestERC20, TestERC20, TestERC20]
 
   const nftDescriptorLibrary = await nftDescriptorLibraryFixture(wallets, provider)
 
@@ -204,13 +205,16 @@ export type UniswapFixtureType = {
   nft: INonfungiblePositionManager
   pool01: string
   pool12: string
+  pool13: string
   poolObj: IUniswapV3Pool
+  poolObj1: IUniswapV3Pool
   router: ISwapRouter
   staker: UniswapV3Staker
   testIncentiveId: TestIncentiveId
-  tokens: [TestERC20, TestERC20, TestERC20]
+  tokens: [TestERC20, TestERC20, TestERC20, TestERC20]
   token0: TestERC20
   token1: TestERC20
+  token3: TestERC20
   rewardToken: TestERC20
   minWidth: number
   maxTickRange: number
@@ -229,17 +233,23 @@ export const uniswapFixture: Fixture<UniswapFixtureType> = async (wallets, provi
   }
 
   const fee = FeeAmount.MEDIUM
+  const fee1 = FeeAmount.HIGH
   const maxTickRange = 2 * getMaxTick(TICK_SPACINGS[FeeAmount.MEDIUM])
 
   await nft.createAndInitializePoolIfNecessary(tokens[0].address, tokens[1].address, fee, encodePriceSqrt(1, 1))
 
   await nft.createAndInitializePoolIfNecessary(tokens[1].address, tokens[2].address, fee, encodePriceSqrt(1, 1))
 
+  await nft.createAndInitializePoolIfNecessary(tokens[1].address, tokens[3].address, fee1, encodePriceSqrt(1, 1))
+
   const pool01 = await factory.getPool(tokens[0].address, tokens[1].address, fee)
 
   const pool12 = await factory.getPool(tokens[1].address, tokens[2].address, fee)
 
+  const pool13 = await factory.getPool(tokens[1].address, tokens[3].address, fee1)
+
   const poolObj = poolFactory.attach(pool01) as IUniswapV3Pool
+  const poolObj1 = poolFactory.attach(pool13) as IUniswapV3Pool
 
   return {
     nft,
@@ -250,10 +260,13 @@ export const uniswapFixture: Fixture<UniswapFixtureType> = async (wallets, provi
     factory,
     pool01,
     pool12,
+    pool13,
     fee,
     poolObj,
+    poolObj1,
     token0: tokens[0],
     token1: tokens[1],
+    token3: tokens[3],
     rewardToken: tokens[2],
     minWidth: 333,
     maxTickRange,
