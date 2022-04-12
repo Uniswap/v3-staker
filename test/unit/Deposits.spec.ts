@@ -25,7 +25,7 @@ import { HelperTypes } from '../helpers/types'
 
 let loadFixture: LoadFixtureFunction
 
-describe.only('unit/Deposits', () => {
+describe('unit/Deposits', () => {
   const actors = new ActorFixture(provider.getWallets(), provider)
   const lpUser0 = actors.lpUser0()
   const amountDesired = BNe18(10)
@@ -384,16 +384,17 @@ describe.only('unit/Deposits', () => {
 
         await expect(
           context.nft
-          .connect(lpUser0)
-          ['safeTransferFrom(address,address,uint256,bytes)'](
-            lpUser0.address, 
-            context.staker.address, 
-            tokenId2,
-            data, {
-              ...maxGas,
-              from: lpUser0.address,
-            }
-          )
+            .connect(lpUser0)
+            ['safeTransferFrom(address,address,uint256,bytes)'](
+              lpUser0.address,
+              context.staker.address,
+              tokenId2,
+              data,
+              {
+                ...maxGas,
+                from: lpUser0.address,
+              }
+            )
         ).to.be.revertedWith('UniswapV3Staker::stakeToken: range must be larger than minWidth')
       })
     })
