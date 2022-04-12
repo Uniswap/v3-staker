@@ -25,7 +25,7 @@ import { HelperTypes } from '../helpers/types'
 
 let loadFixture: LoadFixtureFunction
 
-describe.only('unit/Deposits', () => {
+describe('unit/Deposits', () => {
   const actors = new ActorFixture(provider.getWallets(), provider)
   const lpUser0 = actors.lpUser0()
   const amountDesired = BNe18(10)
@@ -137,12 +137,6 @@ describe.only('unit/Deposits', () => {
     })
 
     it('allows depositing and staking for a single incentive', async () => {
-      // const data = ethers.utils.defaultAbiCoder.encode(
-      //   [INCENTIVE_KEY_ABI],
-      //   [incentiveResultToStakeAdapter(createIncentiveResult)]
-      // )
-
-      // swap for syntax below and single staked incentive test passes
       const data = ethers.utils.defaultAbiCoder.encode(
         [`${INCENTIVE_KEY_ABI}[]`],
         [[createIncentiveResult].map(incentiveResultToStakeAdapter)]
@@ -263,8 +257,6 @@ describe.only('unit/Deposits', () => {
 
       const incentiveKey: ContractParams.IncentiveKey = incentiveResultToStakeAdapter(incentive)
 
-      // data = ethers.utils.defaultAbiCoder.encode([incentiveKeyAbi], [incentiveKey])
-
       data = ethers.utils.defaultAbiCoder.encode(
         [`${incentiveKeyAbi}[]`],
         [[incentive].map(incentiveResultToStakeAdapter)]
@@ -351,9 +343,6 @@ describe.only('unit/Deposits', () => {
           refundee: incentiveCreator.address,
         }
 
-        // let invalidData = ethers.utils.defaultAbiCoder.encode([`${incentiveKeyAbi}[]`], [invalidStakeParams])
-
-        // swap for syntax below and invalid test passes
         let invalidData = ethers.utils.defaultAbiCoder.encode(
           [`${incentiveKeyAbi}[]`],
           [[invalidStakeParams].map(incentiveResultToStakeAdapter)]
