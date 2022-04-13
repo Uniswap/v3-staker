@@ -6,3 +6,4 @@ typechain/
 *.code-workspace
 dist/
 coverage/
+*.env
