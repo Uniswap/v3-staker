@@ -149,7 +149,7 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall {
             );
 
         int24 tickSpacing = factory.feeAmountTickSpacing(fee);
-        require(tickSpacing > 0, "staker: !fee");
+        require(tickSpacing > 0, 'UniswapV3Staker::createIncentiveWithMaxRange: !fee');
 
         // full range max/min ticks for pool
         int24 maxTick = TickMath.MAX_TICK - (TickMath.MAX_TICK % tickSpacing);
