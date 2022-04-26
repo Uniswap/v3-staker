@@ -301,11 +301,11 @@ describe('unit/Incentives', async () => {
           .connect(incentiveCreator)
           .createIncentiveWithMaxRange(
             params.rewardToken || context.rewardToken.address,
+            context.pool01,
             params.startTime || startTime,
             params.endTime || endTime,
             params.refundee || incentiveCreator.address,
             totalReward,
-            context.pool01,
             context.fee
           )
       }
@@ -363,11 +363,11 @@ describe('unit/Incentives', async () => {
             .connect(incentiveCreator)
             .createIncentiveWithMaxRange(
               context.rewardToken.address,
+              context.pool01,
               startTime,
               endTime,
               incentiveCreator.address,
               totalReward,
-              context.pool01,
               invalidFee
             )
         ).to.be.revertedWith('UniswapV3Staker::createIncentiveWithMaxRange: !fee')
