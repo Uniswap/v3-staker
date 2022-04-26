@@ -99,8 +99,7 @@ interface IUniswapV3Staker is IERC721Receiver, IMulticall {
         uint256 endTime,
         address refundee,
         uint256 reward,
-        address token0,
-        address token1,
+        IUniswapV3Pool pool,
         uint24 fee
     ) external;
 
