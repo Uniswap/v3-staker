@@ -99,8 +99,7 @@ interface IUniswapV3Staker is IERC721Receiver, IMulticall {
         uint256 startTime,
         uint256 endTime,
         address refundee,
-        uint256 reward,
-        uint24 fee
+        uint256 reward
     ) external;
 
     /// @notice Ends an incentive after the incentive end time has passed and all stakes have been withdrawn

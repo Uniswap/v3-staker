@@ -305,8 +305,7 @@ describe('unit/Incentives', async () => {
             params.startTime || startTime,
             params.endTime || endTime,
             params.refundee || incentiveCreator.address,
-            totalReward,
-            context.fee
+            totalReward
           )
       }
     })
@@ -343,34 +342,6 @@ describe('unit/Incentives', async () => {
         const incentive = await context.staker.incentives(incentiveId)
         expect(incentive.totalRewardUnclaimed).to.equal(totalReward)
         expect(incentive.totalSecondsClaimedX128).to.equal(BN(0))
-      })
-    })
-
-    describe('reverts when', () => {
-      it('invalid fee param passed in', async () => {
-        await erc20Helper.ensureBalancesAndApprovals(
-          incentiveCreator,
-          context.rewardToken,
-          totalReward,
-          context.staker.address
-        )
-
-        const { startTime, endTime } = makeTimestamps(await blockTimestamp())
-        const invalidFee = 0
-
-        await expect(
-          context.staker
-            .connect(incentiveCreator)
-            .createIncentiveWithMaxRange(
-              context.rewardToken.address,
-              context.pool01,
-              startTime,
-              endTime,
-              incentiveCreator.address,
-              totalReward,
-              invalidFee
-            )
-        ).to.be.revertedWith('UniswapV3Staker::createIncentiveWithMaxRange: !fee')
       })
     })
   })

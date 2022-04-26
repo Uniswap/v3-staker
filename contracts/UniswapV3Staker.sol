@@ -136,10 +136,9 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall {
         uint256 startTime,
         uint256 endTime,
         address refundee,
-        uint256 reward,
-        uint24 fee
+        uint256 reward
     ) external override {
-        int24 tickSpacing = factory.feeAmountTickSpacing(fee);
+        int24 tickSpacing = factory.feeAmountTickSpacing(pool.fee());
         require(tickSpacing > 0, 'UniswapV3Staker::createIncentiveWithMaxRange: !fee');
 
         // full range max/min ticks for pool
