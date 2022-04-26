@@ -2,6 +2,6 @@
 
 exports[`unit/Deposits #onERC721Received on successful transfer with staking data has gas cost 1`] = `217137`;
 
-exports[`unit/Deposits #transferDeposit has gas cost 1`] = `29222`;
+exports[`unit/Deposits #transferDeposit has gas cost 1`] = `29200`;
 
-exports[`unit/Deposits #withdrawToken works and has gas cost 1`] = `75942`;
+exports[`unit/Deposits #withdrawToken works and has gas cost 1`] = `75965`;

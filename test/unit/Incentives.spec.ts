@@ -305,8 +305,7 @@ describe('unit/Incentives', async () => {
             params.endTime || endTime,
             params.refundee || incentiveCreator.address,
             totalReward,
-            context.tokens[0].address,
-            context.tokens[1].address,
+            context.pool01,
             context.fee
           )
       }
@@ -368,8 +367,7 @@ describe('unit/Incentives', async () => {
               endTime,
               incentiveCreator.address,
               totalReward,
-              context.tokens[0].address,
-              context.tokens[1].address,
+              context.pool01,
               invalidFee
             )
         ).to.be.revertedWith('UniswapV3Staker::createIncentiveWithMaxRange: !fee')
