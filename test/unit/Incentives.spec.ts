@@ -54,7 +54,7 @@ describe('unit/Incentives', async () => {
           context.staker.address
         )
 
-        const { startTime, endTime } = makeTimestamps(await blockTimestamp())
+        const { startTime, endTime, vestingPeriod } = makeTimestamps(await blockTimestamp())
 
         return await context.staker.connect(incentiveCreator).createIncentive(
           {
@@ -62,6 +62,7 @@ describe('unit/Incentives', async () => {
             pool: context.pool01,
             startTime: params.startTime || startTime,
             endTime: params.endTime || endTime,
+            vestingPeriod: params.vestingPeriod || vestingPeriod,
             refundee: params.refundee || incentiveCreator.address,
           },
           totalReward
@@ -80,7 +81,7 @@ describe('unit/Incentives', async () => {
       })
 
       it('emits an event with valid parameters', async () => {
-        const { startTime, endTime } = makeTimestamps(await blockTimestamp())
+        const { startTime, endTime, vestingPeriod } = makeTimestamps(await blockTimestamp())
         await expect(subject({ startTime, endTime }))
           .to.emit(context.staker, 'IncentiveCreated')
           .withArgs(
@@ -88,6 +89,7 @@ describe('unit/Incentives', async () => {
             context.pool01,
             startTime,
             endTime,
+            vestingPeriod,
             incentiveCreator.address,
             totalReward
           )
@@ -101,6 +103,7 @@ describe('unit/Incentives', async () => {
           pool: context.pool01,
           startTime: timestamps.startTime,
           endTime: timestamps.endTime,
+          vestingPeriod: timestamps.vestingPeriod,
           refundee: incentiveCreator.address,
         })
 
@@ -118,6 +121,7 @@ describe('unit/Incentives', async () => {
           pool: context.pool01,
           startTime: timestamps.startTime,
           endTime: timestamps.endTime,
+          vestingPeriod: timestamps.vestingPeriod,
           refundee: incentiveCreator.address,
         })
         const { totalRewardUnclaimed, totalSecondsClaimedX128, numberOfStakes } = await context.staker.incentives(
@@ -180,7 +184,7 @@ describe('unit/Incentives', async () => {
 
     describe('fails when', () => {
       it('is initialized with a non-contract token', async () => {
-        const { startTime, endTime } = makeTimestamps(await blockTimestamp())
+        const { startTime, endTime, vestingPeriod } = makeTimestamps(await blockTimestamp())
         await expect(
           context.staker.connect(incentiveCreator).createIncentive(
             {
@@ -188,6 +192,7 @@ describe('unit/Incentives', async () => {
               pool: context.pool01,
               startTime,
               endTime,
+              vestingPeriod,
               refundee: incentiveCreator.address,
             },
             totalReward
@@ -276,6 +281,7 @@ describe('unit/Incentives', async () => {
           pool: context.pool01,
           startTime: params.startTime || timestamps.startTime,
           endTime: params.endTime || timestamps.endTime,
+          vestingPeriod: params.vestingPeriod || timestamps.vestingPeriod,
           refundee: incentiveCreator.address,
         })
       }

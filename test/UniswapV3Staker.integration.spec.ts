@@ -70,13 +70,15 @@ describe('integration', async () => {
 
       const startTime = epoch + 1_000
       const endTime = startTime + duration
+      const vestingPeriod = 0
 
       const createIncentiveResult = await helpers.createIncentiveFlow({
         startTime,
         endTime,
+        vestingPeriod,
         rewardToken,
         poolAddress: context.pool01,
-        totalReward,
+        totalReward
       })
 
       const params = {
@@ -455,10 +457,12 @@ describe('integration', async () => {
       const epoch = await blockTimestamp()
       const startTime = epoch + 1_000
       const endTime = startTime + duration
+      const vestingPeriod = 0
 
       const createIncentiveResult = await helpers.createIncentiveFlow({
         startTime,
         endTime,
+        vestingPeriod,
         rewardToken: context.rewardToken,
         poolAddress: context.pool01,
         totalReward,

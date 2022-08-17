@@ -403,7 +403,7 @@ describe('unit/Stakes', () => {
         claimable = await context.staker.rewards(rewardToken.address, lpUser0.address)
         await expect(subject(rewardToken.address, lpUser0.address, BN('0')))
           .to.emit(context.staker, 'RewardClaimed')
-          .withArgs(lpUser0.address, claimable)
+          .withArgs(rewardToken.address, lpUser0.address, claimable)
       })
 
       it('transfers the correct reward amount to destination address', async () => {
@@ -440,7 +440,7 @@ describe('unit/Stakes', () => {
         const { rewardToken } = context
         await expect(subject(rewardToken.address, lpUser0.address, claimable))
           .to.emit(context.staker, 'RewardClaimed')
-          .withArgs(lpUser0.address, claimable)
+          .withArgs(rewardToken.address, lpUser0.address, claimable)
       })
 
       it('transfers the correct reward amount to destination address', async () => {

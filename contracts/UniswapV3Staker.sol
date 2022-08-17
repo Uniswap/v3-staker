@@ -114,7 +114,7 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall {
         );
 
         require(
-            key.vestingTime <= key.endTime - key.startTime,
+            key.vestingPeriod <= key.endTime - key.startTime,
             'UniswapV3Staker::createIncentive: vesting time must be lte incentive duration'
         );
 
@@ -124,7 +124,7 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall {
 
         TransferHelperExtended.safeTransferFrom(address(key.rewardToken), msg.sender, address(this), reward);
 
-        emit IncentiveCreated(key.rewardToken, key.pool, key.startTime, key.endTime, key.vestingTime, key.refundee, reward);
+        emit IncentiveCreated(key.rewardToken, key.pool, key.startTime, key.endTime, key.vestingPeriod, key.refundee, reward);
     }
 
     /// @inheritdoc IUniswapV3Staker
@@ -247,7 +247,7 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall {
                 incentive.totalSecondsClaimedX128,
                 key.startTime,
                 key.endTime,
-                key.vestingTime,
+                key.vestingPeriod,
                 liquidity,
                 secondsPerLiquidityInsideInitialX128,
                 secondsPerLiquidityInsideX128,
@@ -291,7 +291,7 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall {
         rewards[rewardToken][msg.sender] -= reward;
         TransferHelperExtended.safeTransfer(address(rewardToken), to, reward);
 
-        emit RewardClaimed(to, reward);
+        emit RewardClaimed(rewardToken, to, reward);
     }
 
     /// @inheritdoc IUniswapV3Staker
@@ -318,7 +318,7 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall {
                 incentive.totalSecondsClaimedX128,
                 key.startTime,
                 key.endTime,
-                key.vestingTime,
+                key.vestingPeriod,
                 liquidity,
                 secondsPerLiquidityInsideInitialX128,
                 secondsPerLiquidityInsideX128,

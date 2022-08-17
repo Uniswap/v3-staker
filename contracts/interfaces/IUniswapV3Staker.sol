@@ -18,14 +18,14 @@ interface IUniswapV3Staker is IERC721Receiver, IMulticall {
     /// @param pool The Uniswap V3 pool
     /// @param startTime The time when the incentive program begins
     /// @param endTime The time when rewards stop accruing
-    /// @param vestingTime The minimal in range time after which full rewards are payed out
+    /// @param vestingPeriod The minimal in range time after which full rewards are payed out
     /// @param refundee The address which receives any remaining reward tokens when the incentive is ended
     struct IncentiveKey {
         IERC20Minimal rewardToken;
         IUniswapV3Pool pool;
         uint256 startTime;
         uint256 endTime;
-        uint256 vestingTime;
+        uint256 vestingPeriod;
         address refundee;
     }
 
@@ -156,7 +156,7 @@ interface IUniswapV3Staker is IERC721Receiver, IMulticall {
         IUniswapV3Pool indexed pool,
         uint256 startTime,
         uint256 endTime,
-        uint256 vestingTime,
+        uint256 vestingPeriod,
         address refundee,
         uint256 reward
     );
@@ -184,7 +184,8 @@ interface IUniswapV3Staker is IERC721Receiver, IMulticall {
     event TokenUnstaked(uint256 indexed tokenId, bytes32 indexed incentiveId);
 
     /// @notice Event emitted when a reward token has been claimed
+    /// @param rewardToken Reward token which was claimed
     /// @param to The address where claimed rewards were sent to
     /// @param reward The amount of reward tokens claimed
-    event RewardClaimed(address indexed to, uint256 reward);
+    event RewardClaimed(IERC20Minimal indexed rewardToken, address indexed to, uint256 reward);
 }

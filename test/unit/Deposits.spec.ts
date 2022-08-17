@@ -51,7 +51,7 @@ describe('unit/Deposits', () => {
 
   const SAFE_TRANSFER_FROM_SIGNATURE = 'safeTransferFrom(address,address,uint256,bytes)'
   const INCENTIVE_KEY_ABI =
-    'tuple(address rewardToken, address pool, uint256 startTime, uint256 endTime, address refundee)'
+    'tuple(address rewardToken, address pool, uint256 startTime, uint256 endTime, uint256 vestingPeriod, address refundee)'
 
   beforeEach(async () => {
     await erc20Helper.ensureBalancesAndApprovals(
@@ -215,7 +215,7 @@ describe('unit/Deposits', () => {
 
   describe('#onERC721Received', () => {
     const incentiveKeyAbi =
-      'tuple(address rewardToken, address pool, uint256 startTime, uint256 endTime, address refundee)'
+      'tuple(address rewardToken, address pool, uint256 startTime, uint256 endTime, uint256 vestingPeriod, address refundee)'
     let tokenId: BigNumberish
     let data: string
     let timestamps: ContractParams.Timestamps
@@ -280,6 +280,7 @@ describe('unit/Deposits', () => {
           pool: context.pool01,
           startTime: timestamps.startTime,
           endTime: timestamps.endTime,
+          vestingPeriod: timestamps.vestingPeriod,
           refundee: incentiveCreator.address,
         })
         await Time.set(timestamps.startTime + 10)

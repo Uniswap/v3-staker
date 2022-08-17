@@ -12,7 +12,7 @@ library RewardMath {
     /// @param totalSecondsClaimedX128 How many full liquidity-seconds have been already claimed for the incentive
     /// @param startTime When the incentive rewards began in epoch seconds
     /// @param endTime When rewards are no longer being dripped out in epoch seconds
-    /// @param vestingTime The minimal in range time after which full rewards are payed out
+    /// @param vestingPeriod The minimal in range time after which full rewards are payed out
     /// @param liquidity The amount of liquidity, assumed to be constant over the period over which the snapshots are measured
     /// @param secondsPerLiquidityInsideInitialX128 The seconds per liquidity of the liquidity tick range as of the beginning of the period
     /// @param secondsPerLiquidityInsideX128 The seconds per liquidity of the liquidity tick range as of the current block timestamp
@@ -22,7 +22,7 @@ library RewardMath {
         uint160 totalSecondsClaimedX128;
         uint256 startTime;
         uint256 endTime;
-        uint256 vestingTime;
+        uint256 vestingPeriod;
         uint128 liquidity;
         uint160 secondsPerLiquidityInsideInitialX128;
         uint160 secondsPerLiquidityInsideX128;
@@ -48,10 +48,10 @@ library RewardMath {
 
         maxReward = FullMath.mulDiv(params.totalRewardUnclaimed, secondsInsideX128, totalSecondsUnclaimedX128);
 
-        if (params.vestingTime <= params.secondsInside - params.secondsInsideInitial) {
+        if (params.vestingPeriod <= params.secondsInside - params.secondsInsideInitial) {
             reward = maxReward;
         } else {
-            reward = maxReward * (params.secondsInside - params.secondsInsideInitial) / params.vestingTime;
+            reward = maxReward * (params.secondsInside - params.secondsInsideInitial) / params.vestingPeriod;
         }
     }
 }

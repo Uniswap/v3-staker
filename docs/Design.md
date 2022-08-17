@@ -154,7 +154,7 @@ struct EndIncentiveParams {
 
 - `msg.sender` to withdraw all of their reward balance in a specific token to a specified `to` address.
 
-- emit RewardClaimed(to, reward)
+- emit RewardClaimed(rewardToken, to, reward)
 
 ### `unstakeToken`
 
