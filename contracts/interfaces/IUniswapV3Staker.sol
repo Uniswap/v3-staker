@@ -18,7 +18,7 @@ interface IUniswapV3Staker is IERC721Receiver, IMulticall {
     /// @param pool The Uniswap V3 pool
     /// @param startTime The time when the incentive program begins
     /// @param endTime The time when rewards stop accruing
-    /// @param vestingPeriod The minimal in range time after which full rewards are payed out
+    /// @param vestingPeriod The minimal in range period (in seconds) after which full rewards are payed out
     /// @param refundee The address which receives any remaining reward tokens when the incentive is ended
     struct IncentiveKey {
         IERC20Minimal rewardToken;
@@ -76,7 +76,7 @@ interface IUniswapV3Staker is IERC721Receiver, IMulticall {
     /// @param tokenId The ID of the staked token
     /// @param incentiveId The ID of the incentive for which the token is staked
     /// @return secondsPerLiquidityInsideInitialX128 secondsPerLiquidity represented as a UQ32.128
-    /// @return secondsInsideInitial secondsInside when staked
+    /// @return secondsInsideInitial secondsInside value when staked
     /// @return liquidity The amount of liquidity in the NFT as of the last time the rewards were computed
     function stakes(uint256 tokenId, bytes32 incentiveId)
         external
@@ -149,6 +149,7 @@ interface IUniswapV3Staker is IERC721Receiver, IMulticall {
     /// @param pool The Uniswap V3 pool
     /// @param startTime The time when the incentive program begins
     /// @param endTime The time when rewards stop accruing
+    /// @param vestingPeriod The minimal in range period (in seconds) after which full rewards are payed out
     /// @param refundee The address which receives any remaining reward tokens after the end time
     /// @param reward The amount of reward tokens to be distributed
     event IncentiveCreated(
