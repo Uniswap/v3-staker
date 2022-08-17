@@ -177,7 +177,7 @@ describe('unit/Deposits', () => {
     })
 
     describe('reverts when', () => {
-      it('staking info is less than 160 bytes and greater than 0 bytes', async () => {
+      it('staking info is less than 192 bytes and greater than 0 bytes', async () => {
         const data = ethers.utils.defaultAbiCoder.encode(
           [INCENTIVE_KEY_ABI],
           [incentiveResultToStakeAdapter(createIncentiveResult)]

@@ -51,6 +51,7 @@ describe('integration', async () => {
 
     const totalReward = BNe18(3_000)
     const duration = days(30)
+    const vestingPeriod = days(30)
     const ticksToStake: [number, number] = [
       getMinTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
       getMaxTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
@@ -62,7 +63,7 @@ describe('integration', async () => {
       const epoch = await blockTimestamp()
 
       const {
-        tokens: [token0, token1, rewardToken],
+        tokens: [token0, token1, rewardToken]
       } = context
       const helpers = HelperCommands.fromTestContext(context, actors, provider)
 
@@ -70,7 +71,6 @@ describe('integration', async () => {
 
       const startTime = epoch + 1_000
       const endTime = startTime + duration
-      const vestingPeriod = 0
 
       const createIncentiveResult = await helpers.createIncentiveFlow({
         startTime,
@@ -198,7 +198,7 @@ describe('integration', async () => {
     })
 
     describe('when one LP unstakes halfway through', () => {
-      it('only gives them one sixth the total reward', async () => {
+      it('only gives them one twelve of the total reward', async () => {
         const { helpers, createIncentiveResult, stakes } = subject
         const { startTime, endTime } = createIncentiveResult
 
@@ -206,6 +206,7 @@ describe('integration', async () => {
         await Time.setAndMine(startTime + duration / 2)
 
         const [lpUser0] = actors.lpUsers()
+
         let unstakes: Array<HelperTypes.UnstakeCollectBurn.Result> = []
 
         unstakes.push(
@@ -221,11 +222,12 @@ describe('integration', async () => {
          *
          * This user contributed 1/3 of the total liquidity (amountsToStake = 1000e18)
          * for the first half of the duration, then unstaked.
+         * Because of vesting period of 30 days he only recieves half of this amount
          *
-         * So that's (1/3)*(1/2)*3000e18 = ~50e18
+         * So that's (1/3)*(1/2)*(1/2)*3000e18 = ~25e18
          */
         // Uniswap/uniswap-v3-staker#144
-        expect(unstakes[0].balance).to.beWithin(BNe(1, 15), BN('499989197530864021534'))
+        expect(unstakes[0].balance).to.beWithin(BNe(1, 15), BN('249989197530864021534'))
 
         // Now the other two LPs hold off till the end and unstake
         await Time.setAndMine(endTime + 1)
@@ -246,11 +248,12 @@ describe('integration', async () => {
           createIncentiveResult,
         })
 
-        /* lpUser{1,2} should each have 5/12 of the total rewards.
-          (1/3 * 1/2) from before lpUser0 withdrew
-          (1/2 * 1/2) from after lpUser0. */
+        /* 
+          lpUser0 has 1/12 of total rewards another 1/12 of rewards are locked to be returned afterwards
+          lpUser{1,2} should each have 5/12 of the total rewards.
+        */
 
-        expect(ratioE18(unstakes[1].balance, unstakes[0].balance)).to.eq('2.50')
+        expect(ratioE18(unstakes[1].balance, unstakes[0].balance)).to.eq('5.02') // slight difference to 5.00 because stake time is a bit less than vesting period
         expect(ratioE18(unstakes[2].balance, unstakes[1].balance)).to.eq('1.00')
 
         // All should add up to totalReward
@@ -309,7 +312,7 @@ describe('integration', async () => {
           })
 
           // Uniswap/uniswap-v3-staker#144
-          expect(lpUser0Balance).to.beWithin(BNe(1, 12), BN('749985223767771705507'))
+          expect(lpUser0Balance).to.beWithin(BNe(1, 12), BN('312487239715942501224'))
         })
       })
     })
@@ -347,7 +350,7 @@ describe('integration', async () => {
             )
           )
 
-          expect(ratioE18(unstakes[2].balance, unstakes[3].balance)).to.eq('4.34')
+          expect(ratioE18(unstakes[2].balance, unstakes[3].balance)).to.eq('8.67')
 
           // await Time.set(endTime + 1)
           const { amountReturnedToCreator } = await helpers.endIncentiveFlow({
@@ -411,8 +414,9 @@ describe('integration', async () => {
          *
          * Incentive Start -> Halfway Through:
          * 3 LPs, all staking the same amount. Each LP gets roughly (totalReward/2) * (1/3)
+         * Vesting period doesn't change result as full period is used for calculation
          */
-        const firstHalfRewards = totalReward.div(BN('2'))
+        const firstHalfRewards = totalReward.div(2)
 
         /**
          * Halfway Through -> Incentive End:
@@ -424,7 +428,7 @@ describe('integration', async () => {
         expect(rewardsEarned).to.be.closeTo(
           // @ts-ignore
           firstHalfRewards.add(secondHalfRewards),
-          BNe(5, 16)
+          BNe(10, 16) // add a bit more tolerance for not 100% vesting because of staking delay
         )
 
         // await Time.set(createIncentiveResult.endTime + 1)
@@ -447,6 +451,7 @@ describe('integration', async () => {
 
     const totalReward = BNe18(3_000)
     const duration = days(100)
+    const vestingPeriod = 0
     const baseAmount = BNe18(2)
 
     const scenario: Fixture<TestSubject> = async (_wallets, _provider) => {
@@ -457,7 +462,6 @@ describe('integration', async () => {
       const epoch = await blockTimestamp()
       const startTime = epoch + 1_000
       const endTime = startTime + duration
-      const vestingPeriod = 0
 
       const createIncentiveResult = await helpers.createIncentiveFlow({
         startTime,

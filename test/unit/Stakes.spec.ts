@@ -329,6 +329,8 @@ describe('unit/Stakes', () => {
 
       // @ts-ignore
       expect(rewardInfo.reward).to.be.closeTo(BNe(1, 19), BN(1))
+      // @ts-ignore
+      expect(rewardInfo.maxReward).to.be.closeTo(BNe(1, 19), BN(1))
       expect(rewardInfo.secondsInsideX128).to.equal(expectedSecondsInPeriod)
     })
 
@@ -338,6 +340,7 @@ describe('unit/Stakes', () => {
       const rewardInfo = await context.staker.connect(lpUser0).getRewardInfo(stakeIncentiveKey, tokenId)
 
       expect(rewardInfo.reward, 'reward is nonzero').to.not.equal(0)
+      expect(rewardInfo.maxReward, 'reward is nonzero').to.not.equal(0)
       expect(rewardInfo.secondsInsideX128, 'reward is nonzero').to.not.equal(0)
     })
 
@@ -622,7 +625,7 @@ describe('unit/Stakes', () => {
   })
 
   describe('liquidityIfOverflow', () => {
-    const MAX_UINT_96 = BN('2').pow(BN('96')).sub(1)
+    const MAX_UINT_64 = BN('2').pow(BN('64')).sub(1)
 
     let incentive
     let incentiveId
@@ -640,8 +643,8 @@ describe('unit/Stakes', () => {
     })
 
     it('works when no overflow', async () => {
-      // With this `amount`, liquidity ends up less than MAX_UINT96
-      const amount = MAX_UINT_96.div(1000)
+      // With this `amount`, liquidity ends up less than MAX_UINT_64
+      const amount = MAX_UINT_64.div(1000)
 
       const { tokenId } = await helpers.mintFlow({
         lp: lpUser0,
@@ -658,12 +661,12 @@ describe('unit/Stakes', () => {
 
       await context.staker.connect(lpUser0).stakeToken(incentiveResultToStakeAdapter(incentive), tokenId)
       const { liquidity } = await context.staker.stakes(tokenId, incentiveId)
-      expect(liquidity).to.be.lt(MAX_UINT_96)
+      expect(liquidity).to.be.lt(MAX_UINT_64)
     })
 
     it('works when overflow', async () => {
-      // With this `amount`, liquidity ends up more than MAX_UINT96
-      const amount = MAX_UINT_96.sub(100)
+      // With this `amount`, liquidity ends up more than MAX_UINT_64
+      const amount = MAX_UINT_64.add(1)
       const { tokenId } = await helpers.mintFlow({
         lp: lpUser0,
         tokens: [context.token0, context.token1],
@@ -679,7 +682,7 @@ describe('unit/Stakes', () => {
 
       await context.staker.connect(lpUser0).stakeToken(incentiveResultToStakeAdapter(incentive), tokenId)
       const { liquidity } = await context.staker.stakes(tokenId, incentiveId)
-      expect(liquidity).to.be.gt(MAX_UINT_96)
+      expect(liquidity).to.be.gt(MAX_UINT_64)
     })
   })
 })

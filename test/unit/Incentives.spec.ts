@@ -96,20 +96,21 @@ describe('unit/Incentives', async () => {
       })
 
       it('creates an incentive with the correct parameters', async () => {
-        timestamps = makeTimestamps(await blockTimestamp())
-        await subject(timestamps)
+        const params = makeTimestamps(await blockTimestamp(), 1_000, 500)
+        await subject(params)
         const incentiveId = await context.testIncentiveId.compute({
           rewardToken: context.rewardToken.address,
           pool: context.pool01,
-          startTime: timestamps.startTime,
-          endTime: timestamps.endTime,
-          vestingPeriod: timestamps.vestingPeriod,
+          startTime: params.startTime,
+          endTime: params.endTime,
+          vestingPeriod: params.vestingPeriod,
           refundee: incentiveCreator.address,
         })
 
         const incentive = await context.staker.incentives(incentiveId)
         expect(incentive.totalRewardUnclaimed).to.equal(totalReward)
-        expect(incentive.totalSecondsClaimedX128).to.equal(BN(0))
+        expect(incentive.totalRewardLocked).to.equal(0)
+        expect(incentive.totalSecondsClaimedX128).to.equal(0)
       })
 
       it('adds to existing incentives', async () => {
@@ -119,15 +120,16 @@ describe('unit/Incentives', async () => {
         const incentiveId = await context.testIncentiveId.compute({
           rewardToken: context.rewardToken.address,
           pool: context.pool01,
-          startTime: timestamps.startTime,
-          endTime: timestamps.endTime,
-          vestingPeriod: timestamps.vestingPeriod,
+          startTime: params.startTime,
+          endTime: params.endTime,
+          vestingPeriod: params.vestingPeriod,
           refundee: incentiveCreator.address,
         })
-        const { totalRewardUnclaimed, totalSecondsClaimedX128, numberOfStakes } = await context.staker.incentives(
+        const { totalRewardUnclaimed, totalRewardLocked, totalSecondsClaimedX128, numberOfStakes } = await context.staker.incentives(
           incentiveId
         )
         expect(totalRewardUnclaimed).to.equal(totalReward.mul(2))
+        expect(totalRewardLocked).to.equal(0)
         expect(totalSecondsClaimedX128).to.equal(0)
         expect(numberOfStakes).to.equal(0)
       })
@@ -237,6 +239,13 @@ describe('unit/Incentives', async () => {
           params.endTime = params.startTime + 2 ** 32 + 1
           await expect(subject(params)).to.be.revertedWith(
             'UniswapV3Staker::createIncentive: incentive duration is too long'
+          )
+        })
+
+        it('vesting period is gt then incentive duration', async () => {
+          const params = makeTimestamps(await blockTimestamp(), 100, 101)
+          await expect(subject(params)).to.be.revertedWith(
+            'UniswapV3Staker::createIncentive: vesting time must be lte incentive duration'
           )
         })
       })
