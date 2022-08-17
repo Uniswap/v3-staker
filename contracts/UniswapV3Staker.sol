@@ -172,7 +172,7 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall {
         emit DepositTransferred(tokenId, address(0), from);
 
         if (data.length > 0) {
-            if (data.length == 160) {
+            if (data.length == 192) {
                 _stakeToken(abi.decode(data, (IncentiveKey)), tokenId);
             } else {
                 IncentiveKey[] memory keys = abi.decode(data, (IncentiveKey[]));
@@ -264,7 +264,7 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall {
 
         // if not all reward is payed to owner, add difference to locked amount to be withdrawable at end of incentive
         if (maxReward > reward) {
-            incentive.totalRewardLocked = maxReward - reward;
+            incentive.totalRewardLocked += maxReward - reward;
         }
 
         // this only overflows if a token has a total supply greater than type(uint256).max
@@ -272,6 +272,7 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall {
 
         Stake storage stake = _stakes[tokenId][incentiveId];
         delete stake.secondsPerLiquidityInsideInitialX128;
+        delete stake.secondsInsideInitial;
         delete stake.liquidityNoOverflow;
         if (liquidity >= type(uint64).max) delete stake.liquidityIfOverflow;
         emit TokenUnstaked(tokenId, incentiveId);
