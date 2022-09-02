@@ -118,6 +118,12 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall {
             'UniswapV3Staker::createIncentive: vesting time must be lte incentive duration'
         );
 
+        require(
+            key.refundee != address(0),
+            'UniswapV3Staker::createIncentive: refundee must be a valid address'
+        );
+
+
         bytes32 incentiveId = IncentiveId.compute(key);
 
         incentives[incentiveId].totalRewardUnclaimed += reward;
@@ -186,7 +192,8 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall {
 
     /// @inheritdoc IUniswapV3Staker
     function transferDeposit(uint256 tokenId, address to) external override {
-        require(to != address(0), 'UniswapV3Staker::transferDeposit: invalid transfer recipient');
+        require(to != address(0), 'UniswapV3Staker::transferDeposit: invalid transfer recipient: (address 0)');
+        require(to != address(this), 'UniswapV3Staker::transferDeposit: invalid transfer recipient (staker address)');
         address owner = deposits[tokenId].owner;
         require(owner == msg.sender, 'UniswapV3Staker::transferDeposit: can only be called by deposit owner');
         deposits[tokenId].owner = to;
@@ -367,6 +374,7 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall {
         } else {
             Stake storage stake = _stakes[tokenId][incentiveId];
             stake.secondsPerLiquidityInsideInitialX128 = secondsPerLiquidityInsideX128;
+            stake.secondsInsideInitial = secondsInside;
             stake.liquidityNoOverflow = uint64(liquidity);
         }
 
