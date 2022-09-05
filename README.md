@@ -8,7 +8,7 @@ The main change compared to v1.2 is the addition of a new configuration value ca
 
 | Network          | Explorer                                                                                 |
 | ---------------- | ---------------------------------------------------------------------------------------- |
-| Polygon          | https://polygonscan.com/address/0xdBA0d1c99f08BA9E2481ABeC78b4671CdDFbC178               |
+| Polygon          | https://polygonscan.com/address/0x8c696deF6Db3104DF72F7843730784460795659a               |
 
 ## Subgraph
 
