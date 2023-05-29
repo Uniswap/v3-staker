@@ -18,12 +18,14 @@ interface IUniswapV3Staker is IERC721Receiver, IMulticall {
     /// @param pool The Uniswap V3 pool
     /// @param startTime The time when the incentive program begins
     /// @param endTime The time when rewards stop accruing
+    /// @param vestingPeriod The minimal in range period (in seconds) after which full rewards are payed out
     /// @param refundee The address which receives any remaining reward tokens when the incentive is ended
     struct IncentiveKey {
         IERC20Minimal rewardToken;
         IUniswapV3Pool pool;
         uint256 startTime;
         uint256 endTime;
+        uint256 vestingPeriod;
         address refundee;
     }
 
@@ -42,6 +44,7 @@ interface IUniswapV3Staker is IERC721Receiver, IMulticall {
     /// @notice Represents a staking incentive
     /// @param incentiveId The ID of the incentive computed from its parameters
     /// @return totalRewardUnclaimed The amount of reward token not yet claimed by users
+    /// @return totalRewardLocked The amount of reward token locked because of incomplete vesting
     /// @return totalSecondsClaimedX128 Total liquidity-seconds claimed, represented as a UQ32.128
     /// @return numberOfStakes The count of deposits that are currently staked for the incentive
     function incentives(bytes32 incentiveId)
@@ -49,6 +52,7 @@ interface IUniswapV3Staker is IERC721Receiver, IMulticall {
         view
         returns (
             uint256 totalRewardUnclaimed,
+            uint256 totalRewardLocked,
             uint160 totalSecondsClaimedX128,
             uint96 numberOfStakes
         );
@@ -72,11 +76,12 @@ interface IUniswapV3Staker is IERC721Receiver, IMulticall {
     /// @param tokenId The ID of the staked token
     /// @param incentiveId The ID of the incentive for which the token is staked
     /// @return secondsPerLiquidityInsideInitialX128 secondsPerLiquidity represented as a UQ32.128
+    /// @return secondsInsideInitial secondsInside value when staked
     /// @return liquidity The amount of liquidity in the NFT as of the last time the rewards were computed
     function stakes(uint256 tokenId, bytes32 incentiveId)
         external
         view
-        returns (uint160 secondsPerLiquidityInsideInitialX128, uint128 liquidity);
+        returns (uint160 secondsPerLiquidityInsideInitialX128, uint32 secondsInsideInitial, uint128 liquidity);
 
     /// @notice Returns amounts of reward tokens owed to a given address according to the last time all stakes were updated
     /// @param rewardToken The token for which to check rewards
@@ -133,16 +138,18 @@ interface IUniswapV3Staker is IERC721Receiver, IMulticall {
     /// @notice Calculates the reward amount that will be received for the given stake
     /// @param key The key of the incentive
     /// @param tokenId The ID of the token
-    /// @return reward The reward accrued to the NFT for the given incentive thus far
+    /// @return reward The reward accrued to the NFT for the given incentive thus far (including vesting modifier)
+    /// @return maxReward The reward accrued to the NFT for the given incentive thus far
     function getRewardInfo(IncentiveKey memory key, uint256 tokenId)
         external
-        returns (uint256 reward, uint160 secondsInsideX128);
+        returns (uint256 reward, uint256 maxReward, uint160 secondsInsideX128);
 
     /// @notice Event emitted when a liquidity mining incentive has been created
     /// @param rewardToken The token being distributed as a reward
     /// @param pool The Uniswap V3 pool
     /// @param startTime The time when the incentive program begins
     /// @param endTime The time when rewards stop accruing
+    /// @param vestingPeriod The minimal in range period (in seconds) after which full rewards are payed out
     /// @param refundee The address which receives any remaining reward tokens after the end time
     /// @param reward The amount of reward tokens to be distributed
     event IncentiveCreated(
@@ -150,6 +157,7 @@ interface IUniswapV3Staker is IERC721Receiver, IMulticall {
         IUniswapV3Pool indexed pool,
         uint256 startTime,
         uint256 endTime,
+        uint256 vestingPeriod,
         address refundee,
         uint256 reward
     );
@@ -177,7 +185,8 @@ interface IUniswapV3Staker is IERC721Receiver, IMulticall {
     event TokenUnstaked(uint256 indexed tokenId, bytes32 indexed incentiveId);
 
     /// @notice Event emitted when a reward token has been claimed
+    /// @param rewardToken Reward token which was claimed
     /// @param to The address where claimed rewards were sent to
     /// @param reward The amount of reward tokens claimed
-    event RewardClaimed(address indexed to, uint256 reward);
+    event RewardClaimed(IERC20Minimal indexed rewardToken, address indexed to, uint256 reward);
 }

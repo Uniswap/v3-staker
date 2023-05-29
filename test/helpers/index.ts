@@ -96,11 +96,13 @@ export class HelperCommands {
   createIncentiveFlow: HelperTypes.CreateIncentive.Command = async (params) => {
     const { startTime } = params
     const endTime = params.endTime || startTime + this.DEFAULT_INCENTIVE_DURATION
+    const vestingPeriod = params.vestingPeriod || 0
 
     const incentiveCreator = this.actors.incentiveCreator()
     const times = {
       startTime,
       endTime,
+      vestingPeriod
     }
     const bal = await params.rewardToken.balanceOf(incentiveCreator.address)
 
@@ -283,7 +285,7 @@ export class HelperCommands {
 
     const receipt = await (
       await this.staker.connect(incentiveCreator).endIncentive(
-        _.assign({}, _.pick(params.createIncentiveResult, ['startTime', 'endTime']), {
+        _.assign({}, _.pick(params.createIncentiveResult, ['startTime', 'endTime', 'vestingPeriod']), {
           rewardToken: rewardToken.address,
           pool: params.createIncentiveResult.poolAddress,
           refundee: params.createIncentiveResult.refundee,
@@ -314,6 +316,7 @@ export class HelperCommands {
       pool: params.poolAddress,
       startTime: params.startTime,
       endTime: params.endTime,
+      vestingPeriod: params.vestingPeriod,
       refundee: params.refundee,
     })
   }
@@ -429,6 +432,7 @@ export const incentiveResultToStakeAdapter: IncentiveAdapterFunc = (params) => (
   pool: params.poolAddress,
   startTime: params.startTime,
   endTime: params.endTime,
+  vestingPeriod: params.vestingPeriod,
   rewardToken: params.rewardToken.address,
   refundee: params.refundee,
 })

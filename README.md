@@ -4,7 +4,15 @@ This is the canonical staking contract designed for [Uniswap V3](https://github.
 
 ## Deployments
 
-Note that the v1.0.0 release is susceptible to a [high-difficulty, never-exploited vulnerability](https://github.com/Uniswap/v3-staker/issues/219). For this reason, please use the v1.0.2 release, deployed and verified on Etherscan on all networks at the address: `0xe34139463bA50bD61336E0c446Bd8C0867c6fE65`:
+v1.0.3
+
+The main change compared to v1.0.2 is the addition of a new configuration value called vestingPeriod, which defines the minimal time a staked position needs to be in range to recieve the full reward.
+
+| Network          | Explorer                                                                                 |
+| ---------------- | ---------------------------------------------------------------------------------------- |
+| Polygon          | https://polygonscan.com/address/0x8c696deF6Db3104DF72F7843730784460795659a               |
+
+v1.0.2
 
 | Network          | Explorer                                                                                 |
 | ---------------- | ---------------------------------------------------------------------------------------- |

@@ -4,6 +4,7 @@ export module ContractParams {
   export type Timestamps = {
     startTime: number
     endTime: number
+    vestingPeriod: number
   }
 
   export type IncentiveKey = {

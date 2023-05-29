@@ -7,6 +7,7 @@ There is a canonical position staking contract, Staker.
 ```solidity
 struct Incentive {
   uint128 totalRewardUnclaimed;
+  uint256 totalRewardLocked;
   uint128 numberOfStakes;
   uint160 totalSecondsClaimedX128;
 }
@@ -18,6 +19,7 @@ struct Deposit {
 
 struct Stake {
   uint160 secondsPerLiquidityInsideInitialX128;
+  uint32 secondsInsideInitial;
   uint128 liquidity;
 }
 ```
@@ -44,27 +46,19 @@ mapping(address => mapping(address => uint256)) public rewards;
 Params:
 
 ```solidity
-struct CreateIncentiveParams {
+struct IncentiveKey {
   address rewardToken;
   address pool;
   uint256 startTime;
   uint256 endTime;
-  uint128 totalReward;
+  uint256 vestingPeriod;
+  address refundee;
 }
-
-struct EndIncentiveParams {
-  address creator;
-  address rewardToken;
-  address pool;
-  uint256 startTime;
-  uint256 endTime;
-}
-
 ```
 
 ## Incentives
 
-### `createIncentive(CreateIncentiveParams memory params)`
+### `createIncentive(IncentiveKey memory key, uint256 reward)`
 
 `createIncentive` creates a liquidity mining incentive program. The key used to look up an Incentive is the hash of its immutable properties.
 
@@ -84,7 +78,7 @@ struct EndIncentiveParams {
   - Make sure there is a check here and it fails if the transfer fails
 - Emits `IncentiveCreated`
 
-### `endIncentive(EndIncentiveParams memory params)`
+### `endIncentive(IncentiveKey memory key)`
 
 `endIncentive` can be called by anyone to end an Incentive after the `endTime` has passed, transferring `totalRewardUnclaimed` of `rewardToken` back to `refundee`.
 
@@ -154,7 +148,7 @@ struct EndIncentiveParams {
 
 - `msg.sender` to withdraw all of their reward balance in a specific token to a specified `to` address.
 
-- emit RewardClaimed(to, reward)
+- emit RewardClaimed(rewardToken, to, reward)
 
 ### `unstakeToken`
 
@@ -171,17 +165,21 @@ To unstake an NFT, you call `unstakeToken`, which takes all the same arguments a
 - Decrements `numberOfStakes` for the Deposit by 1.
 - `totalRewardsUnclaimed` is decremented by `reward`.
 - `totalSecondsClaimed` is incremented by `seconds`.
-- Increments `rewards[rewardToken][msg.sender]` by the amount given by `getRewardInfo`.
+- Increments `rewards[rewardToken][msg.sender]` by the amount `reward` given by `getRewardInfo`.
+- If `reward` < `maxReward` the difference is added to `totalRewardLocked` and refunded after the incentive ends
 
 ### `getRewardInfo`
 
 - It computes `secondsInsideX128` (the total liquidity seconds for which rewards are owed) for a given Stake, by:
-  - using`snapshotCumulativesInside` from the Uniswap v3 core contract to get `secondsPerLiquidityInRangeX128`, and subtracting `secondsPerLiquidityInRangeInitialX128`.
+  - using `snapshotCumulativesInside` from the Uniswap v3 core contract to get `secondsPerLiquidityInRangeX128`, and subtracting `secondsPerLiquidityInRangeInitialX128`.
   - Multiplying that by `stake.liquidity` to get the total seconds accrued by the liquidity in that period
+
 - Note that X128 means it's a `UQ32X128`.
 
 - It computes `totalSecondsUnclaimed` by taking `max(endTime, block.timestamp) - startTime`, casting it as a Q128, and subtracting `totalSecondsClaimedX128`.
 
 - It computes `rewardRate` for the Incentive casting `incentive.totalRewardUnclaimed` as a Q128, then dividing it by `totalSecondsUnclaimedX128`.
 
-- `reward` is then calculated as `secondsInsideX128` times the `rewardRate`, scaled down to a regular uint128.
+- `maxReward` is the complete reward calculated as `secondsInsideX128` times the `rewardRate`, scaled down to a regular uint128.
+- `reward` is `maxReward` reduced proportionally if the position has not been in range for at least vesting period (calculated using `secondsInside` and `secondsInsideInital`)
+
