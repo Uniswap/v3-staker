@@ -79,8 +79,8 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall {
 
     /// @param _factory the Uniswap V3 factory
     /// @param _nonfungiblePositionManager the NFT position manager contract address
-    /// @param _maxIncentiveStartLeadTime the max duration of an incentive in seconds
-    /// @param _maxIncentiveDuration the max amount of seconds into the future the incentive startTime can be set
+    /// @param _maxIncentiveStartLeadTime the max amount of seconds into the future the incentive startTime can be set
+    /// @param _maxIncentiveDuration the max duration of an incentive in seconds
     constructor(
         IUniswapV3Factory _factory,
         INonfungiblePositionManager _nonfungiblePositionManager,
